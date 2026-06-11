@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+
+sqlalchemy
+aiosqlite
+
+python-multipart
+
+python-jose[cryptography]
+
+passlib==1.7.4
+bcrypt==4.1.3
+
+pydantic
+python-dotenv
