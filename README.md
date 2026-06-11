@@ -242,9 +242,3 @@ Potential future enhancements include:
 * Enterprise Integration Connectors
 
 ---
-
-## License
-
-This repository is currently under development as part of an academic and research internship project.
-
-License information will be finalized upon project completion.
