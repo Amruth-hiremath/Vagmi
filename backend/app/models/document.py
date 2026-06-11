@@ -4,7 +4,7 @@ from sqlalchemy import String
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import Base
 
@@ -31,5 +31,5 @@ class Document(Base):
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc)
     )

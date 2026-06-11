@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from contextlib import asynccontextmanager
 from app.core.database import Base
 from app.core.database import engine
 
@@ -16,9 +16,12 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(documents_router)
 
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(title="Vāgmi", lifespan=lifespan)
 
 
 @app.get("/")

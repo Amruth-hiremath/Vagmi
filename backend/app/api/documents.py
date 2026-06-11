@@ -35,11 +35,8 @@ ALLOWED_EXTENSIONS = {
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
-@router.post(
-    "/upload",
-    response_model=DocumentResponse
-)
-async def upload_document(
+@router.post("/upload", response_model=DocumentResponse)
+def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -47,36 +44,20 @@ async def upload_document(
     extension = Path(file.filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type"
-        )
+        raise HTTPException(status_code=400, detail="Unsupported file type")
 
-    content = await file.read()
+    user_documents_dir = USERS_DIR / f"user_{current_user.id}" / "documents"
+    user_documents_dir.mkdir(parents=True, exist_ok=True)
 
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail="File too large"
-        )
-
-    user_documents_dir = (
-        USERS_DIR /
-        f"user_{current_user.id}" /
-        "documents"
-    )
-
-    unique_name = (
-        f"{uuid.uuid4()}{extension}"
-    )
-
-    file_path = (
-        user_documents_dir /
-        unique_name
-    )
+    unique_name = f"{uuid.uuid4()}{extension}"
+    file_path = user_documents_dir / unique_name
 
     with open(file_path, "wb") as buffer:
-        buffer.write(content)
+        shutil.copyfileobj(file.file, buffer)
+
+    if file_path.stat().st_size > MAX_FILE_SIZE:
+        file_path.unlink() # Delete the file
+        raise HTTPException(status_code=400, detail="File too large")
 
     document = Document(
         owner_id=current_user.id,
@@ -84,15 +65,11 @@ async def upload_document(
         file_path=str(file_path),
         status="uploaded"
     )
-
     db.add(document)
-
     db.commit()
-
     db.refresh(document)
 
     return document
-
 
 @router.get(
     "",

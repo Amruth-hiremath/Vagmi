@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import timedelta
 
 from jose import jwt
@@ -47,7 +47,7 @@ def verify_password(
 def create_access_token(data: dict) -> str:
     payload = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
+    expire = datetime.now(timezone.utc) + timedelta(
         hours=ACCESS_TOKEN_EXPIRE_HOURS
     )
 
