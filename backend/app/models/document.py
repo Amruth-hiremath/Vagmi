@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 from app.core.database import Base
 
-
+# this is the document model, this is the main schema input for the documents table in the database.
+# it includes fields for id, owner_id, filename, file_path, status, and created_at timestamp.
 class Document(Base):
     __tablename__ = "documents"
 

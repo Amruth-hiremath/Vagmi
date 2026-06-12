@@ -2,7 +2,8 @@ from pathlib import Path
 
 from app.core.config import USERS_DIR
 
-
+# this function creates the user workspace and then creates the respective sub directories for documents, attachments and artifacts
+# created when a new user is registered
 def create_user_workspace(user_id: int):
     user_root = USERS_DIR / f"user_{user_id}"
 

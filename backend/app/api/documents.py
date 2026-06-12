@@ -1,40 +1,33 @@
 from pathlib import Path
 import shutil
 import uuid
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import UploadFile
 from fastapi import File
 from fastapi import HTTPException
-
 from sqlalchemy.orm import Session
-
 from app.core.database import get_db
 from app.core.security import get_current_user
-
 from app.models.user import User
 from app.models.document import Document
-
 from app.schemas.document import DocumentResponse
-
 from app.core.config import USERS_DIR
-
 
 router = APIRouter(
     prefix="/documents",
     tags=["Documents"]
 )
 
+# allowed file extensions and maximum file size for document uploads
 ALLOWED_EXTENSIONS = {
     ".pdf",
     ".docx",
     ".txt"
 }
-
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
-
+# endpoint for uploading a document
 @router.post("/upload", response_model=DocumentResponse)
 def upload_document(
     file: UploadFile = File(...),
@@ -49,6 +42,7 @@ def upload_document(
     user_documents_dir = USERS_DIR / f"user_{current_user.id}" / "documents"
     user_documents_dir.mkdir(parents=True, exist_ok=True)
 
+    # to ensure unique file names and avoid overwriting, generate a unique name using uuid4 and keep the original extension
     unique_name = f"{uuid.uuid4()}{extension}"
     file_path = user_documents_dir / unique_name
 
@@ -71,6 +65,7 @@ def upload_document(
 
     return document
 
+# endpoint for listing all documents of the current logged in user
 @router.get(
     "",
     response_model=list[DocumentResponse]

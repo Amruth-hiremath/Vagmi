@@ -19,6 +19,7 @@ router = APIRouter(
     tags=["Authentication"]
 )
 
+# endpoint for registering a new user using username and password
 @router.post("/register")
 def register(
     user_data: UserRegister,
@@ -46,9 +47,7 @@ def register(
     )
 
     db.add(user)
-
     db.commit()
-
     db.refresh(user)
 
     create_user_workspace(user.id)
@@ -57,6 +56,7 @@ def register(
         "message": "User registered successfully"
     }
 
+# endpoint for logging in an user and returning the access token
 @router.post(
     "/login",
     response_model=TokenResponse
@@ -99,6 +99,7 @@ def login(
         "token_type": "bearer"
     }
 
+# endpoint for getting the current logged in user information using the access token
 @router.get(
     "/me",
     response_model=UserResponse
