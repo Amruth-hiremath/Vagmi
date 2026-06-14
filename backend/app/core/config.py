@@ -2,8 +2,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
+#load environment variables from .env file
 load_dotenv()
 
+# this file defines the configuration variables for the application, including paths for data and storage, database URL, and security settings like secret key and token expiration time.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 DATA_DIR = BASE_DIR / "data"
