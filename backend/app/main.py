@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.core.database import Base
 from app.core.database import engine
+from contextlib import asynccontextmanager
 from app.models import User
 from app.models import Document
 from app.api.auth import router as auth_router
