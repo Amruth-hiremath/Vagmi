@@ -19,20 +19,13 @@ from app.models.document import Document
 from app.schemas.document import DocumentResponse
 
 from app.core.config import USERS_DIR
-
+from app.core.constants import ALLOWED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE
+from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/documents",
     tags=["Documents"]
 )
-
-ALLOWED_EXTENSIONS = {
-    ".pdf",
-    ".docx",
-    ".txt"
-}
-
-MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 @router.post(
@@ -46,37 +39,22 @@ async def upload_document(
 ):
     extension = Path(file.filename).suffix.lower()
 
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type"
-        )
+    if extension not in ALLOWED_DOCUMENT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
 
-    content = await file.read()
+    user_documents_dir = USERS_DIR / f"user_{current_user.id}" / "documents"
+    user_documents_dir.mkdir(parents=True, exist_ok=True)
 
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail="File too large"
-        )
-
-    user_documents_dir = (
-        USERS_DIR /
-        f"user_{current_user.id}" /
-        "documents"
-    )
-
-    unique_name = (
-        f"{uuid.uuid4()}{extension}"
-    )
-
-    file_path = (
-        user_documents_dir /
-        unique_name
-    )
+    # to ensure unique file names and avoid overwriting, generate a unique name using uuid4 and keep the original extension
+    unique_name = f"{uuid.uuid4()}{extension}"
+    file_path = user_documents_dir / unique_name
 
     with open(file_path, "wb") as buffer:
-        buffer.write(content)
+        shutil.copyfileobj(file.file, buffer)
+
+    if file_path.stat().st_size > MAX_DOCUMENT_SIZE:
+        file_path.unlink() # Delete the file
+        raise HTTPException(status_code=400, detail="File too large")
 
     document = Document(
         owner_id=current_user.id,
@@ -90,7 +68,12 @@ async def upload_document(
     db.commit()
 
     db.refresh(document)
-
+    logger.info(
+        f"Document uploaded: "
+        f"{file.filename} "
+        f"by user "
+        f"{current_user.username}"
+    )
     return document
 
 

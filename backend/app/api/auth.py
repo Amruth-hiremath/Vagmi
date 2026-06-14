@@ -13,6 +13,8 @@ from app.core.security import hash_password
 from app.core.security import verify_password
 from app.core.security import create_access_token
 from app.services.storage_service import create_user_workspace
+from app.core.validators import (validate_username, validate_password)
+from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/auth",
@@ -24,6 +26,14 @@ def register(
     user_data: UserRegister,
     db: Session = Depends(get_db)
 ):
+    validate_username(
+        user_data.username
+    )
+
+    validate_password(
+        user_data.password
+    )
+
     existing_user = (
         db.query(User)
         .filter(
@@ -51,11 +61,16 @@ def register(
 
     db.refresh(user)
 
-    create_user_workspace(user.id)
+    logger.info(f"User registered: {user.username}")
+
+    create_user_workspace(
+        user.id
+    )
 
     return {
         "message": "User registered successfully"
     }
+    
 
 @router.post(
     "/login",
@@ -74,6 +89,10 @@ def login(
     )
 
     if not user:
+        logger.warning(
+            f"Failed login attempt for username: "
+            f"{user_data.username}"
+        )
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
@@ -83,6 +102,11 @@ def login(
         user_data.password,
         user.password_hash
     ):
+        logger.warning(
+            f"Failed login attempt for username: "
+            f"{user_data.username}"
+        )
+        
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
@@ -92,6 +116,10 @@ def login(
         {
             "sub": str(user.id)
         }
+    )
+
+    logger.info(
+        f"User logged in: {user.username}"
     )
 
     return {

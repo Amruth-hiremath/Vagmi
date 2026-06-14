@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
-
+from pathlib import Path
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -25,9 +26,10 @@ from app.services.room_service import (
 
 from app.models.message import Message
 from app.models.attachment import Attachment
-
-from app.services.room_service import create_room
-
+from app.core.validators import (
+    validate_room_name
+)
+from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/rooms",
@@ -43,10 +45,33 @@ def create_room_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    validate_room_name(
+        room_data.name
+    )
+
+    existing_room = (
+        db.query(Room)
+        .filter(
+            Room.created_by == current_user.id,
+            func.lower(Room.name) == room_data.name.strip().lower()
+        )
+        .first()
+    )
+
+    if existing_room:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a room with this name"
+        )
+
     room = create_room(
         db=db,
-        name=room_data.name,
+        name=room_data.name.strip(),
         creator_id=current_user.id
+    )
+    logger.info(
+        f"Room created: {room.name} "
+        f"by user {current_user.username}"
     )
 
     return room
@@ -121,6 +146,12 @@ def add_member(
             status_code=404,
             detail="User not found"
         )
+    
+    if user.id == room.created_by:
+        raise HTTPException(
+            status_code=400,
+            detail="Creator is already a room member"
+        )
 
     existing = (
         db.query(RoomMember)
@@ -145,6 +176,11 @@ def add_member(
     db.add(membership)
 
     db.commit()
+
+    logger.info(
+        f"User {request.username} "
+        f"added to room {room_id}"
+    )
 
     return {
         "message": "Member added successfully"
@@ -256,6 +292,11 @@ def remove_member(
 
     db.commit()
 
+    logger.info(
+        f"User {username} "
+        f"removed from room {room_id}"
+    )
+
     return {
         "message": "Member removed successfully"
     }
@@ -338,6 +379,15 @@ def delete_room(
         )
 
         for attachment in attachments:
+            try:
+                Path(
+                    attachment.file_path
+                ).unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                pass
+
             db.delete(attachment)
 
         db.delete(message)
@@ -356,6 +406,10 @@ def delete_room(
     db.delete(room)
 
     db.commit()
+
+    logger.info(
+        f"Room deleted: {room_id}"
+    )
 
     return {
         "message": "Room deleted successfully"
