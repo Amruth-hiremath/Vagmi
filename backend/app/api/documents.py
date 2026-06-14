@@ -21,11 +21,9 @@ router = APIRouter(
     tags=["Documents"]
 )
 
-@router.post(
-    "/upload",
-    response_model=DocumentResponse
-)
-async def upload_document(
+# endpoint for uploading a document
+@router.post("/upload", response_model=DocumentResponse)
+def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
