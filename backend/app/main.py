@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from app.core.database import Base
 from app.core.database import engine
-
+from contextlib import asynccontextmanager
 from app.models import User
 from app.models import Document
 
