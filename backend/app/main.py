@@ -1,11 +1,10 @@
 from fastapi import FastAPI
-
+from contextlib import asynccontextmanager
 from app.core.database import Base
 from app.core.database import engine
 from contextlib import asynccontextmanager
 from app.models import User
 from app.models import Document
-
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.models import Room
@@ -29,9 +28,11 @@ async def lifespan(app: FastAPI):
 
 # initialize the app
 app = FastAPI(
-    title="Vāgmi"
+    title="Vāgmi",
+    lifespan=lifespan
 )
 
+# include routers
 app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(rooms_router)
@@ -39,11 +40,7 @@ app.include_router(messages_router)
 app.include_router(attachments_router)
 app.include_router(system_router)
 
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
-
-
+# define root and health endpoints
 @app.get("/")
 def root():
     return {

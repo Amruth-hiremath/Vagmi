@@ -1,23 +1,17 @@
 from pathlib import Path
 import shutil
 import uuid
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import UploadFile
 from fastapi import File
 from fastapi import HTTPException
-
 from sqlalchemy.orm import Session
-
 from app.core.database import get_db
 from app.core.security import get_current_user
-
 from app.models.user import User
 from app.models.document import Document
-
 from app.schemas.document import DocumentResponse
-
 from app.core.config import USERS_DIR
 from app.core.constants import ALLOWED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE
 from app.core.logging_config import logger
@@ -26,7 +20,6 @@ router = APIRouter(
     prefix="/documents",
     tags=["Documents"]
 )
-
 
 @router.post(
     "/upload",
@@ -62,11 +55,8 @@ async def upload_document(
         file_path=str(file_path),
         status="uploaded"
     )
-
     db.add(document)
-
     db.commit()
-
     db.refresh(document)
     logger.info(
         f"Document uploaded: "
@@ -76,7 +66,7 @@ async def upload_document(
     )
     return document
 
-
+# endpoint for listing all documents of the current logged in user
 @router.get(
     "",
     response_model=list[DocumentResponse]
