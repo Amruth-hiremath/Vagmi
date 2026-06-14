@@ -5,3 +5,4 @@ from .room import Room
 from .room_member import RoomMember
 from .attachment import Attachment
 from .message import Message
+from .artifact import Artifact

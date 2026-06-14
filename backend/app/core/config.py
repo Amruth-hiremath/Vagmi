@@ -15,7 +15,7 @@ USERS_DIR = STORAGE_DIR / "users"
 DATABASE_PATH = DATA_DIR / "vagmi.db"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-offline-key-change-in-production")
 ACCESS_TOKEN_EXPIRE_HOURS = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "24")
 )

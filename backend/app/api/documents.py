@@ -13,30 +13,26 @@ from app.models.user import User
 from app.models.document import Document
 from app.schemas.document import DocumentResponse
 from app.core.config import USERS_DIR
+from app.core.constants import ALLOWED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE
+from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/documents",
     tags=["Documents"]
 )
 
-# allowed file extensions and maximum file size for document uploads
-ALLOWED_EXTENSIONS = {
-    ".pdf",
-    ".docx",
-    ".txt"
-}
-MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
-
-# endpoint for uploading a document
-@router.post("/upload", response_model=DocumentResponse)
-def upload_document(
+@router.post(
+    "/upload",
+    response_model=DocumentResponse
+)
+async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     extension = Path(file.filename).suffix.lower()
 
-    if extension not in ALLOWED_EXTENSIONS:
+    if extension not in ALLOWED_DOCUMENT_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
     user_documents_dir = USERS_DIR / f"user_{current_user.id}" / "documents"
@@ -49,7 +45,7 @@ def upload_document(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    if file_path.stat().st_size > MAX_FILE_SIZE:
+    if file_path.stat().st_size > MAX_DOCUMENT_SIZE:
         file_path.unlink() # Delete the file
         raise HTTPException(status_code=400, detail="File too large")
 
@@ -62,7 +58,12 @@ def upload_document(
     db.add(document)
     db.commit()
     db.refresh(document)
-
+    logger.info(
+        f"Document uploaded: "
+        f"{file.filename} "
+        f"by user "
+        f"{current_user.username}"
+    )
     return document
 
 # endpoint for listing all documents of the current logged in user

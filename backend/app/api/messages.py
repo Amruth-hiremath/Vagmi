@@ -13,13 +13,16 @@ from app.schemas.message import (
     MessageCreate,
     MessageResponse
 )
-
+from app.core.validators import (
+    validate_message
+)
 from app.services.message_service import create_message
 
 from app.services.room_service import (
     verify_room_membership
 )
 
+from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/rooms",
@@ -42,12 +45,20 @@ def send_message(
         current_user.id,
         db
     )
+    validate_message(
+        message_data.message_text
+    )
 
     message = create_message(
         db=db,
         room_id=room_id,
         sender_id=current_user.id,
         message_text=message_data.message_text
+    )
+    logger.info(
+        f"Message sent in room "
+        f"{room_id} by user "
+        f"{current_user.username}"
     )
 
     return message

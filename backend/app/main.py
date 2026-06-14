@@ -10,15 +10,20 @@ from app.models import Room
 from app.models import RoomMember
 from app.models import Attachment
 from app.models import Message
+from app.models import Artifact
 from app.api.rooms import router as rooms_router
 from app.api.messages import router as messages_router
 from app.api.attachments import router as attachments_router
+from app.api.system import router as system_router
+from app.core.logging_config import logger
 
 # lifespan function to create db tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    logger.info("Vagmi backend started")
     yield
+    logger.info("Vagmi backend shutting down")
 
 # initialize the app
 app = FastAPI(
@@ -32,12 +37,15 @@ app.include_router(documents_router)
 app.include_router(rooms_router)
 app.include_router(messages_router)
 app.include_router(attachments_router)
+app.include_router(system_router)
 
 # define root and health endpoints
 @app.get("/")
 def root():
     return {
-        "message": "Vāgmi Backend Running"
+        "project": "Vagmi",
+        "status": "running",
+        "version": "0.2"
     }
 
 @app.get("/health")
@@ -45,3 +53,5 @@ def health():
     return {
         "status": "healthy"
     }
+
+# uvicorn app.main:app --reload  

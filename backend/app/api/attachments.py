@@ -11,7 +11,6 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session
-from app.models.message import Message
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -20,6 +19,11 @@ from app.core.config import USERS_DIR
 
 from app.models.user import User
 from app.models.attachment import Attachment
+from app.models.message import Message
+
+from app.core.constants import (
+    ALLOWED_ATTACHMENT_EXTENSIONS
+)
 
 from app.schemas.attachment import (
     AttachmentResponse
@@ -36,6 +40,8 @@ from app.services.message_service import (
 from app.services.attachment_service import (
     create_attachment
 )
+
+from app.core.logging_config import logger
 
 
 router = APIRouter(
@@ -75,7 +81,13 @@ def upload_attachment(
 
     extension = Path(
         file.filename
-    ).suffix
+    ).suffix.lower()
+
+    if extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported attachment type"
+        )
 
     unique_name = (
         f"{uuid.uuid4()}{extension}"
@@ -114,6 +126,11 @@ def upload_attachment(
         owner_id=current_user.id,
         original_filename=file.filename,
         file_path=str(file_path)
+    )
+
+    logger.info(
+        f"Attachment uploaded: "
+        f"{file.filename}"
     )
 
     return attachment
@@ -157,6 +174,17 @@ def download_attachment(
         message.room_id,
         current_user.id,
         db
+    )
+
+    if not Path(attachment.file_path).exists():
+        raise HTTPException(
+            status_code=404,
+            detail="File not found"
+        )
+
+    logger.info(
+        f"Attachment downloaded: "
+        f"{attachment.original_filename}"
     )
 
     return FileResponse(
