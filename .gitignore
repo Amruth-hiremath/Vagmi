@@ -26,3 +26,5 @@ storage/
 Thumbs.db
 
 logs/
+
+backend/data/chromadb/
