@@ -125,28 +125,21 @@ def main():
         "\nSearch Results:\n"
     )
 
-    documents = (
-        results["documents"][0]
-    )
-
-    distances = (
-        results["distances"][0]
-    )
-
-    for index, document in enumerate(
-        documents
+    for index, result in enumerate(
+        results,
+        start=1
     ):
 
         print(
-            f"Result {index + 1}"
+            f"Result {index}"
         )
 
         print(
-            f"Distance: {distances[index]}"
+            f"Score: {result['score']}"
         )
 
         print(
-            document[:500]
+            result["chunk_text"][:500]
         )
 
         print(

@@ -42,43 +42,4 @@ class RetrievalService:
             )
         )
 
-        formatted_results = []
-
-        documents = (
-            results["documents"][0]
-        )
-
-        metadatas = (
-            results["metadatas"][0]
-        )
-
-        distances = (
-            results["distances"][0]
-        )
-
-        for index in range(
-            len(documents)
-        ):
-
-            formatted_results.append(
-                {
-                    "document_id":
-                        metadatas[index][
-                            "document_id"
-                        ],
-
-                    "chunk_text":
-                        documents[index],
-
-                    "score":
-                        round(
-                            float(
-                                1.0
-                                - distances[index]
-                            ),
-                            4
-                        )
-                }
-            )
-
-        return formatted_results
+        return results
