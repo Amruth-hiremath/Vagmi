@@ -28,3 +28,5 @@ Thumbs.db
 logs/
 
 backend/data/chromadb/
+
+backend/offline_models/

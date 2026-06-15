@@ -11,12 +11,15 @@ class DocumentProcessor:
         file_path: str
     ) -> str:
 
+        if not Path(file_path).exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
         extension = (
             Path(file_path)
             .suffix
             .lower()
         )
-
+        
         if extension == ".txt":
             return self._extract_txt(file_path)
 

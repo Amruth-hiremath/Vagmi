@@ -88,6 +88,10 @@ class VectorStoreService:
             )
         )
 
+        # Safeguard against empty search results
+        if not results["ids"] or not results["ids"][0]:
+            return []
+
         formatted_results = []
 
         documents = (
@@ -102,9 +106,11 @@ class VectorStoreService:
             results["distances"][0]
         )
 
-        for index in range(
-            len(documents)
-        ):
+        for index in range(len(documents)):
+            
+            cosine_similarity = 1.0 - (distances[index] / 2.0)
+            
+            final_score = max(0.0, round(cosine_similarity, 4))
 
             formatted_results.append(
                 {
@@ -117,10 +123,7 @@ class VectorStoreService:
                         documents[index],
 
                     "score":
-                        round(
-                            1 - distances[index],
-                            4
-                        )
+                        final_score
                 }
             )
 

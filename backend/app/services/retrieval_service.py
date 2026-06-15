@@ -9,14 +9,18 @@ from app.services.vector_store_service import (
 
 class RetrievalService:
 
-    def __init__(self):
+    def __init__(
+        self,
+        embedding_service: EmbeddingService,
+        vector_store_service: VectorStoreService
+    ):
 
         self.embedding_service = (
-            EmbeddingService()
+            embedding_service
         )
 
         self.vector_store_service = (
-            VectorStoreService()
+            vector_store_service
         )
 
     def search(
