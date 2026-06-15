@@ -1,5 +1,9 @@
+import os
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from contextlib import asynccontextmanager
+
 from app.core.database import Base
 from app.core.database import engine
 from app.models import User
@@ -25,11 +29,31 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Vagmi backend shutting down")
 
-# initialize the app
+# initialize the app, disabling default online docs
 app = FastAPI(
     title="Vāgmi",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url=None,   # <--- Disables default online swagger
+    redoc_url=None   # <--- Disables default online redoc
 )
+
+# mount the local static folder so FastAPI can serve the JS/CSS files
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(current_dir, "static")
+
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# explicitly override the /docs endpoint to point to local assets
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI (Offline)",
+        swagger_js_url="/static/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui.css",
+        swagger_favicon_url="/static/favicon.png"
+    )
 
 # include routers
 app.include_router(auth_router)
@@ -54,4 +78,4 @@ def health():
         "status": "healthy"
     }
 
-# uvicorn app.main:app --reload  
+# uvicorn app.main:app --reload
