@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi import Depends
 
 from sqlalchemy.orm import Session
@@ -21,8 +21,10 @@ from app.services.message_service import create_message
 from app.services.room_service import (
     verify_room_membership
 )
+from app.services.image_service import save_image
 
 from app.core.logging_config import logger
+from app.models.room_member import RoomMember
 
 router = APIRouter(
     prefix="/rooms",
@@ -61,7 +63,73 @@ def send_message(
         f"{current_user.username}"
     )
 
-    return message
+    return {
+        "id": message.id,
+        "room_id": message.room_id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "message_text": message.message_text,
+        "message_type": message.message_type,
+        "attachment_path": message.attachment_path,
+        "original_filename": message.original_filename,
+        "created_at": message.created_at
+    }
+
+
+@router.post(
+    "/room/{room_id}/image",
+    response_model=MessageResponse
+)
+def send_image_message(
+    room_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    room_member = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not room_member:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    image_path, original_name = save_image(
+        file=file,
+        user_id=current_user.id
+    )
+
+    message = Message(
+        room_id=room_id,
+        sender_id=current_user.id,
+        message_text="",
+        message_type="IMAGE",
+        attachment_path=image_path,
+        original_filename=original_name
+    )
+
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    return {
+        "id": message.id,
+        "room_id": room_id,
+        "sender_id": current_user.id,
+        "sender_username": current_user.username,
+        "message_text": "",
+        "message_type": "IMAGE",
+        "attachment_path": image_path,
+        "original_filename": original_name,
+        "created_at": message.created_at
+    }
 
 
 @router.get(
@@ -90,4 +158,30 @@ def get_messages(
         .all()
     )
 
-    return messages
+    result = []
+
+    for message in messages:
+
+        sender = (
+            db.query(User)
+            .filter(
+                User.id == message.sender_id
+            )
+            .first()
+        )
+
+        result.append(
+            {
+                "id": message.id,
+                "room_id": message.room_id,
+                "sender_id": message.sender_id,
+                "sender_username": sender.username,
+                "message_text": message.message_text,
+                "message_type": message.message_type,
+                "attachment_path": message.attachment_path,
+                "original_filename": message.original_filename,
+                "created_at": message.created_at
+            }
+        )
+
+    return result
