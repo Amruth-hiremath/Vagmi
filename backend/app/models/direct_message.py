@@ -1,18 +1,16 @@
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import Column
 from sqlalchemy import Integer
-from sqlalchemy import Text
+from sqlalchemy import String
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
-from sqlalchemy import String
 
 from app.core.database import Base
 
 
-class Message(Base):
-    __tablename__ = "messages"
+class DirectMessage(Base):
+    __tablename__ = "direct_messages"
 
     id = Column(
         Integer,
@@ -20,9 +18,9 @@ class Message(Base):
         index=True
     )
 
-    room_id = Column(
+    conversation_id = Column(
         Integer,
-        ForeignKey("rooms.id"),
+        ForeignKey("direct_conversations.id"),
         nullable=False
     )
 
@@ -32,17 +30,17 @@ class Message(Base):
         nullable=False
     )
 
+    message_text = Column(
+        String,
+        nullable=False
+    )
+
     message_type = Column(
         String,
         nullable=False,
         default="TEXT"
     )
 
-    message_text = Column(
-        Text,
-        nullable=False
-    )
-    
     attachment_path = Column(
         String,
         nullable=True

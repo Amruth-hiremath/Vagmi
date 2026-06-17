@@ -21,6 +21,8 @@ from app.api.attachments import router as attachments_router
 from app.api.system import router as system_router
 from app.core.logging_config import logger
 from app.api.retrieval import router as retrieval_router
+from app.api.users import router as users_router
+from app.api.direct_messages import router as dm_router
 
 # lifespan function to create db tables
 @asynccontextmanager
@@ -64,6 +66,8 @@ app.include_router(messages_router)
 app.include_router(attachments_router)
 app.include_router(system_router)
 app.include_router(retrieval_router)
+app.include_router(users_router)
+app.include_router(dm_router)
 
 # define root and health endpoints
 @app.get("/")
