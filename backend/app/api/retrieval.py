@@ -23,31 +23,13 @@ def search_documents(
     try:
         logger.info(f"User {current_user.username} searching for: '{request.query}'")
 
-        # 1. Generate Vector Embedding for the Query
-        query_embedding = rag["embedder"].embed_query(request.query)
-
-        # 2. Search ChromaDB (Vector Search)
-        vector_results = rag["vector"].search(
-            query_embedding=query_embedding,
-            owner_id=current_user.id,
-            top_k=request.top_k
-        )
-
-        # 3. Search BM25 (Keyword Search)
-        bm25_results = rag["bm25"].search(
-            user_id=current_user.id,
+        top_results = (
+        rag["hybrid"].search(
             query=request.query,
+            user_id=current_user.id,
             top_k=request.top_k
-        )
-
-        # 4. Merge and Re-rank using the Hybrid logic
-        final_results = rag["hybrid"].combine_results(
-            bm25_results=bm25_results,
-            vector_results=vector_results
-        )
-
-        # 5. Take only the requested top_k after merging
-        top_results = final_results[:request.top_k]
+    )
+)
 
         return RetrievalResponse(results=top_results)
 
