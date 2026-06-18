@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Secure Workspace</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand-row">
+          <button class="icon-btn sidebar-toggle" id="sidebar-toggle" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <span class="icon-wrap" data-icon="chevron-left"></span>
+          </button>
+
+          <div class="brand-lockup">
+            <div class="brand-mark">
+              <span>V</span>
+            </div>
+            <div class="brand-text">
+              <div class="brand-name">Vāgmi</div>
+              <div class="brand-sub">Secure LAN</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-status">
+          <div class="sidebar-status-row">
+            <span class="status-pill mono">Local only</span>
+          </div>
+          <div class="sidebar-status-copy">Offline secure workspace for chat and intelligence.</div>
+        </div>
+
+        <nav class="nav-stack" aria-label="Primary">
+          <button class="nav-item" data-page="home" aria-label="Home">
+            <span class="icon-wrap" data-icon="home"></span>
+            <span>Home</span>
+          </button>
+
+          <button class="nav-item" data-page="intelligence" aria-label="Intelligence">
+            <span class="icon-wrap" data-icon="intelligence"></span>
+            <span>Intelligence</span>
+          </button>
+
+          <button class="nav-item active" data-page="chat" aria-label="Chat">
+            <span class="icon-wrap" data-icon="chat"></span>
+            <span>Chat</span>
+          </button>
+
+          <button class="nav-item" data-page="settings" aria-label="Settings">
+            <span class="icon-wrap" data-icon="settings"></span>
+            <span>Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="user-card">
+          <div class="user-avatar">AM</div>
+          <div class="user-card-meta">
+            <div class="user-name">Amruthesh</div>
+            <div class="user-sub">Secure LAN</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="page-header">
+        <div class="page-heading">
+          <span class="page-kicker" id="page-kicker">Secure workspace</span>
+          <h1 class="page-title" id="page-title">Chat</h1>
+        </div>
+
+        <div class="header-state">
+          <span class="status-chip">
+            <span class="status-dot"></span>
+            Offline · LAN ready
+          </span>
+        </div>
+      </header>
+
+      <main class="page-stage">
+        <section class="page home-page" data-page-view="home">
+          <div class="simple-home">
+            <div class="simple-hero">
+              <div>
+                <div class="hero-kicker">Workspace overview</div>
+                <h2>Vāgmi keeps collaboration and intelligence separate.</h2>
+                <p>
+                  Chat stays inside the collaboration workspace. Documents, queries, summaries,
+                  reports, and diagrams stay inside the intelligence workspace.
+                </p>
+              </div>
+              <div class="hero-chip mono">Offline · Secure · Local</div>
+            </div>
+
+            <div class="home-grid">
+              <article class="metric-card">
+                <div class="metric-label">Recent chats</div>
+                <div class="metric-value mono">4</div>
+                <div class="metric-sub">DMs and group threads</div>
+              </article>
+
+              <article class="metric-card">
+                <div class="metric-label">Documents</div>
+                <div class="metric-value mono">12</div>
+                <div class="metric-sub">User-isolated files</div>
+              </article>
+
+              <article class="metric-card">
+                <div class="metric-label">System</div>
+                <div class="metric-value mono">Healthy</div>
+                <div class="metric-sub">Local services ready</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page intelligence-page" data-page-view="intelligence">
+          <div class="simple-intel">
+            <div class="section-card">
+              <div class="section-header">
+                <div>
+                  <div class="section-kicker">Intelligence workspace</div>
+                  <h2>Documents, retrieval, summaries, and reports.</h2>
+                </div>
+                <button class="ghost-btn">Upload document</button>
+              </div>
+
+              <div class="intel-grid">
+                <div class="stack-card">
+                  <div class="stack-title">Documents</div>
+                  <div class="stack-sub">PDF · DOCX · TXT</div>
+                </div>
+                <div class="stack-card">
+                  <div class="stack-title">Query</div>
+                  <div class="stack-sub">Ask document questions</div>
+                </div>
+                <div class="stack-card">
+                  <div class="stack-title">Outputs</div>
+                  <div class="stack-sub">Markdown · DOCX · PDF</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page chat-page active" data-page-view="chat">
+          <div class="chat-shell">
+            <aside class="chat-list-panel">
+              <header class="chat-list-header">
+                <div>
+                  <h2>Chat</h2>
+                </div>
+                <button class="icon-btn compose-btn" id="new-chat-btn" title="New chat" aria-label="New chat">
+                  <span class="icon-wrap" data-icon="compose"></span>
+                </button>
+              </header>
+
+              <div class="chat-search-wrap">
+                <span class="input-icon" data-icon="search"></span>
+                <input id="chat-search" class="search-input" type="text" placeholder="Search chats" autocomplete="off" />
+              </div>
+
+              <div class="filter-tabs" role="tablist" aria-label="Chat filters">
+                <button class="filter-tab active" data-filter="all">All</button>
+                <button class="filter-tab" data-filter="dm">DMs</button>
+                <button class="filter-tab" data-filter="group">Groups</button>
+              </div>
+
+              <div class="thread-list" id="thread-list" aria-label="Chats"></div>
+            </aside>
+
+            <section class="chat-thread-panel">
+              <div class="thread-empty" id="thread-empty">
+                <div class="empty-badge">
+                  <span class="mono">V</span>
+                </div>
+                <h3>No conversation selected</h3>
+                <p>Pick a chat from the list to continue.</p>
+              </div>
+
+              <div class="thread-shell hidden" id="thread-shell">
+                <header class="thread-header">
+                  <button class="back-btn icon-btn" id="thread-back-btn" title="Back to chat list" aria-label="Back to chat list">
+                    <span class="icon-wrap" data-icon="chevron-left"></span>
+                  </button>
+
+                  <div class="thread-title">
+                    <div class="avatar" id="thread-avatar">SJ</div>
+                    <div class="thread-title-meta">
+                      <div class="thread-name" id="thread-name">Srujan</div>
+                      <div class="thread-status-line">
+                        <span class="presence-dot online"></span>
+                        <span id="thread-status">Online</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="thread-actions">
+                    <button class="icon-btn" id="thread-search-toggle" title="Search in chat" aria-label="Search in chat">
+                      <span class="icon-wrap" data-icon="search"></span>
+                    </button>
+                    <button class="icon-btn" id="thread-menu-toggle" title="More options" aria-label="More options">
+                      <span class="icon-wrap" data-icon="more"></span>
+                    </button>
+                  </div>
+                </header>
+
+                <div class="thread-searchbar hidden" id="thread-searchbar">
+                  <div class="searchbar-shell">
+                    <span class="input-icon" data-icon="search"></span>
+                    <input id="thread-search" class="search-input" type="text" placeholder="Search in conversation" autocomplete="off" />
+                    <button class="search-close-btn" id="thread-search-close" type="button">Close</button>
+                  </div>
+                </div>
+
+                <div class="thread-messages" id="thread-messages"></div>
+
+                <div class="thread-menu hidden" id="thread-menu" role="menu" aria-label="Conversation options">
+                  <button type="button" data-action="search">Search in chat</button>
+                  <button type="button" data-action="clear">Clear conversation</button>
+                  <button type="button" data-action="info">Conversation info</button>
+                </div>
+
+                <aside class="info-drawer hidden" id="info-drawer">
+                  <div class="info-drawer-head">
+                    <div>
+                      <div class="info-kicker">Conversation info</div>
+                      <div class="info-title" id="info-title">Srujan</div>
+                    </div>
+                    <button class="icon-btn" id="info-close" title="Close info" aria-label="Close info">
+                      <span class="icon-wrap" data-icon="close"></span>
+                    </button>
+                  </div>
+
+                  <div class="info-section">
+                    <div class="info-label">Type</div>
+                    <div class="info-value" id="info-type">Direct message</div>
+                  </div>
+
+                  <div class="info-section">
+                    <div class="info-label">Members</div>
+                    <div class="member-row" id="info-members"></div>
+                  </div>
+
+                  <div class="info-section">
+                    <div class="info-label">Shared items</div>
+                    <div class="info-value mono" id="info-shared">0</div>
+                  </div>
+                </aside>
+
+                <footer class="composer">
+                  <div class="composer-tools">
+                    <button class="icon-btn composer-btn" id="attach-btn" title="Attach file" aria-label="Attach file">
+                      <span class="icon-wrap" data-icon="attach"></span>
+                    </button>
+                    <button class="icon-btn composer-btn" id="image-btn" title="Attach image" aria-label="Attach image">
+                      <span class="icon-wrap" data-icon="image"></span>
+                    </button>
+                    <button class="icon-btn composer-btn" id="mic-btn" title="Voice input" aria-label="Voice input">
+                      <span class="icon-wrap" data-icon="mic"></span>
+                    </button>
+                  </div>
+
+                  <div class="composer-input-shell">
+                    <textarea id="message-input" rows="1" placeholder="Type a message..."></textarea>
+                  </div>
+
+                  <button class="send-btn" id="send-btn" title="Send message" aria-label="Send message">
+                    <span class="icon-wrap" data-icon="send"></span>
+                  </button>
+                </footer>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page settings-page" data-page-view="settings">
+          <div class="section-card">
+            <div class="section-header">
+              <div>
+                <div class="section-kicker">Settings</div>
+                <h2>System and account controls</h2>
+              </div>
+            </div>
+
+            <div class="settings-grid">
+              <div class="stack-card">
+                <div class="stack-title">Profile</div>
+                <div class="stack-sub">Amruthesh · Secure LAN</div>
+              </div>
+              <div class="stack-card">
+                <div class="stack-title">Theme</div>
+                <div class="stack-sub">Dark enterprise workspace</div>
+              </div>
+              <div class="stack-card">
+                <div class="stack-title">Backend</div>
+                <div class="stack-sub">Local only</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <input id="attachment-input" type="file" hidden multiple />
+  <input id="image-input" type="file" hidden accept="image/*" multiple />
+
+  <div class="modal-backdrop hidden" id="modal-backdrop"></div>
+
+  <div class="modal hidden" id="new-chat-modal" aria-hidden="true">
+    <div class="modal-head">
+      <div>
+        <div class="section-kicker">Start conversation</div>
+        <h3>New chat</h3>
+      </div>
+      <button class="icon-btn" id="new-chat-close" title="Close" aria-label="Close">
+        <span class="icon-wrap" data-icon="close"></span>
+      </button>
+    </div>
+
+    <div class="chat-search-wrap modal-search">
+      <span class="input-icon" data-icon="search"></span>
+      <input id="new-chat-search" class="search-input" type="text" placeholder="Search people" autocomplete="off" />
+    </div>
+
+    <div class="modal-list" id="new-chat-list"></div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <template id="thread-item-template">
+    <button class="thread-item" type="button">
+      <div class="thread-avatar-wrap">
+        <div class="thread-avatar"></div>
+        <span class="presence-dot"></span>
+      </div>
+      <div class="thread-copy">
+        <div class="thread-row">
+          <div class="thread-title-text"></div>
+          <div class="thread-time mono"></div>
+        </div>
+        <div class="thread-row thread-preview-row">
+          <div class="thread-preview"></div>
+          <div class="thread-badge mono"></div>
+        </div>
+      </div>
+    </button>
+  </template>
+
+  <template id="message-template">
+    <article class="message">
+      <div class="message-meta">
+        <span class="message-sender"></span>
+        <span class="message-time mono"></span>
+      </div>
+      <div class="message-bubble"></div>
+    </article>
+  </template>
+
+  <script src="./script.js"></script>
+</body>
+</html>
