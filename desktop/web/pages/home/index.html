@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Home</title>
+  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page home-page">
+    <section class="hero-card">
+      <div class="hero-brand">
+        <img src="../../assets/logo-full.png" alt="Vāgmi logo" class="hero-logo" />
+      </div>
+      <div class="hero-copy">
+        <div class="section-kicker mono">Secure workspace overview</div>
+        <h1>Chat and intelligence stay separate.</h1>
+        <p>
+          Vāgmi is an offline LAN application for secure workplaces. Collaboration lives in Chat.
+          Document understanding, retrieval, summaries, reports, and diagrams live in Intelligence.
+        </p>
+        <div class="hero-actions">
+          <button class="primary-btn" data-nav="chat">Open Chat</button>
+          <button class="secondary-btn" data-nav="intelligence">Open Intelligence</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <div class="stat-label">Recent chats</div>
+        <div class="stat-value mono">4</div>
+        <div class="stat-sub">DMs and groups on LAN</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-label">Documents</div>
+        <div class="stat-value mono">12</div>
+        <div class="stat-sub">User-isolated files</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-label">Outputs</div>
+        <div class="stat-value mono">7</div>
+        <div class="stat-sub">Reports and diagrams</div>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-label">System</div>
+        <div class="stat-value mono">Healthy</div>
+        <div class="stat-sub">Offline and ready</div>
+      </article>
+    </section>
+
+    <section class="activity-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Recent activity</h2>
+          <span class="mono">Today</span>
+        </div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <span class="dot"></span>
+            <div>
+              <div class="activity-title">System architecture draft reviewed</div>
+              <div class="activity-sub">Intelligence workspace</div>
+            </div>
+            <div class="activity-time mono">09:37</div>
+          </div>
+          <div class="activity-item">
+            <span class="dot"></span>
+            <div>
+              <div class="activity-title">Group message with file shared</div>
+              <div class="activity-sub">Team ADE</div>
+            </div>
+            <div class="activity-time mono">10:01</div>
+          </div>
+          <div class="activity-item">
+            <span class="dot"></span>
+            <div>
+              <div class="activity-title">Document ready for query</div>
+              <div class="activity-sub">Retrieval pipeline</div>
+            </div>
+            <div class="activity-time mono">Yesterday</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Workspace status</h2>
+          <span class="pill mono">Offline</span>
+        </div>
+        <div class="status-card">
+          <div class="status-row">
+            <span class="status-dot"></span>
+            <div>
+              <div class="status-title">Local server available</div>
+              <div class="status-sub">FastAPI backend on LAN</div>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="status-dot"></span>
+            <div>
+              <div class="status-title">Chat workspace ready</div>
+              <div class="status-sub">Direct and group conversations</div>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="status-dot"></span>
+            <div>
+              <div class="status-title">Intelligence workspace ready</div>
+              <div class="status-sub">Documents, summaries, diagrams</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Intelligence</title>
+  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page intelligence-page">
+    <header class="page-head">
+      <div>
+        <div class="section-kicker mono">Intelligence workspace</div>
+        <h1>Documents, retrieval, summaries, and diagrams.</h1>
+      </div>
+      <div class="head-actions">
+        <button class="ghost-btn" data-nav="chat">Go to Chat</button>
+        <button class="ghost-btn" data-nav="settings">Settings</button>
+      </div>
+    </header>
+
+    <div class="intel-grid">
+      <aside class="panel docs-rail">
+        <div class="panel-head">
+          <h2>Documents</h2>
+          <span class="pill mono">12</span>
+        </div>
+
+        <div class="search-row">
+          <input type="text" id="doc-search" placeholder="Search documents" />
+        </div>
+
+        <div class="doc-list" id="doc-list"></div>
+      </aside>
+
+      <section class="panel query-panel">
+        <div class="panel-head">
+          <h2>Ask the workspace</h2>
+          <span class="pill mono">Offline</span>
+        </div>
+
+        <textarea id="query-input" placeholder="Ask questions about your documents, generate a summary, or draft a report..."></textarea>
+
+        <div class="action-row">
+          <button class="primary-btn" data-action="query">Query</button>
+          <button class="secondary-btn" data-action="summary">Summarize</button>
+          <button class="secondary-btn" data-action="report">Generate Report</button>
+          <button class="secondary-btn" data-action="diagram">Mermaid Diagram</button>
+        </div>
+
+        <div class="result-card" id="result-card">
+          <div class="result-empty">
+            <div class="result-title">No request yet</div>
+            <div class="result-sub">Use any action to generate a mock result.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel status-panel">
+        <div class="panel-head">
+          <h2>Status</h2>
+          <span class="pill mono">Local</span>
+        </div>
+
+        <div class="status-stack">
+          <div class="status-item">
+            <div class="status-title">Model</div>
+            <div class="status-sub mono">Qwen2.5 7B Q4</div>
+          </div>
+          <div class="status-item">
+            <div class="status-title">Embeddings</div>
+            <div class="status-sub mono">all-MiniLM-L6-v2</div>
+          </div>
+          <div class="status-item">
+            <div class="status-title">Vector store</div>
+            <div class="status-sub mono">ChromaDB</div>
+          </div>
+          <div class="status-item">
+            <div class="status-title">Keyword index</div>
+            <div class="status-sub mono">BM25</div>
+          </div>
+        </div>
+
+        <div class="logo-card">
+          <img src="../../assets/logo-mark.png" alt="Vāgmi symbol" />
+          <div class="logo-card-text">
+            Secure, offline, and local by design.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
