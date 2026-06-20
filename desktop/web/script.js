@@ -5,9 +5,10 @@ document.addEventListener("DOMContentLoaded", () => {
       intelligence: "./pages/intelligence/index.html",
       chat: "./pages/chat/index.html",
       settings: "./pages/settings/index.html",
+      auth: "./pages/auth/index.html",
     };
   
-    const DEFAULT_PAGE = "chat";
+    const DEFAULT_PAGE = "auth";
     const sidebarStateKey = "vagmi-sidebar-collapsed";
     const activePageKey = "vagmi-active-shell-page";
   

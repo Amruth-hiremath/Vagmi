@@ -1,3 +1,6 @@
+import {
+    getConversations
+} from "../../services/dm.js";
 const state = {
   activeThreadId: "dm-srujan",
   threadFilter: "all",
@@ -506,6 +509,92 @@ document.querySelectorAll("[data-icon]").forEach((el) => {
   el.innerHTML = iconMap[iconName] || "";
 });
 
+async function initialize() {
+
+    try {
+
+        await loadConversations();
+
+    }
+    catch(error) {
+
+        console.error(
+            "Conversation load failed",
+            error
+        );
+
+        start();
+    }
+}
+async function loadConversations() {
+
+    const conversations =
+        await getConversations();
+
+    console.log(
+        "Backend conversations:",
+        conversations
+    );
+
+    if (
+        !conversations ||
+        conversations.length === 0
+    ) {
+
+        console.log(
+            "No conversations yet"
+        );
+
+        start();
+        return;
+    }
+
+    state.threads =
+        conversations.map(
+            conversation => ({
+
+                id:
+                    conversation.conversation_id,
+
+                kind: "dm",
+
+                title:
+                    conversation.username,
+
+                initials:
+                    conversation.username
+                        .substring(0,2)
+                        .toUpperCase(),
+
+                status: "Direct Message",
+
+                unread: 0,
+
+                lastMessage:
+                    conversation.last_message
+                    || "",
+
+                lastMessageType:
+                    "TEXT",
+
+                lastMessageTime:
+                    conversation.last_message_time
+                    || "",
+
+                members: [
+                    conversation.username
+                ],
+
+                messages: []
+            })
+        );
+
+    state.activeThreadId =
+        state.threads[0]?.id;
+
+    start();
+}
+
 function start() {
   const thread = currentThread();
   updateConversationMeta(thread);
@@ -516,4 +605,5 @@ function start() {
   renderThreads();
 }
 
-start();
+// start();
+initialize();
