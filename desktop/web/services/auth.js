@@ -4,11 +4,15 @@ export async function login(
     username,
     password
 ) {
-    const result =
+    const data =
         await apiRequest(
             "/auth/login",
             {
                 method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
                 body: JSON.stringify({
                     username,
                     password
@@ -18,10 +22,30 @@ export async function login(
 
     localStorage.setItem(
         "vagmi_token",
-        result.access_token
+        data.access_token
     );
 
-    return result;
+    return data;
+}
+
+export async function register(
+    username,
+    password
+) {
+    return apiRequest(
+        "/auth/register",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+            body: JSON.stringify({
+                username,
+                password
+            })
+        }
+    );
 }
 
 export async function getCurrentUser() {
@@ -30,6 +54,12 @@ export async function getCurrentUser() {
 
 export function logout() {
     localStorage.removeItem(
+        "vagmi_token"
+    );
+}
+
+export function getToken() {
+    return localStorage.getItem(
         "vagmi_token"
     );
 }
