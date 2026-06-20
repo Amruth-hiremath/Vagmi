@@ -1,84 +1,16 @@
 import {
-    getConversations
+    getConversations,
+    getMessages,
+    sendMessage
 } from "../../services/dm.js";
 const state = {
-  activeThreadId: "dm-srujan",
-  threadFilter: "all",
-  chatSearch: "",
-  convoSearch: "",
-  menuOpen: false,
-  infoOpen: false,
-  threads: [
-    {
-      id: "dm-srujan",
-      kind: "dm",
-      title: "Srujan",
-      initials: "SJ",
-      status: "Online",
-      unread: 2,
-      lastMessage: "Could you review the retrieval report?",
-      lastMessageType: "TEXT",
-      lastMessageTime: "09:42",
-      members: ["Amruthesh", "Srujan"],
-      messages: [
-        { id: "s0", type: "DAY", time: "Today" },
-        { id: "s1", sender: "other", senderName: "Srujan", type: "TEXT", time: "09:36", text: "Hi Amruthesh, can you share the current architecture?" },
-        { id: "s2", sender: "self", senderName: "Amruthesh", type: "TEXT", time: "09:33", text: "Hi Srujan, can you share the system architecture?" },
-        { id: "s3", sender: "other", senderName: "Srujan", type: "IMAGE", time: "09:35", file: { name: "system-architecture.png", size: "1.8 MB", preview: "../../assets/mock-system-architecture.png" }, caption: "System Architecture" },
-        { id: "s4", sender: "other", senderName: "Srujan", type: "FILE", time: "09:40", file: { name: "week3-summary.pdf", size: "1.2 MB" } }
-      ]
-    },
-    {
-      id: "dm-ravi",
-      kind: "dm",
-      title: "Ravi",
-      initials: "RV",
-      status: "Away",
-      unread: 0,
-      lastMessage: "Image shared",
-      lastMessageType: "IMAGE",
-      lastMessageTime: "08:15",
-      members: ["Amruthesh", "Ravi"],
-      messages: [
-        { id: "r0", type: "DAY", time: "Today" },
-        { id: "r1", sender: "other", senderName: "Ravi", type: "TEXT", time: "08:10", text: "I updated the draft." },
-        { id: "r2", sender: "other", senderName: "Ravi", type: "IMAGE", time: "08:15", file: { name: "retrieval-preview.png", size: "980 KB", preview: "../../assets/mock-retrieval-preview.png" } }
-      ]
-    },
-    {
-      id: "dm-meera",
-      kind: "dm",
-      title: "Meera",
-      initials: "MR",
-      status: "Online",
-      unread: 1,
-      lastMessage: "meeting-notes.docx",
-      lastMessageType: "FILE",
-      lastMessageTime: "Yesterday",
-      members: ["Amruthesh", "Meera"],
-      messages: [
-        { id: "m0", type: "DAY", time: "Yesterday" },
-        { id: "m1", sender: "other", senderName: "Meera", type: "FILE", time: "Yesterday", file: { name: "meeting-notes.docx", size: "42 KB" } }
-      ]
-    },
-    {
-      id: "group-ade",
-      kind: "group",
-      title: "Team ADE",
-      initials: "TA",
-      status: "4 members",
-      unread: 3,
-      lastMessage: "Please add the diagram",
-      lastMessageType: "TEXT",
-      lastMessageTime: "10:01",
-      members: ["Amruthesh", "Srujan", "Ravi", "Meera"],
-      messages: [
-        { id: "g0", type: "DAY", time: "Today" },
-        { id: "g1", sender: "other", senderName: "Ravi", type: "TEXT", time: "09:55", text: "Please add the diagram." },
-        { id: "g2", sender: "other", senderName: "Meera", type: "FILE", time: "10:01", file: { name: "meeting-notes.docx", size: "42 KB" } }
-      ]
-    }
-  ]
+    activeThreadId: null,
+    threadFilter: "all",
+    chatSearch: "",
+    convoSearch: "",
+    menuOpen: false,
+    infoOpen: false,
+    threads: []
 };
 
 const threadList = document.getElementById("thread-list");
@@ -305,7 +237,7 @@ function openThread(threadId) {
   updateConversationMeta(thread);
   updateInfoDrawer(thread);
   renderThreads();
-  renderMessages(thread);
+  loadMessages(threadId);
 }
 
 function rerenderActiveConversation() {
@@ -348,16 +280,65 @@ function appendSelfMessage(payload) {
   renderThreads();
   rerenderActiveConversation();
 }
+async function handleSend() {
 
-function handleSend() {
-  const text = inputField.value.trim();
-  if (!text) return;
-  appendSelfMessage({ type: "TEXT", text });
-  inputField.value = "";
-  inputField.style.height = "44px";
-  inputField.style.overflowY = "hidden";
+    const text =
+        inputField.value.trim();
+
+    if (!text) {
+        return;
+    }
+
+    const conversationId =
+        state.activeThreadId;
+
+    try {
+
+        await sendMessage(
+            conversationId,
+            text
+        );
+
+        inputField.value = "";
+
+        inputField.style.height =
+            "44px";
+
+        await loadMessages(
+            conversationId
+        );
+          const thread =
+      currentThread();
+
+  if (thread) {
+
+      thread.lastMessage =
+          text;
+
+      thread.lastMessageType =
+          "TEXT";
+
+      thread.lastMessageTime =
+          new Date()
+          .toLocaleTimeString(
+              [],
+              {
+                  hour: "2-digit",
+                  minute: "2-digit"
+              }
+          );
+  }
+
+        renderThreads();
+
+    } catch(error) {
+
+        console.error(
+            "Message send failed",
+            error
+        );
+    }
 }
-
 function handleAttachment(file, forceType = null) {
   const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
   if (type === "IMAGE") {
@@ -515,6 +496,15 @@ async function initialize() {
 
         await loadConversations();
 
+        renderThreads();
+
+        if (state.threads.length > 0) {
+            start();
+            await loadMessages(
+              state.activeThreadId
+            );  
+        }
+
     }
     catch(error) {
 
@@ -522,8 +512,6 @@ async function initialize() {
             "Conversation load failed",
             error
         );
-
-        start();
     }
 }
 async function loadConversations() {
@@ -545,7 +533,7 @@ async function loadConversations() {
             "No conversations yet"
         );
 
-        start();
+        renderThreads();
         return;
     }
 
@@ -579,7 +567,16 @@ async function loadConversations() {
 
                 lastMessageTime:
                     conversation.last_message_time
-                    || "",
+                        ? new Date(
+                            conversation.last_message_time
+                          ).toLocaleTimeString(
+                              [],
+                              {
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                              }
+                          )
+                        : "",
 
                 members: [
                     conversation.username
@@ -592,16 +589,91 @@ async function loadConversations() {
     state.activeThreadId =
         state.threads[0]?.id;
 
-    start();
+    
+}
+async function loadMessages(
+    conversationId
+) {
+
+    try {
+
+        const messages =
+            await getMessages(
+                conversationId
+            );
+
+        const thread =
+            state.threads.find(
+                t => t.id === conversationId
+            );
+
+        if (!thread) {
+            return;
+        }
+
+        thread.messages =
+            messages.map(
+                message => ({
+                    id: message.id,
+                    sender:
+                        message.sender_username ===
+                        localStorage.getItem(
+                            "username"
+                        )
+                            ? "self"
+                            : "other",
+
+                    senderName:
+                        message.sender_username,
+
+                    type:
+                        message.message_type,
+
+                    text:
+                        message.message_text,
+
+                    time:
+                        new Date(
+                            message.created_at
+                        ).toLocaleTimeString(
+                            [],
+                            {
+                                hour: "2-digit",
+                                minute: "2-digit"
+                            }
+                        )
+                })
+            );
+
+        renderMessages(
+            thread
+        );
+
+    } catch(error) {
+
+        console.error(
+            "Failed loading messages",
+            error
+        );
+    }
 }
 
 function start() {
+
   const thread = currentThread();
+
+  if (!thread) {
+    renderThreads();
+    return;
+  }
+
   updateConversationMeta(thread);
   updateInfoDrawer(thread);
   renderThreads();
   renderMessages(thread);
+
   thread.unread = 0;
+
   renderThreads();
 }
 

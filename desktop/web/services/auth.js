@@ -21,8 +21,12 @@ export async function login(
         );
 
     localStorage.setItem(
-        "vagmi_token",
+        "access_token",
         data.access_token
+    );
+    localStorage.setItem(
+    "username",
+    username
     );
 
     return data;
@@ -54,12 +58,12 @@ export async function getCurrentUser() {
 
 export function logout() {
     localStorage.removeItem(
-        "vagmi_token"
+        "access_token"
     );
 }
 
 export function getToken() {
     return localStorage.getItem(
-        "vagmi_token"
+        "access_token"
     );
 }

@@ -56,7 +56,7 @@ export async function sendImage(
 ) {
     const token =
         localStorage.getItem(
-            "vagmi_token"
+            "access_token"
         );
 
     const formData =

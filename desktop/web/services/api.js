@@ -6,7 +6,7 @@ export async function apiRequest(
 ) {
     const token =
         localStorage.getItem(
-            "vagmi_token"
+            "access_token"
         );
 
     const headers = {

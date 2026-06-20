@@ -4,7 +4,7 @@ export async function uploadAttachment(
 ) {
     const token =
         localStorage.getItem(
-            "vagmi_token"
+            "access_token"
         );
 
     const formData =
