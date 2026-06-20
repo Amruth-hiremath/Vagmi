@@ -1,24 +1,15 @@
 import re
-
 from fastapi import HTTPException
 
-
 MAX_MESSAGE_LENGTH = 5000
+PASSWORD_MIN_BYTES = 8
+PASSWORD_MAX_BYTES = 20
 
-
-def validate_username(
-    username: str
-):
-    if not re.fullmatch(
-        r"[a-zA-Z0-9_]+",
-        username
-    ):
+def validate_username(username: str):
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", username):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Username may only contain "
-                "letters, numbers and underscores"
-            )
+            detail="Username may only contain letters, numbers and underscores"
         )
 
     if len(username) < 3:
@@ -33,23 +24,49 @@ def validate_username(
             detail="Username too long"
         )
 
+def validate_password(password: str):
+    byte_length = len(password.encode("utf-8"))
 
-def validate_password(
-    password: str
-):
-    if len(password) < 8:
+    if byte_length < PASSWORD_MIN_BYTES:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Password must be at least "
-                "8 characters long"
-            )
+            detail="Password must be at least 12 characters long"
         )
 
-    if len(password) > 128:
+    if byte_length > PASSWORD_MAX_BYTES:
         raise HTTPException(
             status_code=400,
-            detail="Password too long"
+            detail="Password must be 72 characters or fewer"
+        )
+
+    if any(ch.isspace() for ch in password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password cannot contain spaces"
+        )
+
+    if not re.search(r"[a-z]", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must include at least one lowercase letter"
+        )
+
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must include at least one uppercase letter"
+        )
+
+    if not re.search(r"\d", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must include at least one number"
+        )
+
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must include at least one special character"
         )
 
 

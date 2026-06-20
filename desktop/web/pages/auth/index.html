@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,96 +9,113 @@
   <link rel="stylesheet" href="./styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
+
 <body>
   <main class="auth-shell">
-  <section class="auth-card">
+    <section class="auth-card">
 
-    <!-- Left panel -->
-    <div class="auth-brand">
-      <img
-        src="../../assets/logo-mark.png"
-        alt="Vāgmi"
-        class="auth-logo"
-      />
+      <!-- Left panel -->
+      <div class="auth-brand">
+        <img src="../../assets/logo-mark.png" alt="Vāgmi" class="auth-logo" />
 
-      <div class="auth-copy">
-        <div class="eyebrow">SECURE LAN WORKSPACE</div>
+        <div class="auth-copy">
+          <div class="eyebrow">SECURE LAN WORKSPACE</div>
 
-        <h1>Welcome back.</h1>
+          <h1>Welcome back.</h1>
 
-        <p>
-          Sign in to access chat, documents,
-          and intelligence tools.
-        </p>
-      </div>
-    </div>
-
-    <!-- Right panel -->
-    <div class="auth-right">
-
-      <div class="auth-tabs">
-        <button
-          class="auth-tab active"
-          id="login-tab"
-          type="button"
-        >
-          Login
-        </button>
-
-        <button
-          class="auth-tab"
-          id="register-tab"
-          type="button"
-        >
-          Register
-        </button>
+          <p>
+            Sign in to access chat, documents,
+            and intelligence tools.
+          </p>
+        </div>
       </div>
 
-      <form class="auth-form" id="auth-form">
+      <!-- Right panel -->
+      <div class="auth-right">
 
-        <label class="field">
-          <span>Username</span>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="login-tab" type="button">
+            Login
+          </button>
 
-          <input
-            id="username"
-            type="text"
-            placeholder="Enter your username..."
-          />
-        </label>
+          <button class="auth-tab" id="register-tab" type="button">
+            Register
+          </button>
+        </div>
 
-        <label class="field">
-          <span>Password</span>
+        <form class="auth-form" id="auth-form">
 
-          <input
-            id="password"
-            type="password"
-            placeholder="Enter your password..."
-          />
-        </label>
+          <label class="field">
+            <span>Username</span>
 
-        <label class="field hidden" id="confirm-field">
-          <span>Confirm password</span>
+            <input id="username" type="text" placeholder="Enter your username..." />
+          </label>
 
-          <input
-            id="confirm-password"
-            type="password"
-            placeholder="Confirm password..."
-          />
-        </label>
+          <label class="field">
+            <span>Password</span>
 
-        <button class="primary-btn" id="submit" type="submit">
-          Login
-        </button>
+            <input id="password" type="password" placeholder="Enter your password..." />
+          </label>
 
-        <div class="error-text" id="error"></div>
+          <label class="field hidden" id="confirm-field">
+            <span>Confirm password</span>
 
-      </form>
+            <input id="confirm-password" type="password" placeholder="Confirm password..." />
+          </label>
 
-    </div>
+          <div class="password-live-check hidden" id="password-checker">
+            <div class="password-meter">
+              <div class="password-meter-fill" id="password-meter-fill"></div>
+            </div>
 
-  </section>
-</main>
+            <div class="password-rules">
+              <div class="rule" id="rule-min">
+                <span class="rule-dot"></span>
+                <span>At least 8 characters</span>
+              </div>
+              <div class="rule" id="rule-max">
+                <span class="rule-dot"></span>
+                <span>20 characters or fewer</span>
+              </div>
+              <div class="rule" id="rule-lower">
+                <span class="rule-dot"></span>
+                <span>One lowercase letter</span>
+              </div>
+              <div class="rule" id="rule-upper">
+                <span class="rule-dot"></span>
+                <span>One uppercase letter</span>
+              </div>
+              <div class="rule" id="rule-digit">
+                <span class="rule-dot"></span>
+                <span>One number</span>
+              </div>
+              <div class="rule" id="rule-special">
+                <span class="rule-dot"></span>
+                <span>One special character</span>
+              </div>
+              <div class="rule" id="rule-match">
+                <span class="rule-dot"></span>
+                <span>Passwords match</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="error" id="error"></p>
+
+          <button class="primary-btn" id="submit" type="submit">
+            Login
+          </button>
+
+          <div class="error-text" id="error"></div>
+
+        </form>
+
+      </div>
+
+    </section>
+  </main>
 
   <script type="module" src="./script.js"></script>
 </body>
+
 </html>
