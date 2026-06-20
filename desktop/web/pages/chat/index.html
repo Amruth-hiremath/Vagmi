@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Chat</title>
+  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page chat-page">
+    <aside class="thread-pane">
+      <div class="thread-head">
+        <div>
+          <div class="section-kicker mono">Chat</div>
+          <h1>Conversations</h1>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input id="chat-search" type="text" placeholder="Search chats" autocomplete="off" />
+      </div>
+
+      <div class="filter-row" role="tablist" aria-label="Chat filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="dm">DMs</button>
+        <button class="filter-btn" data-filter="group">Groups</button>
+      </div>
+
+      <div class="thread-list" id="thread-list"></div>
+    </aside>
+
+    <section class="conversation-pane">
+      <header class="conversation-header">
+        <div class="conversation-meta">
+          <button class="icon-btn back-btn" id="back-btn" title="Back" aria-label="Back">
+            <span class="icon" data-icon="back"></span>
+          </button>
+          <div class="thread-avatar avatar-large" id="conversation-avatar">SJ</div>
+          <div class="conversation-title-wrap">
+            <div class="conversation-title" id="conversation-title">Srujan</div>
+            <div class="conversation-sub">
+              <span class="online-dot"></span>
+              <span id="conversation-status">Online</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="conversation-actions">
+          <button class="icon-btn" id="search-toggle" title="Search in chat" aria-label="Search in chat">
+            <span class="icon" data-icon="search"></span>
+          </button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="menu-toggle" title="More options" aria-label="More options">
+              <span class="icon" data-icon="more"></span>
+            </button>
+            <div class="menu-popover hidden" id="menu-popover">
+              <button class="menu-item" data-menu="search">Search in chat</button>
+              <button class="menu-item" data-menu="clear">Clear conversation</button>
+              <button class="menu-item" data-menu="info">Conversation info</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="conversation-search hidden" id="conversation-search-row">
+        <input id="conversation-search" type="text" placeholder="Search in conversation" />
+        <button class="text-btn" id="close-search">Close</button>
+      </div>
+
+      <div class="messages-shell">
+        <div class="day-chip" id="day-chip">Today</div>
+        <div class="messages-scroll" id="messages-scroll"></div>
+
+        <div class="info-drawer hidden" id="info-drawer">
+          <div class="info-head">
+            <div class="info-title">Conversation info</div>
+            <button class="text-btn" id="close-info">Close</button>
+          </div>
+          <div class="info-list">
+            <div class="info-row"><span>Participants</span><span id="info-participants">2</span></div>
+            <div class="info-row"><span>Type</span><span id="info-type">DM</span></div>
+            <div class="info-row"><span>Shared files</span><span id="info-files">1</span></div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="composer">
+        <button class="icon-btn attach-btn" id="attach-btn" title="Attach file" aria-label="Attach file">
+          <span class="icon" data-icon="attach"></span>
+        </button>
+        <button class="icon-btn image-btn" id="image-btn" title="Attach image" aria-label="Attach image">
+          <span class="icon" data-icon="image"></span>
+        </button>
+        <button class="icon-btn mic-btn" id="mic-btn" title="Voice input" aria-label="Voice input">
+          <span class="icon" data-icon="mic"></span>
+        </button>
+
+        <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+
+        <button class="send-btn" id="send-btn" title="Send message" aria-label="Send message">
+          <span class="icon" data-icon="send"></span>
+        </button>
+      </footer>
+    </section>
+  </div>
+
+  <input type="file" id="file-input" hidden />
+  <input type="file" id="image-input" hidden accept="image/*" />
+
+  <script src="./script.js"></script>
+</body>
+</html>

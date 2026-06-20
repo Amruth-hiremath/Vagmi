@@ -30,7 +30,7 @@ Vāgmi addresses these challenges through a centralized offline intelligence pla
 
 The backend (FastAPI) currently has two major systems fully implemented and wired together end-to-end: **user/collaboration management** and the **offline RAG retrieval stack**. The multi-agent layer (Master, Query, Summary, Document Generation, Diagram Generation) is scaffolded but not yet implemented.
 
-### ✅ Implemented
+### Implemented
 
 | Area | What works |
 |---|---|
@@ -41,7 +41,7 @@ The backend (FastAPI) currently has two major systems fully implemented and wire
 | **Offline AI** | Local embedding model (`all-MiniLM-L6-v2`) — no internet required after first download |
 | **System** | Health check endpoint, offline-hosted Swagger UI (`/docs` served from local static assets, not the internet) |
 
-### 🚧 Scaffolded, not yet implemented
+### Scaffolded, not yet implemented
 
 * Master Agent, Query Agent, Summary Agent, Document Generation Agent, Diagram Generation Agent (empty packages exist under `app/agents/`)
 * LLM integration (Ollama / Qwen2.5)

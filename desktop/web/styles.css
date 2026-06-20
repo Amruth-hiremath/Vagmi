@@ -1,0 +1,282 @@
+:root {
+  /* Strict Enterprise Palette */
+  --branding-orange: #E85002;
+  --primary-black: #000000;
+  --white: #F9F9F9;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #52525B;
+  --dark-gray: #1C1C1C;
+  --bg-panel: rgba(15, 15, 15, 0.6);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Gradients */
+  --gradient-2: #C10801;
+  --gradient-3: #F16001;
+  --branding-gradient: linear-gradient(135deg, var(--gradient-2), var(--gradient-3));
+
+  /* Dimensions (Calculated to center 20px icons perfectly when collapsed) */
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 68px; 
+
+  /* Fluid Transitions */
+  --transition-snappy: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fade: opacity 0.15s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--primary-black);
+  color: var(--text-primary);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+/* =========================================================
+   SIDEBAR ARCHITECTURE
+========================================================= */
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+
+body.sidebar-collapsed .sidebar {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* Base Alignment: 24px left padding locks the icons perfectly in place */
+.sidebar-header,
+.nav-item,
+.user-card,
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+}
+
+/* Prevent text wrapping during transition */
+.brand-text,
+.nav-label,
+.user-details,
+.toggle-label {
+  white-space: nowrap;
+  opacity: 1;
+  transition: var(--transition-fade);
+}
+
+body.sidebar-collapsed .brand-text,
+body.sidebar-collapsed .nav-label,
+body.sidebar-collapsed .user-details,
+body.sidebar-collapsed .toggle-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- Top: Brand Header --- */
+.sidebar-header {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+.brand-logo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+  /* filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2)); */
+}
+
+.brand-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+/* --- Middle: Navigation --- */
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 12px;
+}
+
+.nav-item {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: var(--transition-snappy);
+  outline: none;
+}
+
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: var(--transition-snappy);
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.nav-item:hover svg {
+  opacity: 1;
+}
+
+.nav-item.active {
+  color: var(--branding-orange);
+  background: rgba(232, 80, 2, 0.06);
+  border-right: 2px solid var(--branding-orange);
+}
+
+.nav-item.active svg {
+  opacity: 1;
+}
+
+/* --- Bottom: Footer & Toggle --- */
+.sidebar-footer {
+  padding: 16px 0;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-card {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  background: var(--dark-gray);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: -2px; /* Centers a 24px object against the 20px SVG icons above it */
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.user-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+.sidebar-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition-snappy);
+  outline: none;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-toggle svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.sidebar-collapsed .sidebar-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* =========================================================
+   WORKSPACE AREA
+========================================================= */
+.workspace {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: var(--primary-black);
+  position: relative;
+}
+
+.page-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Empty Chat State */
+.conversation-pane.empty-chat-state {
+  position: relative;
+}
+
+.conversation-pane.empty-chat-state > * {
+  display: none !important;
+}
+
+/* Animated Gradient Background */
+.conversation-pane.empty-chat-state::before {
+  content: "Select a conversation to start messaging";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 500;
+  background: 
+    radial-gradient(circle at top left, rgba(232, 80, 2, 0.08), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(193, 8, 1, 0.05), transparent 40%),
+    var(--primary-black);
+  background-size: 200% 200%;
+  animation: moveGradient 10s ease infinite;
+}
+
+@keyframes moveGradient {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
