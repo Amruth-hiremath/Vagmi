@@ -1,32 +1,20 @@
-export async function uploadAttachment(
-    roomId,
-    file
-) {
-    const token =
-        localStorage.getItem(
-            "access_token"
-        );
+import { apiRequest } from "./api.js";
 
-    const formData =
-        new FormData();
+async function parseJson(response) {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail || "Request failed");
+  }
+  return data;
+}
 
-    formData.append(
-        "file",
-        file
-    );
-
-    const response =
-        await fetch(
-            `http://127.0.0.1:8000/rooms/${roomId}/attachments`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization:
-                        `Bearer ${token}`
-                },
-                body: formData
-            }
-        );
-
-    return response.json();
+export async function uploadAttachment(roomId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return parseJson(
+    await apiRequest(`/rooms/${roomId}/attachments`, {
+      method: "POST",
+      body: formData
+    })
+  );
 }

@@ -1,84 +1,48 @@
 import { apiRequest } from "./api.js";
 
+async function parseJson(response) {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail || "Request failed");
+  }
+  return data;
+}
+
 export async function getConversations() {
-    return apiRequest("/dm");
+  return parseJson(await apiRequest("/dm"));
 }
 
-export async function startConversation(
-    username
-) {
-    return apiRequest(
-        "/dm/start",
-        {
-            method: "POST",
-            headers: {
-                "Content-Type":
-                    "application/json"
-            },
-            body: JSON.stringify({
-                username
-            })
-        }
-    );
+export async function startConversation(username) {
+  return parseJson(
+    await apiRequest("/dm/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    })
+  );
 }
 
-export async function getMessages(
-    conversationId
-) {
-    return apiRequest(
-        `/dm/${conversationId}`
-    );
+export async function getMessages(conversationId) {
+  return parseJson(await apiRequest(`/dm/${conversationId}`));
 }
 
-export async function sendMessage(
-    conversationId,
-    messageText
-) {
-    return apiRequest(
-        `/dm/${conversationId}`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type":
-                    "application/json"
-            },
-            body: JSON.stringify({
-                message_text:
-                    messageText
-            })
-        }
-    );
+export async function sendMessage(conversationId, messageText) {
+  return parseJson(
+    await apiRequest(`/dm/${conversationId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message_text: messageText })
+    })
+  );
 }
 
-export async function sendImage(
-    conversationId,
-    file
-) {
-    const token =
-        localStorage.getItem(
-            "access_token"
-        );
-
-    const formData =
-        new FormData();
-
-    formData.append(
-        "file",
-        file
-    );
-
-    const response =
-        await fetch(
-            `http://127.0.0.1:8000/dm/${conversationId}/image`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization:
-                        `Bearer ${token}`
-                },
-                body: formData
-            }
-        );
-
-    return response.json();
+export async function sendImage(conversationId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return parseJson(
+    await apiRequest(`/dm/${conversationId}/image`, {
+      method: "POST",
+      body: formData
+    })
+  );
 }

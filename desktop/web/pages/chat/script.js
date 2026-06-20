@@ -38,6 +38,15 @@ const inputField = document.getElementById("message-input");
 const fileInput = document.getElementById("file-input");
 const imageInput = document.getElementById("image-input");
 
+function getCurrentUser() {
+  try {
+    return JSON.parse(localStorage.getItem("vagmi_user") || "null");
+  } catch {
+    return null;
+  }
+}
+const currentUser = getCurrentUser();
+
 const iconMap = {
   search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"></circle><line x1="20" y1="20" x2="16.5" y2="16.5"></line></svg>`,
   more: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>`,
@@ -616,10 +625,7 @@ async function loadMessages(
                 message => ({
                     id: message.id,
                     sender:
-                        message.sender_username ===
-                        localStorage.getItem(
-                            "username"
-                        )
+                        message.sender_username === (currentUser?.username || "")
                             ? "self"
                             : "other",
 

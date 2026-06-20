@@ -280,3 +280,33 @@ body.sidebar-collapsed .sidebar-toggle svg {
   50% { background-position: 100% 100%; }
   100% { background-position: 0% 0%; }
 }
+
+.user-card {
+  justify-content: space-between;
+}
+
+.logout-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-snappy);
+  flex-shrink: 0;
+}
+
+.logout-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.logout-btn svg {
+  width: 16px;
+  height: 16px;
+}

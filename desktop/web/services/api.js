@@ -1,50 +1,77 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { getToken, clearSession, getAuthPageUrl } from "./auth.js";
 
-export async function apiRequest(
-    endpoint,
-    options = {}
-) {
-    const token =
-        localStorage.getItem(
-            "access_token"
-        );
+const API_URL = "/api";
 
-    const headers = {
-        ...(options.headers || {})
-    };
+function shouldAttachJsonHeader(body, headers) {
+  if (!body) return false;
+  if (body instanceof FormData) return false;
+  return !Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
+}
 
-    if (
-        token &&
-        !headers.Authorization
-    ) {
-        headers.Authorization =
-            `Bearer ${token}`;
-    }
+function handleUnauthorized() {
+  clearSession();
+  window.location.replace(getAuthPageUrl());
+}
 
-    const response =
-        await fetch(
-            `${API_BASE_URL}${endpoint}`,
-            {
-                ...options,
-                headers
-            }
-        );
-
-    let data = null;
-
+async function readErrorMessage(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
     try {
-        data = await response.json();
+      const payload = await response.json();
+      return payload?.detail || payload?.message || "Request failed";
+    } catch {
+      return "Request failed";
     }
-    catch {
-        data = null;
-    }
+  }
 
-    if (!response.ok) {
-        throw new Error(
-            data?.detail ||
-            "Request failed"
-        );
-    }
+  try {
+    const text = await response.text();
+    return text.trim() || "Request failed";
+  } catch {
+    return "Request failed";
+  }
+}
 
-    return data;
+export async function apiRequest(endpoint, options = {}) {
+  const token = getToken();
+  const {
+    skipAuthRedirect = false,
+    headers: inputHeaders = {},
+    body,
+    ...rest
+  } = options;
+
+  const headers = { ...inputHeaders };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (shouldAttachJsonHeader(body, headers)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...rest,
+      headers,
+      body
+    });
+  } catch {
+    throw new Error(
+      "Unable to reach the backend. Make sure FastAPI is running."
+    );
+  }
+
+  if (response.status === 401 && !skipAuthRedirect) {
+    handleUnauthorized();
+    throw new Error("Session expired");
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return response;
 }

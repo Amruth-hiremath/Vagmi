@@ -1,34 +1,103 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="./styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Sign in</title>
+  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <main class="auth-shell">
+  <section class="auth-card">
 
-<div class="auth-container">
+    <!-- Left panel -->
+    <div class="auth-brand">
+      <img
+        src="../../assets/logo-mark.png"
+        alt="Vāgmi"
+        class="auth-logo"
+      />
 
-    <h1>Vāgmi</h1>
+      <div class="auth-copy">
+        <div class="eyebrow">SECURE LAN WORKSPACE</div>
 
-    <input
-        id="username"
-        placeholder="Username"
-    >
+        <h1>Welcome back.</h1>
 
-    <input
-        id="password"
-        type="password"
-        placeholder="Password"
-    >
+        <p>
+          Sign in to access chat, documents,
+          and intelligence tools.
+        </p>
+      </div>
+    </div>
 
-    <button id="login-btn">
-        Login
-    </button>
+    <!-- Right panel -->
+    <div class="auth-right">
 
-    <div id="result"></div>
+      <div class="auth-tabs">
+        <button
+          class="auth-tab active"
+          id="login-tab"
+          type="button"
+        >
+          Login
+        </button>
 
-</div>
+        <button
+          class="auth-tab"
+          id="register-tab"
+          type="button"
+        >
+          Register
+        </button>
+      </div>
 
-<script type="module" src="./script.js"></script>
+      <form class="auth-form" id="auth-form">
 
+        <label class="field">
+          <span>Username</span>
+
+          <input
+            id="username"
+            type="text"
+            placeholder="Enter your username..."
+          />
+        </label>
+
+        <label class="field">
+          <span>Password</span>
+
+          <input
+            id="password"
+            type="password"
+            placeholder="Enter your password..."
+          />
+        </label>
+
+        <label class="field hidden" id="confirm-field">
+          <span>Confirm password</span>
+
+          <input
+            id="confirm-password"
+            type="password"
+            placeholder="Confirm password..."
+          />
+        </label>
+
+        <button class="primary-btn" id="submit" type="submit">
+          Login
+        </button>
+
+        <div class="error-text" id="error"></div>
+
+      </form>
+
+    </div>
+
+  </section>
+</main>
+
+  <script type="module" src="./script.js"></script>
 </body>
 </html>

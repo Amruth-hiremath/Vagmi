@@ -18,7 +18,7 @@
       </div>
 
       <nav class="sidebar-nav" aria-label="Primary navigation">
-        <button class="nav-item" data-page="home" title="Home">
+        <button class="nav-item active" data-page="home" title="Home">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
           <span class="nav-label">Home</span>
         </button>
@@ -28,7 +28,7 @@
           <span class="nav-label">Intelligence</span>
         </button>
 
-        <button class="nav-item active" data-page="chat" title="Chat">
+        <button class="nav-item" data-page="chat" title="Chat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
           <span class="nav-label">Chat</span>
         </button>
@@ -43,8 +43,11 @@
         <div class="user-card">
           <div class="user-avatar">AM</div>
           <div class="user-details">
-            <span class="user-name">Amruthesh</span>
+            <span class="user-name" id="username-display">User</span>
           </div>
+          <button class="logout-btn" id="logout-btn" title="Logout" aria-label="Logout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 3v18"></path></svg>
+          </button>
         </div>
         
         <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle Sidebar">
@@ -55,11 +58,11 @@
     </aside>
 
     <main class="workspace">
-      <iframe id="page-frame" class="page-frame" title="Vāgmi workspace" src="./pages/chat/index.html"></iframe>
+      <iframe id="page-frame" class="page-frame" title="Vāgmi workspace" src="./pages/home/index.html"></iframe>
     </main>
 
   </div>
 
-  <script src="./script.js"></script>
+  <script type="module" src="./script.js"></script>
 </body>
 </html>
