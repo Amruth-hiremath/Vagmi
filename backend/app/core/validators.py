@@ -3,7 +3,7 @@ from fastapi import HTTPException
 
 MAX_MESSAGE_LENGTH = 5000
 PASSWORD_MIN_BYTES = 8
-PASSWORD_MAX_BYTES = 20
+PASSWORD_MAX_BYTES = 72
 
 def validate_username(username: str):
     if not re.fullmatch(r"[a-zA-Z0-9_]+", username):

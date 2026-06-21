@@ -23,11 +23,17 @@ class DirectMessageResponse(BaseModel):
     conversation_id: int
     sender_id: int
     sender_username: str
+
     message_text: str
     message_type: str
+
     attachment_path: str | None = None
     original_filename: str | None = None
+
     created_at: datetime
+
+    delivered_at: datetime | None = None
+    seen_at: datetime | None = None
 
     class Config:
         from_attributes = True

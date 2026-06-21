@@ -9,3 +9,4 @@ class ConversationListResponse(BaseModel):
     last_message: str | None = None
     last_message_sender: str | None = None
     last_message_time: datetime | None = None
+    unread_count: int = 0

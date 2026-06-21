@@ -3,7 +3,8 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
-
+from datetime import datetime
+from datetime import timezone
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -137,7 +138,9 @@ def send_message(
         "message_type": message.message_type,
         "attachment_path": message.attachment_path,
         "original_filename": message.original_filename,
-        "created_at": message.created_at
+        "created_at": message.created_at,
+        "delivered_at": message.delivered_at,
+        "seen_at": message.seen_at,
     }
 
 @router.post(
@@ -184,7 +187,8 @@ def send_image_dm(
         message_text="",
         message_type="IMAGE",
         attachment_path=image_path,
-        original_filename=original_name
+        original_filename=original_name,
+        delivered_at=datetime.now(timezone.utc)
     )
 
     db.add(message)
@@ -200,7 +204,9 @@ def send_image_dm(
         "message_type": "IMAGE",
         "attachment_path": image_path,
         "original_filename": original_name,
-        "created_at": message.created_at
+        "created_at": message.created_at,
+        "delivered_at": message.delivered_at,
+        "seen_at": message.seen_at,
     }
 
 @router.get(
@@ -268,8 +274,66 @@ def get_messages(
                 "message_type": message.message_type,
                 "attachment_path": message.attachment_path,
                 "original_filename": message.original_filename,
-                "created_at": message.created_at
+                "created_at": message.created_at,   
+                "delivered_at": message.delivered_at,
+                "seen_at": message.seen_at,
             }
         )
 
     return result
+
+@router.post(
+    "/{conversation_id}/mark-read"
+)
+def mark_conversation_read(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == conversation_id
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    unread_messages = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.conversation_id == conversation_id
+        )
+        .filter(
+            DirectMessage.sender_id != current_user.id
+        )
+        .filter(
+            DirectMessage.seen_at.is_(None)
+        )
+        .all()
+    )
+
+    now = datetime.now(timezone.utc)
+
+    for message in unread_messages:
+        message.seen_at = now
+
+    db.commit()
+
+    return {
+        "updated": len(unread_messages)
+    }
