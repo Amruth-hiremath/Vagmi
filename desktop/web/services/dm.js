@@ -46,3 +46,11 @@ export async function sendImage(conversationId, file) {
     })
   );
 }
+
+export async function markConversationRead(conversationId) {
+  return parseJson(
+    await apiRequest(`/dm/${conversationId}/mark-read`, {
+      method: "POST"
+    })
+  );
+}

@@ -15,6 +15,10 @@
           <div class="section-kicker mono">Chat</div>
           <h1>Conversations</h1>
         </div>
+
+        <button class="icon-btn thread-new-chat-btn" id="thread-new-chat-btn" title="New chat" aria-label="New chat" type="button">
+          <span class="icon" data-icon="compose"></span>
+        </button>
       </div>
 
       <div class="search-row">
@@ -22,77 +26,65 @@
       </div>
 
       <div class="filter-row" role="tablist" aria-label="Chat filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="dm">DMs</button>
-        <button class="filter-btn" data-filter="group">Groups</button>
+        <button class="filter-btn active" data-filter="all" type="button">All</button>
+        <button class="filter-btn" data-filter="dm" type="button">DMs</button>
+        <button class="filter-btn" data-filter="group" type="button">Groups</button>
       </div>
 
-      <div class="thread-list" id="thread-list"></div>
+      <div class="thread-list" id="thread-list" aria-live="polite"></div>
     </aside>
 
     <section class="conversation-pane is-empty" id="conversation-pane">
       <div class="conversation-empty-state" id="conversation-empty-state">
-        <div class="empty-state-backdrop" aria-hidden="true">
-          <span class="empty-orb orb-a"></span>
-          <span class="empty-orb orb-b"></span>
-          <span class="empty-orb orb-c"></span>
-        </div>
-
-        <div class="empty-state-card">
-          <div class="empty-state-kicker mono">Chat</div>
-          <h2 id="conversation-empty-title">No chat selected</h2>
+        <div class="conversation-empty-card">
+          <div class="section-kicker mono">Chat</div>
+          <h1 id="conversation-empty-title">Select a conversation</h1>
           <p id="conversation-empty-copy">
-            Choose a conversation from the left or start a new chat.
+            Choose a direct message or group from the left, or start a new conversation.
           </p>
-
-          <div class="empty-state-actions">
-            <button class="empty-state-btn" id="new-chat-btn" type="button">
-              New chat
-            </button>
-          </div>
         </div>
       </div>
 
       <div class="conversation-content" id="conversation-content" hidden>
         <header class="conversation-header">
           <div class="conversation-meta">
-            <button class="icon-btn back-btn" id="back-btn" title="Back" aria-label="Back">
+            <button class="icon-btn back-btn" id="back-btn" title="Back" aria-label="Back" type="button">
               <span class="icon" data-icon="back"></span>
             </button>
-            <div class="thread-avatar avatar-large" id="conversation-avatar">SJ</div>
+            <div class="thread-avatar avatar-large" id="conversation-avatar">VA</div>
             <div class="conversation-title-wrap">
               <div class="conversation-title" id="conversation-title">Conversation</div>
               <div class="conversation-sub">
                 <span class="online-dot"></span>
-                <span id="conversation-status">Online</span>
+                <span id="conversation-status">Direct Message</span>
               </div>
             </div>
           </div>
 
           <div class="conversation-actions">
-            <button class="icon-btn" id="search-toggle" title="Search in chat" aria-label="Search in chat">
+            <button class="icon-btn" id="search-toggle" title="Search in conversation" aria-label="Search in conversation" type="button">
               <span class="icon" data-icon="search"></span>
             </button>
             <div class="menu-wrap">
-              <button class="icon-btn" id="menu-toggle" title="More options" aria-label="More options">
+              <button class="icon-btn" id="menu-toggle" title="More options" aria-label="More options" type="button">
                 <span class="icon" data-icon="more"></span>
               </button>
               <div class="menu-popover hidden" id="menu-popover">
-                <button class="menu-item" data-menu="search">Search in chat</button>
-                <button class="menu-item" data-menu="clear">Clear conversation</button>
-                <button class="menu-item" data-menu="info">Conversation info</button>
+                <button class="menu-item" data-menu="search" type="button">Search in chat</button>
+                <button class="menu-item" data-menu="clear" type="button">Clear conversation</button>
+                <button class="menu-item" data-menu="info" type="button">Conversation info</button>
               </div>
             </div>
           </div>
         </header>
 
         <div class="conversation-search hidden" id="conversation-search-row">
-          <input id="conversation-search" type="text" placeholder="Search in conversation" />
+          <input id="conversation-search" type="text" placeholder="Search in conversation" autocomplete="off" />
           <button class="text-btn" id="close-search" type="button">Close</button>
         </div>
 
         <div class="messages-shell">
-          <div class="day-chip" id="day-chip">Today</div>
+          <div class="day-chip" id="day-chip" hidden>Today</div>
           <div class="messages-scroll" id="messages-scroll"></div>
 
           <div class="info-drawer hidden" id="info-drawer">
@@ -109,25 +101,70 @@
         </div>
 
         <footer class="composer">
-          <button class="icon-btn attach-btn" id="attach-btn" title="Attach file" aria-label="Attach file">
+          <button class="icon-btn attach-btn" id="attach-btn" title="Attach file" aria-label="Attach file" type="button">
             <span class="icon" data-icon="attach"></span>
           </button>
-          <button class="icon-btn image-btn" id="image-btn" title="Attach image" aria-label="Attach image">
+          <button class="icon-btn image-btn" id="image-btn" title="Attach image" aria-label="Attach image" type="button">
             <span class="icon" data-icon="image"></span>
           </button>
-          <button class="icon-btn mic-btn" id="mic-btn" title="Voice input" aria-label="Voice input">
+          <button class="icon-btn mic-btn" id="mic-btn" title="Voice input" aria-label="Voice input" type="button">
             <span class="icon" data-icon="mic"></span>
           </button>
 
           <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
 
-          <button class="send-btn" id="send-btn" title="Send message" aria-label="Send message">
+          <button class="send-btn" id="send-btn" title="Send message" aria-label="Send message" type="button">
             <span class="icon" data-icon="send"></span>
           </button>
         </footer>
       </div>
     </section>
   </div>
+
+  <div class="new-chat-modal hidden" id="new-chat-modal" aria-hidden="true">
+    <div class="new-chat-backdrop" id="new-chat-backdrop"></div>
+    <div class="new-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+      <div class="new-chat-header">
+        <div>
+          <div class="section-kicker mono">New chat</div>
+          <div class="new-chat-title" id="new-chat-title">Start a direct message</div>
+        </div>
+        <button class="text-btn" id="new-chat-close" type="button">Close</button>
+      </div>
+
+      <div class="new-chat-search">
+        <input
+          id="new-chat-search"
+          type="text"
+          placeholder="Search registered users"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="new-chat-results" id="new-chat-results"></div>
+    </div>
+  </div>
+
+  <div class="attachment-modal hidden" id="attachment-modal" aria-hidden="true">
+    <div class="attachment-modal-backdrop" id="attachment-modal-backdrop"></div>
+    <div class="attachment-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="attachment-modal-title">
+      <div class="attachment-modal-header">
+        <div>
+          <div class="section-kicker mono">Attachment</div>
+          <div class="attachment-modal-title" id="attachment-modal-title">Preview</div>
+        </div>
+        <button class="text-btn" id="attachment-modal-close" type="button">Close</button>
+      </div>
+
+      <div class="attachment-modal-body" id="attachment-modal-body"></div>
+
+      <div class="attachment-modal-actions">
+        <button class="empty-state-btn" id="attachment-modal-open" type="button">Open</button>
+        <button class="empty-state-btn" id="attachment-modal-download" type="button">Download</button>
+      </div>
+    </div>
+  </div>
+
 
   <input type="file" id="file-input" hidden />
   <input type="file" id="image-input" hidden accept="image/*" />

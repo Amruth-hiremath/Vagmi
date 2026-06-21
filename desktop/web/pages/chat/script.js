@@ -1,8 +1,14 @@
 import {
   getConversations,
   getMessages,
-  sendMessage
+  sendMessage,
+  sendImage,
+  markConversationRead,
+  startConversation
 } from "../../services/dm.js";
+
+import { searchUsers } from "../../services/users.js";
+import { apiRequest } from "../../services/api.js";
 
 const state = {
   activeThreadId: null,
@@ -11,8 +17,14 @@ const state = {
   convoSearch: "",
   menuOpen: false,
   infoOpen: false,
+  newChatOpen: false,
   threads: []
 };
+
+const ACTIVE_THREAD_KEY = "vagmi-active-chat-thread";
+let newChatSearchTimer = null;
+let loadSequence = 0;
+let attachmentPreview = null;
 
 const threadList = document.getElementById("thread-list");
 const chatSearch = document.getElementById("chat-search");
@@ -24,7 +36,7 @@ const conversationContent = document.getElementById("conversation-content");
 const conversationEmptyState = document.getElementById("conversation-empty-state");
 const conversationEmptyTitle = document.getElementById("conversation-empty-title");
 const conversationEmptyCopy = document.getElementById("conversation-empty-copy");
-const emptyStateNewChat = document.getElementById("new-chat-btn");
+const threadNewChatBtn = document.getElementById("thread-new-chat-btn");
 const conversationTitle = document.getElementById("conversation-title");
 const conversationStatus = document.getElementById("conversation-status");
 const conversationAvatar = document.getElementById("conversation-avatar");
@@ -45,6 +57,19 @@ const inputField = document.getElementById("message-input");
 const fileInput = document.getElementById("file-input");
 const imageInput = document.getElementById("image-input");
 
+const newChatModal = document.getElementById("new-chat-modal");
+const newChatBackdrop = document.getElementById("new-chat-backdrop");
+const newChatClose = document.getElementById("new-chat-close");
+const newChatSearch = document.getElementById("new-chat-search");
+const newChatResults = document.getElementById("new-chat-results");
+const attachmentModal = document.getElementById("attachment-modal");
+const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
+const attachmentModalClose = document.getElementById("attachment-modal-close");
+const attachmentModalTitle = document.getElementById("attachment-modal-title");
+const attachmentModalBody = document.getElementById("attachment-modal-body");
+const attachmentModalOpen = document.getElementById("attachment-modal-open");
+const attachmentModalDownload = document.getElementById("attachment-modal-download");
+
 function getCurrentUser() {
   try {
     return JSON.parse(localStorage.getItem("vagmi_user") || "null");
@@ -52,6 +77,7 @@ function getCurrentUser() {
     return null;
   }
 }
+
 const currentUser = getCurrentUser();
 
 const iconMap = {
@@ -63,62 +89,342 @@ const iconMap = {
   send: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`,
   file: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h5"></path></svg>`,
   imageSmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8" cy="9" r="1.4"></circle><path d="M21 17l-5-5-5 5-3-3-5 5"></path></svg>`,
-  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"></path></svg>`
+  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"></path></svg>`,
+  compose: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 20h4l12-12a2.5 2.5 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>`
 };
 
-function activeThread() {
-  return state.threads.find((thread) => thread.id === state.activeThreadId) || null;
-}
-
 function escapeHTML(str) {
-  return String(str)
+  return String(str ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
 
-function formatFileSize(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(1)} MB`;
+function formatTime(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (!size) return "";
+  if (size < 1024) return `${size} B`;
+  const kb = size / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
 
-function requestNewChat() {
-  window.parent?.postMessage({ type: "new-chat" }, "*");
-  window.dispatchEvent(new CustomEvent("vagmi:new-chat"));
+function clearAttachmentPreview() {
+  if (attachmentPreview?.objectUrl) {
+    URL.revokeObjectURL(attachmentPreview.objectUrl);
+  }
+  attachmentPreview = null;
+}
+
+function closeAttachmentModal() {
+  if (!attachmentModal) return;
+  clearAttachmentPreview();
+  attachmentModal.classList.add("hidden");
+  attachmentModal.setAttribute("aria-hidden", "true");
+  if (attachmentModalBody) attachmentModalBody.innerHTML = "";
+  if (attachmentModalTitle) attachmentModalTitle.textContent = "Preview";
+}
+
+function openAttachmentModal() {
+  if (!attachmentModal) return;
+  attachmentModal.classList.remove("hidden");
+  attachmentModal.setAttribute("aria-hidden", "false");
+}
+
+function attachmentDownloadName(message) {
+  return message?.originalFilename || "attachment";
+}
+
+function buildAttachmentUrl(thread, message) {
+  if (!thread || !message) return "";
+  if (message.attachmentId) {
+    return `/attachments/${message.attachmentId}`;
+  }
+  if (thread.kind === "dm" && message.attachmentPath) {
+    return `/dm/${thread.id}/messages/${message.id}/attachment`;
+  }
+  return "";
+}
+
+async function fetchAttachmentBlob(thread, message) {
+  const url = buildAttachmentUrl(thread, message);
+  if (!url) {
+    throw new Error("Attachment is not available.");
+  }
+
+  const response = await apiRequest(url);
+  const blob = await response.blob();
+  return {
+    blob,
+    contentType: response.headers.get("content-type") || blob.type || "application/octet-stream",
+    filename: attachmentDownloadName(message)
+  };
+}
+
+function buildAttachmentCard(thread, message) {
+  const name = escapeHTML(message.originalFilename || "Attachment");
+  const meta = message.type === "IMAGE" ? "Image attachment" : "File attachment";
+  const icon = message.type === "IMAGE" ? iconMap.imageSmall : iconMap.file;
+  const attachmentUrl = buildAttachmentUrl(thread, message);
+  const hasRemoteAttachment = Boolean(attachmentUrl);
+
+  return `
+    <div
+      class="attachment-card${hasRemoteAttachment ? " clickable" : ""}"
+      data-attachment-thread-id="${thread.id}"
+      data-attachment-message-id="${message.id}"
+      data-attachment-kind="${message.type}"
+      ${hasRemoteAttachment ? 'role="button" tabindex="0"' : ""}
+      aria-label="${hasRemoteAttachment ? `Open attachment ${name}` : `Attachment ${name}`}"
+    >
+      <div class="attachment-card-icon">${icon}</div>
+      <div class="attachment-card-main">
+        <div class="attachment-card-title">${name}</div>
+        <div class="attachment-card-subtitle">${meta}</div>
+      </div>
+      <div class="attachment-card-actions">
+        ${
+          hasRemoteAttachment
+            ? `<button class="attachment-action-btn" data-attachment-action="view" type="button">Open</button>
+               <button class="attachment-action-btn" data-attachment-action="download" type="button">Download</button>`
+            : `<span class="attachment-local-label">Stored locally</span>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderAttachmentModalView(thread, message, blob, contentType) {
+  const title = message.originalFilename || "Attachment";
+  const objectUrl = URL.createObjectURL(blob);
+  clearAttachmentPreview();
+  attachmentPreview = { objectUrl, filename: title, contentType };
+
+  if (attachmentModalTitle) attachmentModalTitle.textContent = title;
+
+  const isImage = contentType.startsWith("image/") || message.type === "IMAGE";
+  const isPdf = contentType.includes("pdf") || /\.pdf$/i.test(title);
+  const isText = contentType.startsWith("text/") || /\.(txt|md|json|csv|log)$/i.test(title);
+
+  if (!attachmentModalBody) return;
+
+  if (isImage) {
+    attachmentModalBody.innerHTML = `
+      <div class="attachment-preview">
+        <img class="attachment-preview-image" src="${objectUrl}" alt="${escapeHTML(title)}" />
+      </div>
+    `;
+  } else if (isPdf) {
+    attachmentModalBody.innerHTML = `
+      <div class="attachment-preview">
+        <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
+      </div>
+    `;
+  } else if (isText) {
+    attachmentModalBody.innerHTML = `
+      <div class="attachment-preview">
+        <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
+      </div>
+    `;
+  } else {
+    attachmentModalBody.innerHTML = `
+      <div class="attachment-preview">
+        <div class="attachment-preview-card">
+          <div class="avatar-large" style="margin:0 auto;">${iconMap.file}</div>
+          <div class="attachment-preview-name">${escapeHTML(title)}</div>
+          <div class="attachment-preview-copy">This file can be opened in a new tab or downloaded locally.</div>
+        </div>
+      </div>
+    `;
+  }
+
+  attachmentModalOpen.onclick = () => {
+    if (!attachmentPreview?.objectUrl) return;
+    window.open(attachmentPreview.objectUrl, "_blank", "noopener,noreferrer");
+  };
+
+  attachmentModalDownload.onclick = () => {
+    if (!attachmentPreview?.objectUrl) return;
+    const link = document.createElement("a");
+    link.href = attachmentPreview.objectUrl;
+    link.download = attachmentPreview.filename || "attachment";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+}
+
+async function openAttachmentViewer(thread, message) {
+  try {
+    const { blob, contentType, filename } = await fetchAttachmentBlob(thread, message);
+    renderAttachmentModalView(thread, { ...message, originalFilename: filename }, blob, contentType);
+    openAttachmentModal();
+  } catch (error) {
+    console.error("Attachment open failed", error);
+  }
+}
+
+async function downloadAttachment(thread, message) {
+  try {
+    const { blob, filename } = await fetchAttachmentBlob(thread, message);
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename || "attachment";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  } catch (error) {
+    console.error("Attachment download failed", error);
+  }
+}
+
+function activeThread() {
+  return state.threads.find((thread) => thread.id === state.activeThreadId) || null;
+}
+
+function saveActiveThreadId(threadId) {
+  if (threadId === null || threadId === undefined) {
+    localStorage.removeItem(ACTIVE_THREAD_KEY);
+    return;
+  }
+  localStorage.setItem(ACTIVE_THREAD_KEY, String(threadId));
+}
+
+function getSavedActiveThreadId() {
+  const raw = localStorage.getItem(ACTIVE_THREAD_KEY);
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clearConversationCanvas() {
+  messagesScroll.innerHTML = "";
+  dayChip.hidden = true;
+}
+
+function showConversationEmptyState() {
+  const hasThreads = state.threads.length > 0;
+
+  state.menuOpen = false;
+  state.infoOpen = false;
+  conversationSearchRow.classList.add("hidden");
+  menuPopover.classList.add("hidden");
+  infoDrawer.classList.add("hidden");
+  closeAttachmentModal();
+  state.convoSearch = "";
+  conversationSearch.value = "";
+
+  conversationPane.classList.add("is-empty");
+  conversationEmptyState.hidden = false;
+  conversationContent.hidden = true;
+  clearConversationCanvas();
+
+  conversationEmptyTitle.textContent = hasThreads ? "No chat selected" : "No conversations yet";
+  conversationEmptyCopy.textContent = hasThreads
+    ? "Choose a conversation from the left or start a new one."
+    : "Your conversations will appear here once they are created.";
+
 }
 
 function openConversationView() {
   conversationPane.classList.remove("is-empty");
-  conversationContent.hidden = false;
   conversationEmptyState.hidden = true;
+  conversationContent.hidden = false;
+  clearConversationCanvas();
 }
 
-function showConversationEmptyState(mode = "default") {
-  conversationPane.classList.add("is-empty");
-  conversationContent.hidden = true;
-  conversationEmptyState.hidden = false;
+function requestNewChat() {
+  openNewChatModal();
+}
 
-  menuPopover.classList.add("hidden");
-  infoDrawer.classList.add("hidden");
-  state.menuOpen = false;
-  state.infoOpen = false;
-  conversationSearchRow.classList.add("hidden");
-  state.convoSearch = "";
-  conversationSearch.value = "";
+function openNewChatModal() {
+  if (!newChatModal) return;
+  state.newChatOpen = true;
+  newChatModal.classList.remove("hidden");
+  newChatSearch.value = "";
+  renderNewChatState("Search registered users to start a new chat.");
+  setTimeout(() => newChatSearch?.focus(), 0);
+  searchRegisteredUsers("");
+}
 
-  if (mode === "no-threads") {
-    conversationEmptyTitle.textContent = "No chat selected";
-    conversationEmptyCopy.textContent = "No conversations have been created yet. Start a new chat to begin messaging.";
-    emptyStateNewChat.textContent = "New chat";
-  } else {
-    conversationEmptyTitle.textContent = "No chat selected";
-    conversationEmptyCopy.textContent = "Choose a conversation from the left or start a new chat.";
-    emptyStateNewChat.textContent = "New chat";
+function closeNewChatModal() {
+  if (!newChatModal) return;
+  state.newChatOpen = false;
+  if (newChatSearchTimer) {
+    clearTimeout(newChatSearchTimer);
+    newChatSearchTimer = null;
+  }
+  newChatModal.classList.add("hidden");
+  newChatSearch.value = "";
+  renderNewChatState("Search registered users to start a new chat.");
+}
+
+function renderNewChatState(message) {
+  if (!newChatResults) return;
+  newChatResults.innerHTML = `<div class="new-chat-empty">${escapeHTML(message)}</div>`;
+}
+
+function renderNewChatResults(users) {
+  if (!newChatResults) return;
+  const list = Array.isArray(users) ? users : [];
+  if (list.length === 0) {
+    renderNewChatState("No matching users found.");
+    return;
+  }
+
+  newChatResults.innerHTML = list.map((user) => {
+    const username = user.username || "User";
+    const initials = username
+      .split(/[^a-zA-Z0-9]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("") || "U";
+
+    return `
+      <button type="button" class="new-chat-result" data-username="${escapeHTML(username)}">
+        <div class="avatar">${escapeHTML(initials)}</div>
+        <div>
+          <div class="result-name">${escapeHTML(username)}</div>
+          <div class="result-meta">Direct message</div>
+        </div>
+        <div class="result-action">Start</div>
+      </button>
+    `;
+  }).join("");
+}
+
+async function searchRegisteredUsers(query) {
+  if (!newChatResults) return;
+  try {
+    newChatResults.innerHTML = `<div class="new-chat-loading">Searching users...</div>`;
+    const users = await searchUsers(query ?? "");
+    renderNewChatResults(users);
+  } catch (error) {
+    console.error("User search failed", error);
+    renderNewChatState("Unable to search users right now.");
+  }
+}
+
+async function startChatWithUser(username) {
+  try {
+    const conversation = await startConversation(username);
+    closeNewChatModal();
+    await loadConversations({ preserveSelection: false });
+    await openThread(conversation.id, { remember: true });
+  } catch (error) {
+    console.error("Failed to start conversation", error);
+    renderNewChatState(error?.message || "Failed to start conversation.");
   }
 }
 
@@ -146,16 +452,16 @@ function renderThreadEmptyState(title, copy, actionLabel = "New chat", actionKin
   });
 }
 
+function previewText(thread) {
+  if (thread.lastMessageType === "IMAGE") return thread.lastMessage || "Image";
+  if (thread.lastMessageType === "FILE") return thread.lastMessage || "File";
+  return thread.lastMessage || "No messages yet";
+}
+
 function iconForPreview(type) {
   if (type === "IMAGE") return "imageSmall";
   if (type === "FILE") return "file";
   return null;
-}
-
-function previewText(thread) {
-  if (thread.lastMessageType === "IMAGE") return "Image";
-  if (thread.lastMessageType === "FILE") return thread.lastMessage;
-  return thread.lastMessage || "No messages yet";
 }
 
 function renderThreads() {
@@ -163,10 +469,13 @@ function renderThreads() {
 
   const filteredThreads = state.threads.filter((thread) => {
     const matchesKind = state.threadFilter === "all" || thread.kind === state.threadFilter;
-    const matchesSearch =
-      thread.title.toLowerCase().includes(filterTerm) ||
-      (thread.lastMessage || "").toLowerCase().includes(filterTerm);
-    return matchesKind && matchesSearch;
+    const haystack = [
+      thread.title || "",
+      thread.lastMessage || "",
+      thread.status || "",
+      thread.kind || ""
+    ].join(" ").toLowerCase();
+    return matchesKind && haystack.includes(filterTerm);
   });
 
   if (state.threads.length === 0) {
@@ -193,8 +502,9 @@ function renderThreads() {
 
   filteredThreads.forEach((thread) => {
     const item = document.createElement("button");
+    item.type = "button";
     item.className = "thread-item" + (thread.id === state.activeThreadId ? " active" : "");
-    item.dataset.threadId = thread.id;
+    item.dataset.threadId = String(thread.id);
     item.innerHTML = `
       <div class="avatar">${escapeHTML(thread.initials)}</div>
       <div class="thread-meta">
@@ -211,56 +521,44 @@ function renderThreads() {
         </div>
       </div>
     `;
-    item.addEventListener("click", () => openThread(thread.id));
     threadList.appendChild(item);
   });
 }
 
-function messageHTML(message) {
+threadList.addEventListener("click", (event) => {
+  const btn = event.target.closest(".thread-item");
+  if (!btn) return;
+  const threadId = Number(btn.dataset.threadId);
+  if (!Number.isFinite(threadId)) return;
+  openThread(threadId);
+});
+
+function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
-  const senderLine = message.sender === "self" ? "" : `<div class="message-sender">${escapeHTML(message.senderName)}</div>`;
+  const senderLine =
+    message.sender === "other"
+      ? `<div class="message-sender">${escapeHTML(message.senderName || "Sender")}</div>`
+      : "";
 
   if (message.type === "TEXT") {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          <div class="message-text">${escapeHTML(message.text)}</div>
-          <div class="message-time mono">${escapeHTML(message.time)}</div>
+          <div class="message-text">${escapeHTML(message.text || "")}</div>
+          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
       </div>
     `;
   }
 
-  if (message.type === "IMAGE") {
-    const imgSrc = message.file?.preview || "";
+  if (message.type === "IMAGE" || message.type === "FILE") {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          <div class="attachment-card image-card">
-            <img src="${escapeHTML(imgSrc)}" alt="${escapeHTML(message.file?.name || "Image")}" />
-            ${message.caption ? `<div class="message-text">${escapeHTML(message.caption)}</div>` : ""}
-          </div>
-          <div class="message-time mono">${escapeHTML(message.time)}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  if (message.type === "FILE") {
-    return `
-      <div class="message-row ${sideClass}">
-        <div class="message-bubble">
-          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          <div class="file-chip">
-            <div class="file-icon">${iconMap.file}</div>
-            <div class="file-text">
-              <div class="file-name">${escapeHTML(message.file?.name || "File")}</div>
-              <div class="file-meta">${escapeHTML(message.file?.size || "")}</div>
-            </div>
-          </div>
-          <div class="message-time mono">${escapeHTML(message.time)}</div>
+          ${buildAttachmentCard(thread, message)}
+          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
       </div>
     `;
@@ -270,13 +568,26 @@ function messageHTML(message) {
 }
 
 function renderMessages(thread) {
-  if (!thread) {
-    messagesScroll.innerHTML = "";
-    dayChip.hidden = true;
+  if (!thread || state.activeThreadId !== thread.id) {
+    clearConversationCanvas();
     return;
   }
 
   const messages = thread.messages.filter((msg) => msg.type !== "DAY");
+  const term = state.convoSearch.trim().toLowerCase();
+
+  const filtered = !term
+    ? messages
+    : messages.filter((msg) => {
+        const haystack = [
+          msg.senderName || "",
+          msg.text || "",
+          msg.originalFilename || "",
+          msg.fileMeta || ""
+        ].join(" ").toLowerCase();
+        return haystack.includes(term);
+      });
+
   if (messages.length === 0) {
     messagesScroll.innerHTML = `
       <div class="messages-empty">
@@ -291,23 +602,6 @@ function renderMessages(thread) {
     return;
   }
 
-  dayChip.hidden = false;
-  dayChip.textContent = "Today";
-  const term = state.convoSearch.trim().toLowerCase();
-
-  const filtered = !term
-    ? messages
-    : messages.filter((msg) => {
-        const haystack = [
-          msg.senderName || "",
-          msg.text || "",
-          msg.caption || "",
-          msg.file?.name || "",
-          msg.file?.size || ""
-        ].join(" ").toLowerCase();
-        return haystack.includes(term);
-      });
-
   if (filtered.length === 0) {
     messagesScroll.innerHTML = `
       <div class="messages-empty">
@@ -318,10 +612,14 @@ function renderMessages(thread) {
         </div>
       </div>
     `;
+    dayChip.hidden = true;
     return;
   }
 
-  messagesScroll.innerHTML = filtered.map(messageHTML).join("");
+  dayChip.hidden = false;
+  dayChip.textContent = "Today";
+  messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
+
   requestAnimationFrame(() => {
     messagesScroll.scrollTop = messagesScroll.scrollHeight;
   });
@@ -330,7 +628,7 @@ function renderMessages(thread) {
 function updateConversationMeta(thread) {
   if (!thread) return;
   conversationTitle.textContent = thread.title || "Conversation";
-  conversationStatus.textContent = thread.status || "Online";
+  conversationStatus.textContent = thread.status || "Direct Message";
   conversationAvatar.textContent = thread.initials || "VA";
   document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
   document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
@@ -351,76 +649,91 @@ function updateInfoDrawer(thread) {
 function closeOverlays() {
   menuPopover.classList.add("hidden");
   infoDrawer.classList.add("hidden");
+  attachmentModal?.classList.add("hidden");
   state.menuOpen = false;
   state.infoOpen = false;
   conversationSearchRow.classList.add("hidden");
 }
 
-function setActiveThread(threadId) {
-  state.activeThreadId = threadId;
-  const thread = activeThread();
-  if (thread) {
-    openConversationView();
+async function loadMessages(conversationId, loadToken = 0) {
+  try {
+    const messages = await getMessages(conversationId);
+    if (loadToken !== 0 && loadToken !== loadSequence) return;
+
+    const thread = state.threads.find((t) => t.id === Number(conversationId));
+    if (!thread) return;
+
+    thread.messages = (messages || []).map((message) => {
+      const senderName = message.sender_username || "Unknown";
+      const isSelf = senderName === (currentUser?.username || "");
+      return {
+        id: message.id,
+        sender: isSelf ? "self" : "other",
+        senderName,
+        type: (message.message_type || "TEXT").toUpperCase(),
+        text: message.message_text || "",
+        originalFilename: message.original_filename || "",
+        attachmentPath: message.attachment_path || "",
+        attachmentId: message.attachment_id || null,
+        fileMeta: message.original_filename || "",
+        time: formatTime(message.created_at)
+      };
+    });
+
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
     renderMessages(thread);
-  } else {
-    showConversationEmptyState(state.threads.length === 0 ? "no-threads" : "default");
+  } catch (error) {
+    console.error("Failed loading messages", error);
   }
-  renderThreads();
 }
 
-function openThread(threadId) {
-  state.activeThreadId = threadId;
-  const thread = activeThread();
+async function openThread(threadId, { remember = true } = {}) {
+  const numericId = Number(threadId);
+  if (!Number.isFinite(numericId)) return;
+
+  const thread = state.threads.find((item) => item.id === numericId);
   if (!thread) return;
 
-  thread.unread = 0;
+  state.activeThreadId = numericId;
+  if (remember) {
+    saveActiveThreadId(numericId);
+  }
+
   state.convoSearch = "";
   conversationSearch.value = "";
+  closeAttachmentModal();
   closeOverlays();
   openConversationView();
   updateConversationMeta(thread);
   updateInfoDrawer(thread);
   renderThreads();
-  loadMessages(threadId);
-}
 
-function setComposerText(text) {
-  inputField.value = text;
-  inputField.dispatchEvent(new Event("input"));
-}
+  loadSequence += 1;
+  const currentSequence = loadSequence;
 
-function appendLocalThreadMessage(thread, payload) {
-  const now = new Date();
-  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  await loadMessages(numericId, currentSequence);
+  if (currentSequence !== loadSequence) return;
 
-  const message = {
-    id: `local-${Date.now()}`,
-    sender: "self",
-    senderName: currentUser?.username || "You",
-    time,
-    ...payload
-  };
-
-  thread.messages.push(message);
-  thread.lastMessageTime = time;
-
-  if (payload.type === "TEXT") {
-    thread.lastMessage = payload.text;
-    thread.lastMessageType = "TEXT";
-  } else if (payload.type === "IMAGE") {
-    thread.lastMessage = "Image";
-    thread.lastMessageType = "IMAGE";
-  } else if (payload.type === "FILE") {
-    thread.lastMessage = payload.file.name;
-    thread.lastMessageType = "FILE";
+  try {
+    await markConversationRead(numericId);
+    thread.unread = 0;
+    renderThreads();
+  } catch (error) {
+    console.error("Failed marking conversation as read", error);
   }
+}
 
-  thread.unread = 0;
-  updateConversationMeta(thread);
+function closeConversationAndShowEmptyState() {
+  loadSequence += 1;
+  state.activeThreadId = null;
+  saveActiveThreadId(null);
+  state.convoSearch = "";
+  conversationSearch.value = "";
+  closeAttachmentModal();
+  closeOverlays();
   renderThreads();
-  renderMessages(thread);
+  showConversationEmptyState();
 }
 
 async function handleSend() {
@@ -436,18 +749,22 @@ async function handleSend() {
     inputField.style.overflowY = "hidden";
 
     await sendMessage(thread.id, text);
-    await loadMessages(thread.id);
-
     thread.lastMessage = text;
     thread.lastMessageType = "TEXT";
-    thread.lastMessageTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    thread.lastMessageTime = formatTime(new Date());
     thread.unread = 0;
 
+    await loadMessages(thread.id);
     renderThreads();
   } catch (error) {
     console.error("Message send failed", error);
     setComposerText(text);
   }
+}
+
+function setComposerText(text) {
+  inputField.value = text;
+  inputField.dispatchEvent(new Event("input"));
 }
 
 function handleAttachment(file, forceType = null) {
@@ -457,69 +774,75 @@ function handleAttachment(file, forceType = null) {
   const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
 
   if (type === "IMAGE") {
-    const preview = URL.createObjectURL(file);
-    appendLocalThreadMessage(thread, {
-      type: "IMAGE",
-      file: { name: file.name, size: formatFileSize(file.size), preview },
-      caption: file.name
-    });
+    sendImage(thread.id, file)
+      .then(() => loadMessages(thread.id))
+      .then(() => {
+        thread.lastMessage = "Image";
+        thread.lastMessageType = "IMAGE";
+        thread.lastMessageTime = formatTime(new Date());
+        renderThreads();
+      })
+      .catch((error) => {
+        console.error("Image send failed", error);
+      });
     return;
   }
 
-  appendLocalThreadMessage(thread, {
+  // File attachments are not yet supported by the backend DM flow.
+  // We keep the composer functional without breaking the interface.
+  const time = formatTime(new Date());
+  thread.messages.push({
+    id: `local-${Date.now()}`,
+    sender: "self",
+    senderName: currentUser?.username || "You",
     type: "FILE",
-    file: { name: file.name, size: formatFileSize(file.size) }
+    originalFilename: file.name,
+    fileMeta: formatFileSize(file.size),
+    time
   });
+  thread.lastMessage = file.name;
+  thread.lastMessageType = "FILE";
+  thread.lastMessageTime = time;
+  renderMessages(thread);
+  renderThreads();
 }
 
-async function loadConversations() {
+async function loadConversations({ preserveSelection = true } = {}) {
   const conversations = await getConversations();
-  console.log("Backend conversations:", conversations);
+  const preservedActiveId = preserveSelection ? state.activeThreadId : null;
 
   state.threads = (conversations || []).map((conversation) => ({
-    id: conversation.conversation_id,
+    id: Number(conversation.conversation_id),
     kind: conversation.kind || "dm",
     title: conversation.username || "Conversation",
     initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
     status: conversation.status || "Direct Message",
     unread: conversation.unread_count || 0,
     lastMessage: conversation.last_message || "",
+    lastMessageSender: conversation.last_message_sender || "",
     lastMessageType: conversation.last_message_type || (conversation.last_message ? "TEXT" : "TEXT"),
-    lastMessageTime: conversation.last_message_time || "",
+    lastMessageTime: formatTime(conversation.last_message_time),
     members: [conversation.username || "User"],
     messages: []
   }));
 
-  state.activeThreadId = null;
   renderThreads();
 
-  if (state.threads.length === 0) {
-    showConversationEmptyState("no-threads");
-  } else {
-    showConversationEmptyState("default");
+  if (
+    preservedActiveId !== null &&
+    state.threads.some((thread) => thread.id === preservedActiveId)
+  ) {
+    await openThread(preservedActiveId, { remember: false });
+    return;
   }
-}
 
-async function loadMessages(conversationId) {
-  try {
-    const messages = await getMessages(conversationId);
-    const thread = state.threads.find((t) => t.id === conversationId);
-    if (!thread) return;
+  state.activeThreadId = null;
+  saveActiveThreadId(null);
 
-    thread.messages = (messages || []).map((message) => ({
-      id: message.id,
-      sender: message.sender_username === (currentUser?.username || "") ? "self" : "other",
-      senderName: message.sender_username,
-      type: message.message_type,
-      text: message.message_text,
-      time: new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    }));
-
-    updateConversationMeta(thread);
-    updateInfoDrawer(thread);
-    renderMessages(thread);
-  } catch (error) {
-    console.error("Failed loading messages", error);
+  if (state.threads.length === 0) {
+    showConversationEmptyState();
+  } else {
+    showConversationEmptyState();
   }
 }
 
@@ -528,14 +851,18 @@ function currentSearchUpdate() {
   renderThreads();
 }
 
-function closeConversationAndShowEmptyState() {
-  state.activeThreadId = null;
-  state.convoSearch = "";
-  conversationSearch.value = "";
-  closeOverlays();
-  renderThreads();
-  showConversationEmptyState(state.threads.length === 0 ? "no-threads" : "default");
-}
+document.querySelectorAll("[data-icon]").forEach((el) => {
+  const iconName = el.dataset.icon;
+  el.innerHTML = iconMap[iconName] || "";
+});
+
+threadList.addEventListener("click", (event) => {
+  const btn = event.target.closest(".thread-item");
+  if (!btn) return;
+  const threadId = Number(btn.dataset.threadId);
+  if (!Number.isFinite(threadId)) return;
+  openThread(threadId);
+});
 
 inputField.addEventListener("input", function () {
   this.style.height = "auto";
@@ -552,6 +879,8 @@ inputField.addEventListener("keydown", (event) => {
 
 sendBtn.addEventListener("click", handleSend);
 backBtn.addEventListener("click", closeConversationAndShowEmptyState);
+
+threadNewChatBtn?.addEventListener("click", () => requestNewChat());
 
 attachBtn.addEventListener("click", () => fileInput.click());
 imageBtn.addEventListener("click", () => imageInput.click());
@@ -658,26 +987,82 @@ menuPopover.addEventListener("click", (event) => {
   }
 });
 
-emptyStateNewChat.addEventListener("click", () => {
-  requestNewChat();
+newChatClose?.addEventListener("click", closeNewChatModal);
+newChatBackdrop?.addEventListener("click", closeNewChatModal);
+
+newChatSearch?.addEventListener("input", () => {
+  if (newChatSearchTimer) {
+    clearTimeout(newChatSearchTimer);
+  }
+  const value = newChatSearch.value;
+  newChatSearchTimer = setTimeout(() => {
+    searchRegisteredUsers(value);
+  }, 220);
 });
 
-document.querySelectorAll("[data-icon]").forEach((el) => {
-  const iconName = el.dataset.icon;
-  el.innerHTML = iconMap[iconName] || "";
+newChatResults?.addEventListener("click", (event) => {
+  const btn = event.target.closest(".new-chat-result");
+  if (!btn) return;
+  const username = btn.dataset.username;
+  if (!username) return;
+  startChatWithUser(username);
+});
+
+messagesScroll.addEventListener("click", (event) => {
+  const actionBtn = event.target.closest("[data-attachment-action]");
+  const card = event.target.closest(".attachment-card.clickable");
+  if (!actionBtn && !card) return;
+
+  const targetCard = actionBtn ? actionBtn.closest(".attachment-card.clickable") : card;
+  if (!targetCard) return;
+
+  const threadId = Number(targetCard.dataset.attachmentThreadId);
+  const messageId = Number(targetCard.dataset.attachmentMessageId);
+  if (!Number.isFinite(threadId) || !Number.isFinite(messageId)) return;
+
+  const thread = state.threads.find((item) => item.id === threadId);
+  if (!thread) return;
+  const message = thread.messages.find((item) => item.id === messageId);
+  if (!message) return;
+
+  const action = actionBtn?.dataset.attachmentAction || "view";
+  if (action === "download") {
+    downloadAttachment(thread, message);
+  } else {
+    openAttachmentViewer(thread, message);
+  }
+});
+
+attachmentModalBackdrop?.addEventListener("click", closeAttachmentModal);
+attachmentModalClose?.addEventListener("click", closeAttachmentModal);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.newChatOpen) {
+    closeNewChatModal();
+  }
+  if (event.key === "Escape" && attachmentModal && !attachmentModal.classList.contains("hidden")) {
+    closeAttachmentModal();
+  }
 });
 
 async function initialize() {
   try {
-    await loadConversations();
-    if (state.threads.length === 0) {
-      showConversationEmptyState("no-threads");
+    const savedThreadId = getSavedActiveThreadId();
+
+    await loadConversations({ preserveSelection: false });
+
+    if (savedThreadId !== null && state.threads.some((thread) => thread.id === savedThreadId)) {
+      await openThread(savedThreadId, { remember: false });
     } else {
-      showConversationEmptyState("default");
+      state.activeThreadId = null;
+      saveActiveThreadId(null);
+      showConversationEmptyState();
     }
   } catch (error) {
     console.error("Conversation load failed", error);
-    showConversationEmptyState("no-threads");
+    state.activeThreadId = null;
+    saveActiveThreadId(null);
+    showConversationEmptyState();
   }
 }
 

@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
 from fastapi.responses import FileResponse
-
+from pathlib import Path
 from datetime import datetime
 from datetime import timezone
 
@@ -352,6 +352,75 @@ def get_messages(
         )
 
     return result
+
+
+@router.get(
+    "/{conversation_id}/messages/{message_id}/attachment"
+)
+def download_message_attachment(
+    conversation_id: int,
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == conversation_id
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    message = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.id == message_id
+        )
+        .filter(
+            DirectMessage.conversation_id == conversation_id
+        )
+        .first()
+    )
+
+    if not message:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    if not message.attachment_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment not found"
+        )
+
+    file_path = Path(message.attachment_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="File not found"
+        )
+
+    return FileResponse(
+        path=str(file_path),
+        filename=message.original_filename or file_path.name
+    )
 
 @router.get(
     "/voice/{message_id}"
