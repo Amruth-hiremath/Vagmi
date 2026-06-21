@@ -482,7 +482,7 @@ async function loadConversations() {
     title: conversation.username || "Conversation",
     initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
     status: conversation.status || "Direct Message",
-    unread: 0,
+    unread: conversation.unread_count || 0,
     lastMessage: conversation.last_message || "",
     lastMessageType: conversation.last_message_type || (conversation.last_message ? "TEXT" : "TEXT"),
     lastMessageTime: conversation.last_message_time || "",
