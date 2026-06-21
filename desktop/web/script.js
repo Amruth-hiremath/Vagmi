@@ -137,24 +137,39 @@ function wireNavigation() {
 }
 
 async function bootstrap() {
-  const me = await validateSession();
-  if (!me) {
-    if (!isAuthenticated()) {
-      window.location.replace(
-        getAuthPageUrl()
-      );
+  try {
+    const me = await validateSession();
+    if (!me) {
+      if (!isAuthenticated()) {
+        window.location.replace(getAuthPageUrl());
+      }
+      return;
     }
-    return;
+
+    const savedCollapsed =
+      localStorage.getItem(
+        sidebarStateKey
+      ) === "1";
+
+    setSidebarCollapsed(savedCollapsed);
+    wireNavigation();
+    updateUserBadge(getUser() || me);
+
+    const savedPage = localStorage.getItem(activePageKey);
+
+    setActivePage(
+      PAGE_MAP[savedPage]
+        ? savedPage
+        : DEFAULT_PAGE
+    );
+
+    // Reveal app only after everything is ready
+    document.body.classList.remove("booting");
   }
 
-  const savedCollapsed = localStorage.getItem(sidebarStateKey) === "1";
-  setSidebarCollapsed(savedCollapsed);
-
-  wireNavigation();
-  updateUserBadge(getUser() || me);
-
-  const savedPage = localStorage.getItem(activePageKey);
-  setActivePage(PAGE_MAP[savedPage] ? savedPage : DEFAULT_PAGE);
+  catch (error) {
+    console.error(error);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

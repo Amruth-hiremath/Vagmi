@@ -91,6 +91,7 @@ function setMode(nextMode) {
 
   submitBtn.textContent = loginMode ? "Login" : "Register";
   errorText.textContent = "";
+  errorText.classList.remove("success-message", "error-message");
   confirmInput.value = "";
 
   if (loginMode) {
@@ -110,7 +111,7 @@ async function goToAppIfAuthenticated() {
     saveUser(me);
     window.location.replace("../../index.html");
   } catch (error) {
-    if (String(error?.message || "").includes("Unable to reach the backend")) {
+    if (String(error?.message || "").includes("Unable to reach the backend!")) {
       return;
     }
     clearSession();
@@ -122,12 +123,14 @@ async function submitAuth() {
   const password = passwordInput.value;
 
   if (!username || !password.trim()) {
+    errorText.classList.remove("success-message", "error-message");
     errorText.textContent = "Enter username and password";
     return;
   }
 
   submitBtn.disabled = true;
   errorText.textContent = "";
+  errorText.classList.remove("success-message", "error-message");
 
   try {
     if (mode === "login") {
@@ -196,12 +199,16 @@ async function submitAuth() {
     });
 
     setMode("login");
-    errorText.textContent = "Account created successfully";
+    errorText.classList.remove("error-message");
+    errorText.classList.add("success-message");
+    errorText.textContent = "Account created successfully! You can now log in.";
     passwordInput.value = "";
     confirmInput.value = "";
     submitBtn.disabled = true;
   } catch (error) {
-    errorText.textContent = error.message || "Authentication failed";
+    errorText.classList.remove("success-message");
+    errorText.classList.add("error-message");
+    errorText.textContent = error.message || "Authentication failed!";
   } finally {
     if (mode === "login") {
       updateLoginButtonState();
