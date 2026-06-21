@@ -3,10 +3,15 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
+from fastapi.responses import FileResponse
+
 from datetime import datetime
 from datetime import timezone
+
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
+from pathlib import Path
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -30,7 +35,7 @@ from app.services.direct_message_service import (
     get_user_conversations
 )
 from app.services.image_service import save_image
-
+from app.services.voice_service import save_voice
 router = APIRouter(
     prefix="/dm",
     tags=["Direct Messages"]
@@ -209,6 +214,72 @@ def send_image_dm(
         "seen_at": message.seen_at,
     }
 
+@router.post(
+    "/{conversation_id}/voice",
+    response_model=DirectMessageResponse
+)
+def send_voice_dm(
+    conversation_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == conversation_id
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    voice_path, original_name = save_voice(
+        file=file,
+        user_id=current_user.id
+    )
+
+    message = DirectMessage(
+        conversation_id=conversation_id,
+        sender_id=current_user.id,
+        message_text="",
+        message_type="VOICE",
+        attachment_path=voice_path,
+        original_filename=original_name,
+        delivered_at=datetime.now(timezone.utc)
+    )
+
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    return {
+        "id": message.id,
+        "conversation_id": message.conversation_id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "message_text": "",
+        "message_type": "VOICE",
+        "attachment_path": voice_path,
+        "original_filename": original_name,
+        "created_at": message.created_at,
+        "delivered_at": message.delivered_at,
+        "seen_at": message.seen_at
+    }
+
 @router.get(
     "/{conversation_id}",
     response_model=list[DirectMessageResponse]
@@ -282,6 +353,56 @@ def get_messages(
 
     return result
 
+@router.get(
+    "/voice/{message_id}"
+)
+def get_voice_message(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.id == message_id
+        )
+        .first()
+    )
+
+    if not message:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    if message.message_type != "VOICE":
+        raise HTTPException(
+            status_code=400,
+            detail="Not a voice message"
+        )
+
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == message.conversation_id
+        )
+        .first()
+    )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    return FileResponse(
+        path=message.attachment_path,
+        filename=message.original_filename
+    )
+
 @router.post(
     "/{conversation_id}/mark-read"
 )
@@ -336,4 +457,48 @@ def mark_conversation_read(
 
     return {
         "updated": len(unread_messages)
+    }
+    
+@router.delete(
+    "/message/{message_id}"
+)
+def delete_direct_message(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.id == message_id
+        )
+        .first()
+    )
+
+    if not message:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only delete your own messages"
+        )
+    
+    if message.attachment_path:
+
+        file_path = Path(
+            message.attachment_path
+        )
+
+        if file_path.exists():
+            file_path.unlink()
+
+    db.delete(message)
+    db.commit()
+
+    return {
+        "status": "deleted"
     }

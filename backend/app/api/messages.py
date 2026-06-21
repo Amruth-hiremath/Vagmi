@@ -3,6 +3,11 @@ from fastapi import Depends
 
 from sqlalchemy.orm import Session
 
+from datetime import datetime
+from datetime import timezone
+
+from pathlib import Path
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 
@@ -22,6 +27,7 @@ from app.services.room_service import (
     verify_room_membership
 )
 from app.services.image_service import save_image
+from app.services.voice_service import save_voice
 
 from app.core.logging_config import logger
 from app.models.room_member import RoomMember
@@ -131,6 +137,52 @@ def send_image_message(
         "created_at": message.created_at
     }
 
+@router.post(
+    "/room/{room_id}/voice",
+    response_model=MessageResponse
+)
+def send_voice_message(
+    room_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_room_membership(
+        room_id,
+        current_user.id,
+        db
+    )
+
+    voice_path, original_name = save_voice(
+        file=file,
+        user_id=current_user.id
+    )
+
+    message = Message(
+        room_id=room_id,
+        sender_id=current_user.id,
+        message_text="",
+        message_type="VOICE",
+        attachment_path=voice_path,
+        original_filename=original_name
+    )
+
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    return {
+        "id": message.id,
+        "room_id": message.room_id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "message_text": "",
+        "message_type": "VOICE",
+        "attachment_path": voice_path,
+        "original_filename": original_name,
+        "created_at": message.created_at
+    }
+
 
 @router.get(
     "/{room_id}/messages",
@@ -185,3 +237,46 @@ def get_messages(
         )
 
     return result
+
+@router.delete(
+    "/message/{message_id}"
+)
+def delete_message(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == message_id
+        )
+        .first()
+    )
+
+    if not message:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only delete your own messages"
+        )
+
+    if message.attachment_path:
+        file_path = Path(
+            message.attachment_path
+        )
+
+        if file_path.exists():
+            file_path.unlink()
+
+    db.delete(message)
+    db.commit()
+
+    return {
+        "status": "deleted"
+    }
