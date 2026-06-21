@@ -13,3 +13,19 @@ bcrypt==4.1.3
 
 pydantic
 python-dotenv
+
+chromadb
+
+sentence-transformers
+
+rank-bm25
+
+python-docx
+PyMuPDF
+
+numpy
+scikit-learn
+
+httpx
+
+jinja2
