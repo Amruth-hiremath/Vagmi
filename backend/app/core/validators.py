@@ -30,13 +30,13 @@ def validate_password(password: str):
     if byte_length < PASSWORD_MIN_BYTES:
         raise HTTPException(
             status_code=400,
-            detail="Password must be at least 12 characters long"
+            detail=f"Password must be at least {PASSWORD_MIN_BYTES} characters long"
         )
 
     if byte_length > PASSWORD_MAX_BYTES:
         raise HTTPException(
             status_code=400,
-            detail="Password must be 72 characters or fewer"
+            detail=f"Password must be at most {PASSWORD_MAX_BYTES} characters long"
         )
 
     if any(ch.isspace() for ch in password):
