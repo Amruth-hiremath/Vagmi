@@ -109,7 +109,7 @@ async function goToAppIfAuthenticated() {
     const response = await apiRequest("/auth/me");
     const me = await response.json();
     saveUser(me);
-    window.location.replace("../../index.html");
+    window.location.replace("../../splash.html");
   } catch (error) {
     if (String(error?.message || "").includes("Unable to reach the backend!")) {
       return;
@@ -150,7 +150,7 @@ async function submitAuth() {
       const me = await meResponse.json();
       saveUser(me);
 
-      window.location.replace("../../index.html");
+      window.location.replace("../../splash.html");
       return;
     }
 

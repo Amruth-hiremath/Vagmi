@@ -336,23 +336,3 @@ body.sidebar-collapsed .sidebar-toggle svg {
 .logout-btn:hover svg {
   transform: translateX(1px);
 }
-
-body.booting #app-shell{
-    display:none;
-}
-
-#loading-screen{
-    position:fixed;
-    inset:0;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    background:#000;
-    z-index:99999;
-}
-
-body:not(.booting) #loading-screen{
-    display:none;
-}

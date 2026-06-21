@@ -322,28 +322,20 @@ def main() -> None:
     thread.start()
 
     try:
-
-        webview.create_window(
+        window = webview.create_window(
             title="Vāgmi - Secure Workspace",
-            url=f"http://{HOST}:{server_port}/index.html",
+            url=f"http://{HOST}:{server_port}/splash.html",
             width=1600,
             height=1000,
             min_size=(1280, 840),
             background_color="#000000",
             resizable=True,
         )
-
-        webview.start(
-            debug=False
-        )
+        webview.start(window.maximize, debug=False)
 
     finally:
-
         server.shutdown()
-
         server.server_close()
 
-
 if __name__ == "__main__":
-
     main()

@@ -137,39 +137,29 @@ function wireNavigation() {
 }
 
 async function bootstrap() {
-  try {
-    const me = await validateSession();
-    if (!me) {
-      if (!isAuthenticated()) {
-        window.location.replace(getAuthPageUrl());
-      }
-      return;
-    }
+    const me = getUser();
+    if (!me)
+        return;
 
     const savedCollapsed =
-      localStorage.getItem(
-        sidebarStateKey
-      ) === "1";
+        localStorage.getItem(
+            sidebarStateKey
+        ) === "1";
 
     setSidebarCollapsed(savedCollapsed);
     wireNavigation();
-    updateUserBadge(getUser() || me);
+    updateUserBadge(me);
 
-    const savedPage = localStorage.getItem(activePageKey);
+    const savedPage =
+        localStorage.getItem(
+            activePageKey
+        );
 
     setActivePage(
-      PAGE_MAP[savedPage]
-        ? savedPage
-        : DEFAULT_PAGE
+        PAGE_MAP[savedPage]
+            ? savedPage
+            : DEFAULT_PAGE
     );
-
-    // Reveal app only after everything is ready
-    document.body.classList.remove("booting");
-  }
-
-  catch (error) {
-    console.error(error);
-  }
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);
