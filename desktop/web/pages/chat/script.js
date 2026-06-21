@@ -1,16 +1,17 @@
 import {
-    getConversations,
-    getMessages,
-    sendMessage
+  getConversations,
+  getMessages,
+  sendMessage
 } from "../../services/dm.js";
+
 const state = {
-    activeThreadId: null,
-    threadFilter: "all",
-    chatSearch: "",
-    convoSearch: "",
-    menuOpen: false,
-    infoOpen: false,
-    threads: []
+  activeThreadId: null,
+  threadFilter: "all",
+  chatSearch: "",
+  convoSearch: "",
+  menuOpen: false,
+  infoOpen: false,
+  threads: []
 };
 
 const threadList = document.getElementById("thread-list");
@@ -18,6 +19,12 @@ const chatSearch = document.getElementById("chat-search");
 const filterButtons = Array.from(document.querySelectorAll(".filter-btn"));
 const messagesScroll = document.getElementById("messages-scroll");
 const dayChip = document.getElementById("day-chip");
+const conversationPane = document.getElementById("conversation-pane");
+const conversationContent = document.getElementById("conversation-content");
+const conversationEmptyState = document.getElementById("conversation-empty-state");
+const conversationEmptyTitle = document.getElementById("conversation-empty-title");
+const conversationEmptyCopy = document.getElementById("conversation-empty-copy");
+const emptyStateNewChat = document.getElementById("new-chat-btn");
 const conversationTitle = document.getElementById("conversation-title");
 const conversationStatus = document.getElementById("conversation-status");
 const conversationAvatar = document.getElementById("conversation-avatar");
@@ -59,31 +66,8 @@ const iconMap = {
   back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"></path></svg>`
 };
 
-function currentThread() {
-  return state.threads.find((thread) => thread.id === state.activeThreadId) || state.threads[0];
-}
-
-function updateConversationMeta(thread) {
-  if (!thread) return;
-  conversationTitle.textContent = thread.title;
-  conversationStatus.textContent = thread.status;
-  conversationAvatar.textContent = thread.initials;
-  dayChip.textContent = thread.messages.find((msg) => msg.type === "DAY")?.time || "Today";
-  document.getElementById("info-participants").textContent = thread.members.length;
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
-  document.getElementById("info-files").textContent = thread.messages.filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length;
-}
-
-function iconForPreview(type) {
-  if (type === "IMAGE") return "imageSmall";
-  if (type === "FILE") return "file";
-  return null;
-}
-
-function previewText(thread) {
-  if (thread.lastMessageType === "IMAGE") return "Image";
-  if (thread.lastMessageType === "FILE") return thread.lastMessage;
-  return thread.lastMessage;
+function activeThread() {
+  return state.threads.find((thread) => thread.id === state.activeThreadId) || null;
 }
 
 function escapeHTML(str) {
@@ -102,9 +86,80 @@ function formatFileSize(bytes) {
   return `${mb.toFixed(1)} MB`;
 }
 
+
+function requestNewChat() {
+  window.parent?.postMessage({ type: "new-chat" }, "*");
+  window.dispatchEvent(new CustomEvent("vagmi:new-chat"));
+}
+
+function openConversationView() {
+  conversationPane.classList.remove("is-empty");
+  conversationContent.hidden = false;
+  conversationEmptyState.hidden = true;
+}
+
+function showConversationEmptyState(mode = "default") {
+  conversationPane.classList.add("is-empty");
+  conversationContent.hidden = true;
+  conversationEmptyState.hidden = false;
+
+  menuPopover.classList.add("hidden");
+  infoDrawer.classList.add("hidden");
+  state.menuOpen = false;
+  state.infoOpen = false;
+  conversationSearchRow.classList.add("hidden");
+  state.convoSearch = "";
+  conversationSearch.value = "";
+
+  if (mode === "no-threads") {
+    conversationEmptyTitle.textContent = "No chat selected";
+    conversationEmptyCopy.textContent = "No conversations have been created yet. Start a new chat to begin messaging.";
+    emptyStateNewChat.textContent = "New chat";
+  } else {
+    conversationEmptyTitle.textContent = "No chat selected";
+    conversationEmptyCopy.textContent = "Choose a conversation from the left or start a new chat.";
+    emptyStateNewChat.textContent = "New chat";
+  }
+}
+
+function renderThreadEmptyState(title, copy, actionLabel = "New chat", actionKind = "new-chat") {
+  threadList.innerHTML = `
+    <div class="thread-empty-state">
+      <div class="thread-empty-card">
+        <div class="thread-empty-kicker mono">Chat</div>
+        <div class="thread-empty-title">${escapeHTML(title)}</div>
+        <div class="thread-empty-copy">${escapeHTML(copy)}</div>
+        <button type="button" class="thread-empty-btn" id="thread-empty-action">${escapeHTML(actionLabel)}</button>
+      </div>
+    </div>
+  `;
+
+  const actionBtn = document.getElementById("thread-empty-action");
+  actionBtn?.addEventListener("click", () => {
+    if (actionKind === "clear-search") {
+      state.chatSearch = "";
+      chatSearch.value = "";
+      renderThreads();
+      return;
+    }
+    requestNewChat();
+  });
+}
+
+function iconForPreview(type) {
+  if (type === "IMAGE") return "imageSmall";
+  if (type === "FILE") return "file";
+  return null;
+}
+
+function previewText(thread) {
+  if (thread.lastMessageType === "IMAGE") return "Image";
+  if (thread.lastMessageType === "FILE") return thread.lastMessage;
+  return thread.lastMessage || "No messages yet";
+}
+
 function renderThreads() {
   const filterTerm = state.chatSearch.trim().toLowerCase();
-  threadList.innerHTML = "";
 
   const filteredThreads = state.threads.filter((thread) => {
     const matchesKind = state.threadFilter === "all" || thread.kind === state.threadFilter;
@@ -114,16 +169,38 @@ function renderThreads() {
     return matchesKind && matchesSearch;
   });
 
+  if (state.threads.length === 0) {
+    renderThreadEmptyState(
+      "No conversations yet",
+      "Your conversations will appear here after they are created.",
+      "New chat",
+      "new-chat"
+    );
+    return;
+  }
+
+  if (filteredThreads.length === 0) {
+    renderThreadEmptyState(
+      "No matching conversations",
+      "Try a different search term or switch the filter.",
+      "Clear search",
+      "clear-search"
+    );
+    return;
+  }
+
+  threadList.innerHTML = "";
+
   filteredThreads.forEach((thread) => {
     const item = document.createElement("button");
     item.className = "thread-item" + (thread.id === state.activeThreadId ? " active" : "");
     item.dataset.threadId = thread.id;
     item.innerHTML = `
-      <div class="avatar">${thread.initials}</div>
+      <div class="avatar">${escapeHTML(thread.initials)}</div>
       <div class="thread-meta">
         <div class="thread-title-row">
           <div class="thread-title">${escapeHTML(thread.title)}</div>
-          <div class="thread-time mono">${escapeHTML(thread.lastMessageTime)}</div>
+          <div class="thread-time mono">${escapeHTML(thread.lastMessageTime || "")}</div>
         </div>
         <div class="thread-preview-row">
           <div class="thread-preview">
@@ -140,10 +217,6 @@ function renderThreads() {
 }
 
 function messageHTML(message) {
-  if (message.type === "DAY") {
-    return "";
-  }
-
   const sideClass = message.sender === "self" ? "self" : "other";
   const senderLine = message.sender === "self" ? "" : `<div class="message-sender">${escapeHTML(message.senderName)}</div>`;
 
@@ -151,7 +224,7 @@ function messageHTML(message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
-          <div class="message-meta">${senderLine || ""}</div>
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text)}</div>
           <div class="message-time mono">${escapeHTML(message.time)}</div>
         </div>
@@ -160,13 +233,13 @@ function messageHTML(message) {
   }
 
   if (message.type === "IMAGE") {
-    const imgSrc = message.file.preview || "";
+    const imgSrc = message.file?.preview || "";
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
-          <div class="message-meta">${senderLine || ""}</div>
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="attachment-card image-card">
-            <img src="${escapeHTML(imgSrc)}" alt="${escapeHTML(message.file.name)}" />
+            <img src="${escapeHTML(imgSrc)}" alt="${escapeHTML(message.file?.name || "Image")}" />
             ${message.caption ? `<div class="message-text">${escapeHTML(message.caption)}</div>` : ""}
           </div>
           <div class="message-time mono">${escapeHTML(message.time)}</div>
@@ -179,12 +252,12 @@ function messageHTML(message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
-          <div class="message-meta">${senderLine || ""}</div>
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="file-chip">
             <div class="file-icon">${iconMap.file}</div>
-            <div>
-              <div class="file-name">${escapeHTML(message.file.name)}</div>
-              <div class="file-meta">${escapeHTML(message.file.size)}</div>
+            <div class="file-text">
+              <div class="file-name">${escapeHTML(message.file?.name || "File")}</div>
+              <div class="file-meta">${escapeHTML(message.file?.size || "")}</div>
             </div>
           </div>
           <div class="message-time mono">${escapeHTML(message.time)}</div>
@@ -196,28 +269,83 @@ function messageHTML(message) {
   return "";
 }
 
-function filterThreadMessages(thread) {
-  const term = state.convoSearch.trim().toLowerCase();
-  const messages = thread.messages.filter((msg) => msg.type !== "DAY");
-  if (!term) return messages;
-  return messages.filter((msg) => {
-    const target = [
-      msg.senderName || "",
-      msg.text || "",
-      msg.caption || "",
-      msg.file?.name || "",
-      msg.file?.size || ""
-    ].join(" ").toLowerCase();
-    return target.includes(term);
-  });
-}
-
 function renderMessages(thread) {
-  const filtered = filterThreadMessages(thread);
+  if (!thread) {
+    messagesScroll.innerHTML = "";
+    dayChip.hidden = true;
+    return;
+  }
+
+  const messages = thread.messages.filter((msg) => msg.type !== "DAY");
+  if (messages.length === 0) {
+    messagesScroll.innerHTML = `
+      <div class="messages-empty">
+        <div class="messages-empty-card">
+          <div class="messages-empty-kicker mono">Conversation ready</div>
+          <div class="messages-empty-title">No messages yet</div>
+          <div class="messages-empty-copy">Use the composer below to start this conversation.</div>
+        </div>
+      </div>
+    `;
+    dayChip.hidden = true;
+    return;
+  }
+
+  dayChip.hidden = false;
+  dayChip.textContent = "Today";
+  const term = state.convoSearch.trim().toLowerCase();
+
+  const filtered = !term
+    ? messages
+    : messages.filter((msg) => {
+        const haystack = [
+          msg.senderName || "",
+          msg.text || "",
+          msg.caption || "",
+          msg.file?.name || "",
+          msg.file?.size || ""
+        ].join(" ").toLowerCase();
+        return haystack.includes(term);
+      });
+
+  if (filtered.length === 0) {
+    messagesScroll.innerHTML = `
+      <div class="messages-empty">
+        <div class="messages-empty-card">
+          <div class="messages-empty-kicker mono">Search</div>
+          <div class="messages-empty-title">No messages match your search</div>
+          <div class="messages-empty-copy">Try another term or clear the search box.</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   messagesScroll.innerHTML = filtered.map(messageHTML).join("");
   requestAnimationFrame(() => {
     messagesScroll.scrollTop = messagesScroll.scrollHeight;
   });
+}
+
+function updateConversationMeta(thread) {
+  if (!thread) return;
+  conversationTitle.textContent = thread.title || "Conversation";
+  conversationStatus.textContent = thread.status || "Online";
+  conversationAvatar.textContent = thread.initials || "VA";
+  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
+  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
+  document.getElementById("info-files").textContent = String(
+    (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
+  );
+}
+
+function updateInfoDrawer(thread) {
+  if (!thread) return;
+  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
+  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
+  document.getElementById("info-files").textContent = String(
+    (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
+  );
 }
 
 function closeOverlays() {
@@ -225,49 +353,54 @@ function closeOverlays() {
   infoDrawer.classList.add("hidden");
   state.menuOpen = false;
   state.infoOpen = false;
+  conversationSearchRow.classList.add("hidden");
 }
 
-function updateInfoDrawer(thread) {
-  document.getElementById("info-participants").textContent = thread.members.length;
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
-  document.getElementById("info-files").textContent = thread.messages.filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length;
+function setActiveThread(threadId) {
+  state.activeThreadId = threadId;
+  const thread = activeThread();
+  if (thread) {
+    openConversationView();
+    updateConversationMeta(thread);
+    updateInfoDrawer(thread);
+    renderMessages(thread);
+  } else {
+    showConversationEmptyState(state.threads.length === 0 ? "no-threads" : "default");
+  }
+  renderThreads();
 }
 
 function openThread(threadId) {
   state.activeThreadId = threadId;
-  const thread = currentThread();
+  const thread = activeThread();
   if (!thread) return;
+
   thread.unread = 0;
   state.convoSearch = "";
   conversationSearch.value = "";
-  conversationSearchRow.classList.add("hidden");
-  document.querySelector(".conversation-pane").classList.remove("empty-chat-state");
   closeOverlays();
+  openConversationView();
   updateConversationMeta(thread);
   updateInfoDrawer(thread);
   renderThreads();
   loadMessages(threadId);
 }
 
-function rerenderActiveConversation() {
-  const thread = currentThread();
-  if (!thread) return;
-  updateConversationMeta(thread);
-  updateInfoDrawer(thread);
-  renderMessages(thread);
+function setComposerText(text) {
+  inputField.value = text;
+  inputField.dispatchEvent(new Event("input"));
 }
 
-function appendSelfMessage(payload) {
-  const thread = currentThread();
+function appendLocalThreadMessage(thread, payload) {
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   const message = {
     id: `local-${Date.now()}`,
     sender: "self",
-    senderName: "Amruthesh",
+    senderName: currentUser?.username || "You",
     time,
-    ...payload,
+    ...payload
   };
 
   thread.messages.push(message);
@@ -285,85 +418,123 @@ function appendSelfMessage(payload) {
   }
 
   thread.unread = 0;
-  closeOverlays();
+  updateConversationMeta(thread);
   renderThreads();
-  rerenderActiveConversation();
+  renderMessages(thread);
 }
+
 async function handleSend() {
+  const thread = activeThread();
+  if (!thread) return;
 
-    const text =
-        inputField.value.trim();
+  const text = inputField.value.trim();
+  if (!text) return;
 
-    if (!text) {
-        return;
-    }
+  try {
+    inputField.value = "";
+    inputField.style.height = "44px";
+    inputField.style.overflowY = "hidden";
 
-    const conversationId =
-        state.activeThreadId;
+    await sendMessage(thread.id, text);
+    await loadMessages(thread.id);
 
-    try {
+    thread.lastMessage = text;
+    thread.lastMessageType = "TEXT";
+    thread.lastMessageTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    thread.unread = 0;
 
-        await sendMessage(
-            conversationId,
-            text
-        );
-
-        inputField.value = "";
-
-        inputField.style.height =
-            "44px";
-
-        await loadMessages(
-            conversationId
-        );
-          const thread =
-      currentThread();
-
-  if (thread) {
-
-      thread.lastMessage =
-          text;
-
-      thread.lastMessageType =
-          "TEXT";
-
-      thread.lastMessageTime =
-          new Date()
-          .toLocaleTimeString(
-              [],
-              {
-                  hour: "2-digit",
-                  minute: "2-digit"
-              }
-          );
+    renderThreads();
+  } catch (error) {
+    console.error("Message send failed", error);
+    setComposerText(text);
   }
-
-        renderThreads();
-
-    } catch(error) {
-
-        console.error(
-            "Message send failed",
-            error
-        );
-    }
 }
+
 function handleAttachment(file, forceType = null) {
+  const thread = activeThread();
+  if (!thread) return;
+
   const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
+
   if (type === "IMAGE") {
     const preview = URL.createObjectURL(file);
-    appendSelfMessage({
+    appendLocalThreadMessage(thread, {
       type: "IMAGE",
       file: { name: file.name, size: formatFileSize(file.size), preview },
-      caption: file.name,
+      caption: file.name
     });
     return;
   }
 
-  appendSelfMessage({
+  appendLocalThreadMessage(thread, {
     type: "FILE",
     file: { name: file.name, size: formatFileSize(file.size) }
   });
+}
+
+async function loadConversations() {
+  const conversations = await getConversations();
+  console.log("Backend conversations:", conversations);
+
+  state.threads = (conversations || []).map((conversation) => ({
+    id: conversation.conversation_id,
+    kind: conversation.kind || "dm",
+    title: conversation.username || "Conversation",
+    initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
+    status: conversation.status || "Direct Message",
+    unread: 0,
+    lastMessage: conversation.last_message || "",
+    lastMessageType: conversation.last_message_type || (conversation.last_message ? "TEXT" : "TEXT"),
+    lastMessageTime: conversation.last_message_time || "",
+    members: [conversation.username || "User"],
+    messages: []
+  }));
+
+  state.activeThreadId = null;
+  renderThreads();
+
+  if (state.threads.length === 0) {
+    showConversationEmptyState("no-threads");
+  } else {
+    showConversationEmptyState("default");
+  }
+}
+
+async function loadMessages(conversationId) {
+  try {
+    const messages = await getMessages(conversationId);
+    const thread = state.threads.find((t) => t.id === conversationId);
+    if (!thread) return;
+
+    thread.messages = (messages || []).map((message) => ({
+      id: message.id,
+      sender: message.sender_username === (currentUser?.username || "") ? "self" : "other",
+      senderName: message.sender_username,
+      type: message.message_type,
+      text: message.message_text,
+      time: new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    }));
+
+    updateConversationMeta(thread);
+    updateInfoDrawer(thread);
+    renderMessages(thread);
+  } catch (error) {
+    console.error("Failed loading messages", error);
+  }
+}
+
+function currentSearchUpdate() {
+  state.chatSearch = chatSearch.value;
+  renderThreads();
+}
+
+function closeConversationAndShowEmptyState() {
+  state.activeThreadId = null;
+  state.convoSearch = "";
+  conversationSearch.value = "";
+  closeOverlays();
+  renderThreads();
+  showConversationEmptyState(state.threads.length === 0 ? "no-threads" : "default");
 }
 
 inputField.addEventListener("input", function () {
@@ -380,14 +551,7 @@ inputField.addEventListener("keydown", (event) => {
 });
 
 sendBtn.addEventListener("click", handleSend);
-backBtn.addEventListener("click", () => {
-  state.activeThreadId = null;
-  conversationSearchRow.classList.add("hidden");
-  closeOverlays();
-  renderThreads();
-  document.querySelector(".conversation-pane").classList.add("empty-chat-state");
-  threadList.scrollTo({ top: 0, behavior: "smooth" });
-});
+backBtn.addEventListener("click", closeConversationAndShowEmptyState);
 
 attachBtn.addEventListener("click", () => fileInput.click());
 imageBtn.addEventListener("click", () => imageInput.click());
@@ -407,8 +571,7 @@ imageInput.addEventListener("change", () => {
 micBtn.addEventListener("click", () => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    inputField.value = "Voice input not available in this preview.";
-    inputField.dispatchEvent(new Event("input"));
+    setComposerText("Voice input is not available in this browser.");
     return;
   }
   const recognition = new SpeechRecognition();
@@ -416,20 +579,15 @@ micBtn.addEventListener("click", () => {
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
   recognition.onresult = (event) => {
-    inputField.value = event.results[0][0].transcript;
-    inputField.dispatchEvent(new Event("input"));
+    setComposerText(event.results[0][0].transcript);
   };
   recognition.onerror = () => {
-    inputField.value = "Voice input failed.";
-    inputField.dispatchEvent(new Event("input"));
+    setComposerText("Voice input failed.");
   };
   recognition.start();
 });
 
-chatSearch.addEventListener("input", () => {
-  state.chatSearch = chatSearch.value;
-  renderThreads();
-});
+chatSearch.addEventListener("input", currentSearchUpdate);
 
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -449,12 +607,14 @@ closeSearch.addEventListener("click", () => {
   conversationSearchRow.classList.add("hidden");
   state.convoSearch = "";
   conversationSearch.value = "";
-  rerenderActiveConversation();
+  const thread = activeThread();
+  if (thread) renderMessages(thread);
 });
 
 conversationSearch.addEventListener("input", () => {
   state.convoSearch = conversationSearch.value;
-  rerenderActiveConversation();
+  const thread = activeThread();
+  if (thread) renderMessages(thread);
 });
 
 menuToggle.addEventListener("click", (event) => {
@@ -471,6 +631,7 @@ menuPopover.addEventListener("click", (event) => {
   event.stopPropagation();
   const btn = event.target.closest(".menu-item");
   if (!btn) return;
+
   const action = btn.dataset.menu;
   closeOverlays();
 
@@ -480,12 +641,15 @@ menuPopover.addEventListener("click", (event) => {
   }
 
   if (action === "clear") {
-    const thread = currentThread();
-    thread.messages = thread.messages.filter((msg) => msg.type === "DAY");
+    const thread = activeThread();
+    if (!thread) return;
+    thread.messages = [];
     thread.lastMessage = "";
     thread.lastMessageType = "TEXT";
+    thread.lastMessageTime = "";
+    updateConversationMeta(thread);
     renderThreads();
-    rerenderActiveConversation();
+    renderMessages(thread);
   }
 
   if (action === "info") {
@@ -494,194 +658,27 @@ menuPopover.addEventListener("click", (event) => {
   }
 });
 
+emptyStateNewChat.addEventListener("click", () => {
+  requestNewChat();
+});
+
 document.querySelectorAll("[data-icon]").forEach((el) => {
   const iconName = el.dataset.icon;
   el.innerHTML = iconMap[iconName] || "";
 });
 
 async function initialize() {
-
-    try {
-
-        await loadConversations();
-
-        renderThreads();
-
-        if (state.threads.length > 0) {
-            start();
-            await loadMessages(
-              state.activeThreadId
-            );  
-        }
-
+  try {
+    await loadConversations();
+    if (state.threads.length === 0) {
+      showConversationEmptyState("no-threads");
+    } else {
+      showConversationEmptyState("default");
     }
-    catch(error) {
-
-        console.error(
-            "Conversation load failed",
-            error
-        );
-    }
-}
-async function loadConversations() {
-
-    const conversations =
-        await getConversations();
-
-    console.log(
-        "Backend conversations:",
-        conversations
-    );
-
-    if (
-        !conversations ||
-        conversations.length === 0
-    ) {
-
-        console.log(
-            "No conversations yet"
-        );
-
-        renderThreads();
-        return;
-    }
-
-    state.threads =
-        conversations.map(
-            conversation => ({
-
-                id:
-                    conversation.conversation_id,
-
-                kind: "dm",
-
-                title:
-                    conversation.username,
-
-                initials:
-                    conversation.username
-                        .substring(0,2)
-                        .toUpperCase(),
-
-                status: "Direct Message",
-
-                unread: 0,
-
-                lastMessage:
-                    conversation.last_message
-                    || "",
-
-                lastMessageType:
-                    "TEXT",
-
-                lastMessageTime:
-                    conversation.last_message_time
-                        ? new Date(
-                            conversation.last_message_time
-                          ).toLocaleTimeString(
-                              [],
-                              {
-                                  hour: "2-digit",
-                                  minute: "2-digit"
-                              }
-                          )
-                        : "",
-
-                members: [
-                    conversation.username
-                ],
-
-                messages: []
-            })
-        );
-
-    state.activeThreadId =
-        state.threads[0]?.id;
-
-    
-}
-async function loadMessages(
-    conversationId
-) {
-
-    try {
-
-        const messages =
-            await getMessages(
-                conversationId
-            );
-
-        const thread =
-            state.threads.find(
-                t => t.id === conversationId
-            );
-
-        if (!thread) {
-            return;
-        }
-
-        thread.messages =
-            messages.map(
-                message => ({
-                    id: message.id,
-                    sender:
-                        message.sender_username === (currentUser?.username || "")
-                            ? "self"
-                            : "other",
-
-                    senderName:
-                        message.sender_username,
-
-                    type:
-                        message.message_type,
-
-                    text:
-                        message.message_text,
-
-                    time:
-                        new Date(
-                            message.created_at
-                        ).toLocaleTimeString(
-                            [],
-                            {
-                                hour: "2-digit",
-                                minute: "2-digit"
-                            }
-                        )
-                })
-            );
-
-        renderMessages(
-            thread
-        );
-
-    } catch(error) {
-
-        console.error(
-            "Failed loading messages",
-            error
-        );
-    }
-}
-
-function start() {
-
-  const thread = currentThread();
-
-  if (!thread) {
-    renderThreads();
-    return;
+  } catch (error) {
+    console.error("Conversation load failed", error);
+    showConversationEmptyState("no-threads");
   }
-
-  updateConversationMeta(thread);
-  updateInfoDrawer(thread);
-  renderThreads();
-  renderMessages(thread);
-
-  thread.unread = 0;
-
-  renderThreads();
 }
 
-// start();
 initialize();
