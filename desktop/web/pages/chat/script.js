@@ -1,8 +1,10 @@
+// desktop/web/pages/chat/script.js
 import {
   getConversations,
   getMessages,
   sendMessage,
   sendImage,
+  sendVoice,
   markConversationRead,
   startConversation
 } from "../../services/dm.js";
@@ -20,6 +22,10 @@ const state = {
   newChatOpen: false,
   threads: []
 };
+
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
 
 const ACTIVE_THREAD_KEY = "vagmi-active-chat-thread";
 let newChatSearchTimer = null;
@@ -552,6 +558,46 @@ function messageHTML(thread, message) {
     `;
   }
 
+    if (message.type === "VOICE") {
+
+      const audioUrl =
+        `/api/dm/voice/${message.id}`;
+
+      return `
+        <div class="message-row ${sideClass}">
+          <div class="message-bubble">
+
+            ${
+              senderLine
+                ? `<div class="message-meta">${senderLine}</div>`
+                : ""
+            }
+
+            <div class="voice-card">
+
+              <audio
+                controls
+                preload="metadata"
+                class="voice-player"
+              >
+                <source
+                  src="${audioUrl}"
+                  type="audio/webm"
+                >
+              </audio>
+
+            </div>
+
+            <div class="message-time mono">
+              ${escapeHTML(message.time)}
+            </div>
+
+          </div>
+        </div>
+      `;
+    }
+
+
   if (message.type === "IMAGE" || message.type === "FILE") {
     return `
       <div class="message-row ${sideClass}">
@@ -897,24 +943,108 @@ imageInput.addEventListener("change", () => {
   imageInput.value = "";
 });
 
-micBtn.addEventListener("click", () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    setComposerText("Voice input is not available in this browser.");
-    return;
+micBtn.addEventListener(
+  "click",
+  async () => {
+
+    const thread = activeThread();
+
+    if (!thread) {
+      return;
+    }
+
+    try {
+
+      if (!isRecording) {
+
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            audio: true
+          });
+
+        recordedChunks = [];
+
+        mediaRecorder =
+          new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable =
+          (event) => {
+
+            if (event.data.size > 0) {
+              recordedChunks.push(
+                event.data
+              );
+            }
+          };
+
+        mediaRecorder.start();
+
+        isRecording = true;
+
+        micBtn.classList.add(
+          "recording"
+        );
+
+      } else {
+
+        mediaRecorder.stop();
+
+        mediaRecorder.onstop =
+          async () => {
+
+            try {
+
+              const blob =
+                new Blob(
+                  recordedChunks,
+                  {
+                    type: "audio/webm"
+                  }
+                );
+
+              const file =
+                new File(
+                  [blob],
+                  `voice-${Date.now()}.webm`,
+                  {
+                    type: "audio/webm"
+                  }
+                );
+
+              await sendVoice(
+                thread.id,
+                file
+              );
+
+              await loadMessages(
+                thread.id
+              );
+
+            } catch (error) {
+
+              console.error(
+                "Voice upload failed",
+                error
+              );
+            }
+          };
+
+        isRecording = false;
+
+        micBtn.classList.remove(
+          "recording"
+        );
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Voice recording failed",
+        error
+      );
+    }
   }
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-IN";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  recognition.onresult = (event) => {
-    setComposerText(event.results[0][0].transcript);
-  };
-  recognition.onerror = () => {
-    setComposerText("Voice input failed.");
-  };
-  recognition.start();
-});
+);
 
 chatSearch.addEventListener("input", currentSearchUpdate);
 

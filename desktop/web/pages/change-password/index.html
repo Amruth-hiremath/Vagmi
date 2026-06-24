@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Vāgmi - Change Password</title>
+
+  <link
+    rel="icon"
+    type="image/png"
+    href="../../assets/favicon.png"
+  />
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  />
+</head>
+
+<body>
+
+  <div class="auth-shell">
+
+    <div class="auth-card">
+
+      <div class="auth-brand">
+
+        <img
+          src="../../assets/logo-mark.png"
+          alt="Vāgmi"
+          class="auth-logo"
+        />
+
+        <div class="auth-copy">
+
+          <div class="eyebrow">
+            SECURITY
+          </div>
+
+          <h1>
+            Change Password
+          </h1>
+
+          <p>
+            Your administrator requires you to
+            change your password before continuing
+            to use Vāgmi.
+          </p>
+
+        </div>
+
+      </div>
+
+      <form
+        id="change-password-form"
+        class="auth-form"
+      >
+
+        <div class="field">
+
+          <span>
+            Current Password
+          </span>
+
+          <input
+            id="current-password"
+            type="password"
+            required
+          />
+
+        </div>
+
+        <div class="field">
+
+          <span>
+            New Password
+          </span>
+
+          <input
+            id="new-password"
+            type="password"
+            required
+          />
+
+        </div>
+
+        <div class="field">
+
+          <span>
+            Confirm Password
+          </span>
+
+          <input
+            id="confirm-password"
+            type="password"
+            required
+          />
+
+        </div>
+
+        <button
+          id="submit-btn"
+          class="primary-btn"
+          type="submit"
+        >
+          Change Password
+        </button>
+
+        <div
+          id="message"
+          class="error"
+        ></div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <script
+    type="module"
+    src="./script.js"
+  ></script>
+
+</body>
+</html>

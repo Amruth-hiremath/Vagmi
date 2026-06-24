@@ -150,6 +150,15 @@ async function submitAuth() {
       const me = await meResponse.json();
       saveUser(me);
 
+      if (me.must_change_password) {
+
+        window.location.replace(
+          "../change-password/index.html"
+        );
+
+        return;
+      }
+
       window.location.replace("../../splash.html");
       return;
     }
