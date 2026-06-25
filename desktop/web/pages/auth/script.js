@@ -5,7 +5,7 @@ import {
   clearSession
 } from "../../services/auth.js";
 
-import { apiRequest } from "../../services/api.js";
+import { apiRequest, ApiError } from "../../services/api.js";
 
 const loginTab = document.getElementById("login-tab");
 const registerTab = document.getElementById("register-tab");
@@ -16,6 +16,8 @@ const passwordInput = document.getElementById("password");
 const confirmField = document.getElementById("confirm-field");
 const confirmInput = document.getElementById("confirm-password");
 const errorText = document.getElementById("error");
+const authNotice = document.getElementById("auth-notice");
+const toastRegion = document.getElementById("toast-region");
 
 const checker = document.getElementById("password-checker");
 const meterFill = document.getElementById("password-meter-fill");
@@ -28,6 +30,7 @@ const ruleSpecial = document.getElementById("rule-special");
 const ruleMatch = document.getElementById("rule-match");
 
 let mode = "login";
+let toastTimer = null;
 
 function setRuleState(el, ok) {
   if (!el) return;
@@ -39,11 +42,39 @@ function utf8ByteLength(value) {
   return new TextEncoder().encode(value).length;
 }
 
-function evaluatePasswordState() {
-  const password = passwordInput.value;
-  const confirm = confirmInput.value;
+function setAuthNotice(message, tone = "success") {
+  if (!authNotice) return;
+  if (!message) {
+    authNotice.classList.add("hidden");
+    authNotice.textContent = "";
+    authNotice.className = "auth-notice hidden";
+    return;
+  }
+  authNotice.classList.remove("hidden");
+  authNotice.className = `auth-notice ${tone}`;
+  authNotice.textContent = message;
+}
 
+function showToast(message, tone = "success") {
+  if (!toastRegion) return;
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${tone}`;
+  toast.textContent = message;
+
+  toastRegion.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove("show");
+    window.setTimeout(() => toast.remove(), 220);
+  }, 4200);
+}
+
+function validatePasswordLive(password, confirm = "") {
   const byteLen = utf8ByteLength(password);
+
   const minOk = byteLen >= 12;
   const maxOk = byteLen <= 72;
   const lowerOk = /[a-z]/.test(password);
@@ -62,9 +93,7 @@ function evaluatePasswordState() {
 
   const checks = [minOk, maxOk, lowerOk, upperOk, digitOk, specialOk, matchOk];
   const passed = checks.filter(Boolean).length;
-  const progress = Math.round((passed / checks.length) * 100);
-
-  meterFill.style.width = `${progress}%`;
+  meterFill.style.width = `${Math.round((passed / checks.length) * 100)}%`;
 
   if (mode === "register") {
     submitBtn.disabled = !checks.every(Boolean);
@@ -73,16 +102,13 @@ function evaluatePasswordState() {
 
 function updateLoginButtonState() {
   if (mode !== "login") return;
-  const canSubmit =
-    usernameInput.value.trim().length > 0 &&
-    passwordInput.value.trim().length > 0;
-  submitBtn.disabled = !canSubmit;
+  submitBtn.disabled = !(usernameInput.value.trim() && passwordInput.value.trim());
 }
 
 function setMode(nextMode) {
   mode = nextMode;
-
   const loginMode = mode === "login";
+
   loginTab.classList.toggle("active", loginMode);
   registerTab.classList.toggle("active", !loginMode);
 
@@ -98,7 +124,7 @@ function setMode(nextMode) {
     submitBtn.disabled = true;
     updateLoginButtonState();
   } else {
-    evaluatePasswordState();
+    validatePasswordLive(passwordInput.value, confirmInput.value);
   }
 }
 
@@ -106,16 +132,30 @@ async function goToAppIfAuthenticated() {
   if (!isAuthenticated()) return;
 
   try {
-    const response = await apiRequest("/auth/me");
+    const response = await apiRequest("/auth/me", { skipAuthRedirect: true });
     const me = await response.json();
     saveUser(me);
     window.location.replace("../../splash.html");
   } catch (error) {
-    if (String(error?.message || "").includes("Unable to reach the backend!")) {
+    if (error instanceof ApiError && error.status === 0) {
       return;
     }
     clearSession();
   }
+}
+
+function passwordConstraintsValid(password, confirm) {
+  const byteLength = utf8ByteLength(password);
+
+  if (byteLength < 12) return "Password must be at least 12 characters long.";
+  if (byteLength > 72) return "Password must be 72 characters or fewer.";
+  if (/\s/.test(password)) return "Password cannot contain spaces.";
+  if (!/[a-z]/.test(password)) return "Password must include a lowercase letter.";
+  if (!/[A-Z]/.test(password)) return "Password must include an uppercase letter.";
+  if (!/\d/.test(password)) return "Password must include a number.";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Password must include a special character.";
+  if (password !== confirm) return "Passwords do not match.";
+  return null;
 }
 
 async function submitAuth() {
@@ -123,99 +163,102 @@ async function submitAuth() {
   const password = passwordInput.value;
 
   if (!username || !password.trim()) {
-    errorText.classList.remove("success-message", "error-message");
+    errorText.className = "error-text error-message";
     errorText.textContent = "Enter username and password";
     return;
   }
 
   submitBtn.disabled = true;
   errorText.textContent = "";
-  errorText.classList.remove("success-message", "error-message");
+  errorText.className = "error-text";
 
   try {
     if (mode === "login") {
       const response = await apiRequest("/auth/login", {
         method: "POST",
         skipAuthRedirect: true,
-        body: JSON.stringify({
-          username,
-          password
-        })
+        body: JSON.stringify({ username, password })
       });
 
       const payload = await response.json();
       saveToken(payload.access_token);
 
-      const meResponse = await apiRequest("/auth/me");
+      const meResponse = await apiRequest("/auth/me", { skipAuthRedirect: true });
       const me = await meResponse.json();
       saveUser(me);
-
-      
 
       window.location.replace("../../splash.html");
       return;
     }
 
     const confirmValue = confirmInput.value;
-    const passwordBytes = utf8ByteLength(password);
-
-    if (passwordBytes < 12) {
-      throw new Error("Password must be at least 12 characters long.");
+    const validationMessage = passwordConstraintsValid(password, confirmValue);
+    if (validationMessage) {
+      throw new Error(validationMessage);
     }
 
-    if (passwordBytes > 72) {
-      throw new Error("Password must be 72 characters or fewer.");
-    }
-
-    if (/\s/.test(password)) {
-      throw new Error("Password cannot contain spaces.");
-    }
-
-    if (!/[a-z]/.test(password)) {
-      throw new Error("Password must include a lowercase letter.");
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      throw new Error("Password must include an uppercase letter.");
-    }
-
-    if (!/\d/.test(password)) {
-      throw new Error("Password must include a number.");
-    }
-
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      throw new Error("Password must include a special character.");
-    }
-
-    if (password !== confirmValue) {
-      throw new Error("Passwords do not match.");
-    }
-
-    await apiRequest("/auth/register", {
+    const response = await apiRequest("/auth/register", {
       method: "POST",
       skipAuthRedirect: true,
-      body: JSON.stringify({
-        username,
-        password
-      })
+      body: JSON.stringify({ username, password })
     });
 
+    const payload = await response.json();
+    const message = payload?.message || "Registration submitted. Await administrator approval.";
+
+    // Preserve username so the login step feels continuous.
+    const submittedUsername = usernameInput.value.trim();
+
     setMode("login");
-    errorText.classList.remove("error-message");
-    errorText.classList.add("success-message");
-    errorText.textContent = "Account created successfully! You can now log in.";
+    usernameInput.value = submittedUsername;
     passwordInput.value = "";
     confirmInput.value = "";
-    submitBtn.disabled = true;
+
+    const isAdminCreated = /administrator account created/i.test(message);
+    const toastMessage = isAdminCreated
+      ? message
+      : "Registration submitted.\nAwait administrator approval.";
+
+    setAuthNotice(message, isAdminCreated ? "success" : "warning");
+    showToast(toastMessage, isAdminCreated ? "success" : "warning");
+
+    errorText.className = isAdminCreated ? "error-text success-message" : "error-text warning-message";
+    errorText.textContent = message;
+    submitBtn.disabled = false;
+    updateLoginButtonState();
   } catch (error) {
-    errorText.classList.remove("success-message");
-    errorText.classList.add("error-message");
+    const isPendingApproval =
+      error?.status === 403 &&
+      String(error?.message || "").toLowerCase().includes("awaiting administrator approval");
+
+    if (mode === "login" && isPendingApproval) {
+      const message = error.message || "Your account is awaiting administrator approval.";
+      setAuthNotice(message, "warning");
+      showToast(message, "warning");
+      errorText.className = "error-text warning-message";
+      errorText.textContent = message;
+      passwordInput.value = "";
+      submitBtn.disabled = false;
+      updateLoginButtonState();
+      return;
+    }
+
+    if (error?.status === 0 || String(error?.message || "").includes("Unable to reach the backend")) {
+      errorText.className = "error-text warning-message";
+      errorText.textContent = "Backend is not reachable. Start the FastAPI server first.";
+      submitBtn.disabled = false;
+      updateLoginButtonState();
+      return;
+    }
+
+    setAuthNotice("");
+    errorText.className = "error-text error-message";
     errorText.textContent = error.message || "Authentication failed!";
   } finally {
     if (mode === "login") {
       updateLoginButtonState();
     } else {
-      evaluatePasswordState();
+      validatePasswordLive(passwordInput.value, confirmInput.value);
     }
   }
 }
@@ -226,14 +269,14 @@ registerTab.onclick = () => setMode("register");
 usernameInput.addEventListener("input", updateLoginButtonState);
 passwordInput.addEventListener("input", () => {
   if (mode === "register") {
-    evaluatePasswordState();
+    validatePasswordLive(passwordInput.value, confirmInput.value);
   } else {
     updateLoginButtonState();
   }
 });
 confirmInput.addEventListener("input", () => {
   if (mode === "register") {
-    evaluatePasswordState();
+    validatePasswordLive(passwordInput.value, confirmInput.value);
   }
 });
 

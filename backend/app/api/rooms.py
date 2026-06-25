@@ -147,6 +147,12 @@ def add_member(
             detail="User not found"
         )
     
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=403,
+            detail="User is awaiting administrator approval."
+        )
+
     if user.id == room.created_by:
         raise HTTPException(
             status_code=400,
@@ -370,6 +376,12 @@ def delete_room(
     )
 
     for message in messages:
+        if message.attachment_path:
+            try:
+                Path(message.attachment_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
         attachments = (
             db.query(Attachment)
             .filter(
@@ -380,11 +392,7 @@ def delete_room(
 
         for attachment in attachments:
             try:
-                Path(
-                    attachment.file_path
-                ).unlink(
-                    missing_ok=True
-                )
+                Path(attachment.file_path).unlink(missing_ok=True)
             except Exception:
                 pass
 

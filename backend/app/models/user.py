@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime,Boolean
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import Base
 
@@ -28,5 +28,5 @@ class User(Base):
     
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc)
     )

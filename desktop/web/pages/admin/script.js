@@ -16,182 +16,178 @@ const usersContainer =
 const currentUser = getUser();
 
 if (!currentUser?.is_admin) {
+  window.location.replace("../../splash.html");
+} else {
+  function createPendingCard(user) {
 
-  window.location.replace(
-    "../../splash.html"
-  );
+    return `
+    <div class="user-card">
 
-}
+      <div class="user-info">
 
-function createPendingCard(user) {
+        <div class="user-name">
+          ${user.username}
+        </div>
 
-  return `
-  <div class="user-card">
+        <div class="user-meta">
+          Awaiting approval
+        </div>
 
-    <div class="user-info">
-
-      <div class="user-name">
-        ${user.username}
       </div>
 
-      <div class="user-meta">
-        Awaiting approval
+      <div class="user-actions">
+
+        <button
+          class="btn btn-approve"
+          data-id="${user.id}"
+          data-action="approve"
+        >
+          Approve
+        </button>
+
+        <button
+          class="btn btn-reject"
+          data-id="${user.id}"
+          data-action="reject"
+        >
+          Reject
+        </button>
+
       </div>
 
     </div>
+    `;
+  }
 
-    <div class="user-actions">
+  function createUserCard(user) {
 
-      <button
-        class="btn btn-approve"
-        data-id="${user.id}"
-        data-action="approve"
-      >
-        Approve
-      </button>
+    return `
+    <div class="user-card">
 
-      <button
-        class="btn btn-reject"
-        data-id="${user.id}"
-        data-action="reject"
-      >
-        Reject
-      </button>
+      <div class="user-info">
 
-    </div>
+        <div class="user-name">
+          ${user.username}
+        </div>
 
-  </div>
-  `;
-}
+        <div class="user-meta">
 
-function createUserCard(user) {
-
-  return `
-  <div class="user-card">
-
-    <div class="user-info">
-
-      <div class="user-name">
-        ${user.username}
-      </div>
-
-      <div class="user-meta">
-
-        <span class="badge ${
-          user.is_admin
-          ? "admin"
-          : "user"
-        }">
-
-          ${
+          <span class="badge ${
             user.is_admin
-            ? "Administrator"
-            : "User"
-          }
+            ? "admin"
+            : "user"
+          }">
 
-        </span>
+            ${
+              user.is_admin
+              ? "Administrator"
+              : "User"
+            }
 
-        <span class="badge ${
-          user.is_approved
-          ? "approved"
-          : "pending"
-        }">
+          </span>
 
-          ${
+          <span class="badge ${
             user.is_approved
-            ? "Approved"
-            : "Pending"
-          }
+            ? "approved"
+            : "pending"
+          }">
 
-        </span>
+            ${
+              user.is_approved
+              ? "Approved"
+              : "Pending"
+            }
+
+          </span>
+
+        </div>
 
       </div>
 
     </div>
+    `;
+  }
 
-  </div>
-  `;
-}
+  async function loadData() {
 
-async function loadData() {
+    const pending =
+      await getPendingUsers();
 
-  const pending =
-    await getPendingUsers();
+    const users =
+      await getUsers();
 
-  const users =
-    await getUsers();
+    if (!pending.length) {
 
-  if (!pending.length) {
+      pendingContainer.innerHTML =
+        `
+        <div class="empty">
+        No pending requests.
+        </div>
+        `;
 
-    pendingContainer.innerHTML =
-      `
-      <div class="empty">
-      No pending requests.
-      </div>
-      `;
+    } else {
 
-  } else {
+      pendingContainer.innerHTML =
+        pending
+        .map(createPendingCard)
+        .join("");
 
-    pendingContainer.innerHTML =
-      pending
-      .map(createPendingCard)
+    }
+
+    usersContainer.innerHTML =
+      users
+      .map(createUserCard)
       .join("");
 
   }
 
-  usersContainer.innerHTML =
-    users
-    .map(createUserCard)
-    .join("");
+  document.addEventListener(
+    "click",
+    async (event) => {
 
-}
+      const button =
+        event.target.closest("button");
 
-document.addEventListener(
-  "click",
-  async (event) => {
+      if (!button) return;
 
-    const button =
-      event.target.closest("button");
+      const id =
+        button.dataset.id;
 
-    if (!button) return;
-
-    const id =
-      button.dataset.id;
-
-    if (!id) return;
-
-    if (
-      button.dataset.action ===
-      "approve"
-    ) {
-
-      await approveUser(id);
-
-    }
-
-    if (
-      button.dataset.action ===
-      "reject"
-    ) {
+      if (!id) return;
 
       if (
-        confirm(
-          "Reject this registration?"
-        )
+        button.dataset.action ===
+        "approve"
       ) {
 
-        await rejectUser(id);
-
-      } else {
-
-        return;
+        await approveUser(id);
 
       }
 
+      if (
+        button.dataset.action ===
+        "reject"
+      ) {
+
+        if (
+          confirm(
+            "Reject this registration?"
+          )
+        ) {
+
+          await rejectUser(id);
+
+        } else {
+
+          return;
+
+        }
+
+      }
+
+      await loadData();
+
     }
-
-    await loadData();
-
-  }
-);
-loadData();
+  );
+  loadData();
+}

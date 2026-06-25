@@ -6,10 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.security import (
-    get_current_admin,
-    hash_password
-)
+from app.core.security import get_current_admin
 
 from app.core.validators import (
     validate_username,
@@ -21,7 +18,8 @@ from app.models.user import User
 from app.schemas.auth import UserRegister
 
 from app.services.storage_service import (
-    create_user_workspace
+    create_user_workspace,
+    delete_user_workspace
 )
 
 
@@ -50,9 +48,8 @@ def get_pending_users(
 
     users = (
         db.query(User)
-        .filter(
-            User.is_approved == False
-        )
+        .filter(User.is_approved.is_(False))
+        .order_by(User.created_at.asc())
         .all()
     )
 
@@ -108,6 +105,7 @@ def approve_user(
     user.is_approved = True
 
     db.commit()
+    create_user_workspace(user.id)
 
     return {
         "message": f"{user.username} approved successfully."
@@ -148,8 +146,9 @@ def reject_user(
             detail="You cannot delete your own account."
         )
 
-    db.delete(user)
+    delete_user_workspace(user.id)
 
+    db.delete(user)
     db.commit()
 
     return {

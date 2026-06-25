@@ -134,7 +134,7 @@ def get_user_conversations(
         result.append(
             {
                 "conversation_id": conversation.id,
-                "username": other_user.username,
+                "username": other_user.username if other_user else "Unknown",
                 "last_message": (
                     "Image"
                     if last_message and last_message.message_type == "IMAGE"
@@ -146,13 +146,11 @@ def get_user_conversations(
                 ),
                 "last_message_sender": (
                     db.query(User)
-                    .filter(
-                        User.id == last_message.sender_id
-                    )
+                    .filter(User.id == last_message.sender_id)
                     .first()
                     .username
-                    if last_message
-                    else None
+                    if last_message and db.query(User).filter(User.id == last_message.sender_id).first()
+                    else ("Unknown" if last_message else None)
                 ),
                 "last_message_time": (
                     last_message.created_at

@@ -2,7 +2,7 @@ import re
 from fastapi import HTTPException
 
 MAX_MESSAGE_LENGTH = 5000
-PASSWORD_MIN_BYTES = 8
+PASSWORD_MIN_BYTES = 12
 PASSWORD_MAX_BYTES = 72
 
 def validate_username(username: str):

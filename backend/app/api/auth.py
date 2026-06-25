@@ -57,7 +57,7 @@ def register(
 
     admin_exists = (
         db.query(User)
-        .filter(User.is_admin == True)
+        .filter(User.is_admin.is_(True))
         .first()
     )
 
@@ -74,26 +74,24 @@ def register(
     db.commit()
     db.refresh(user)
 
-    logger.info(
-        f"Initial admin created: "
-        f"{user.username}"
-    )
-
     create_user_workspace(
         user.id
     )
 
     if user.is_admin:
+        logger.info(f"Administrator account created: {user.username}")
         return {
             "message": "Administrator account created successfully."
         }
 
+    logger.info(f"User registered: {user.username}")
+
     return {
         "message":
             (
-            "Registration submitted. "
-            "Await administrator approval."
-             )
+                "Registration submitted. "
+                "Await administrator approval."
+            )
     }
     
 

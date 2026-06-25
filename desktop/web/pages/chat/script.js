@@ -206,8 +206,11 @@ function buildAttachmentUrl(thread, message) {
   if (message.attachmentId) {
     return `/attachments/${message.attachmentId}`;
   }
-  if (thread.kind === "dm" && message.attachmentPath) {
-    return `/dm/${thread.id}/messages/${message.id}/attachment`;
+  if (message.attachmentPath) {
+    if (thread.kind === "dm") {
+      return `/dm/${thread.id}/messages/${message.id}/attachment`;
+    }
+    return `/rooms/${thread.id}/messages/${message.id}/attachment`;
   }
   return "";
 }
@@ -593,55 +596,41 @@ threadList.addEventListener("click", (event) => {
 
 async function loadInlineImages() {
 
-  console.log("========== loadInlineImages called ==========");
-
   const images = document.querySelectorAll(".chat-image-preview");
-
-  console.log("Images found:", images.length);
 
   for (const img of images) {
 
     const threadId = Number(img.dataset.threadId);
     const messageId = Number(img.dataset.messageId);
 
-    console.log("Thread ID:", threadId);
-    console.log("Message ID:", messageId);
 
     const thread = state.threads.find((t) => t.id === threadId);
 
     if (!thread) {
-      console.log(" Thread not found");
+
       continue;
     }
 
     const message = thread.messages.find((m) => m.id === messageId);
 
     if (!message) {
-      console.log(" Message not found");
+
       continue;
     }
 
     try {
 
-      console.log(" Fetching attachment...");
-
       const { blob } = await fetchAttachmentBlob(thread, message);
 
-      console.log(" Blob received");
-      console.log("Blob size:", blob.size);
-      console.log("Blob type:", blob.type);
+
 
       const blobUrl = URL.createObjectURL(blob);
-
-      console.log("Blob URL:", blobUrl);
 
       img.src = blobUrl;
 
       img.onclick = () => {
       openImageViewer(blobUrl, message.originalFilename);
       };
-
-      console.log(" Image src assigned");
 
     } catch (err) {
 
@@ -713,15 +702,6 @@ function messageHTML(thread, message) {
   if (message.type === "IMAGE") {
   const imageUrl = buildAttachmentUrl(thread, message);
   
-  // TEMP DEBUG - remove later
-  console.log("IMG DEBUG:", JSON.stringify({
-    id: message.id,
-    attachmentId: message.attachmentId,
-    attachmentPath: message.attachmentPath,
-    imageUrl: imageUrl
-  }));
-
-  // show debug info visually on screen
   return `
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
@@ -864,7 +844,7 @@ async function loadMessages(conversationId, loadToken = 0) {
 
     thread.messages = (messages || []).map((message) => {
       const senderName = message.sender_username || "Unknown";
-      console.log(message);
+
       const isSelf = senderName === (currentUser?.username || "");
       
       return {
