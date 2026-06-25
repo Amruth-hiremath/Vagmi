@@ -19,11 +19,13 @@ class User(Base):
     default=False,
     nullable=False
     )
-    must_change_password = Column(
-        Boolean,
-        default=False,
-        nullable=False
+    
+    is_approved = Column(
+    Boolean,
+    default=False,
+    nullable=False
     )
+    
     created_at = Column(
         DateTime,
         default=datetime.utcnow

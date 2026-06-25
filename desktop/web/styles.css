@@ -336,3 +336,7 @@ body.sidebar-collapsed .sidebar-toggle svg {
 .logout-btn:hover svg {
   transform: translateX(1px);
 }
+
+.hidden {
+  display: none !important;
+}

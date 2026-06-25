@@ -12,7 +12,8 @@ const PAGE_MAP = {
   home: "./pages/home/index.html",
   intelligence: "./pages/intelligence/index.html",
   chat: "./pages/chat/index.html",
-  settings: "./pages/settings/index.html"
+  settings: "./pages/settings/index.html",
+  admin: "./pages/admin/index.html"
 };
 
 const DEFAULT_PAGE = "home";
@@ -149,6 +150,15 @@ async function bootstrap() {
     setSidebarCollapsed(savedCollapsed);
     wireNavigation();
     updateUserBadge(me);
+
+    const adminNavItem = document.getElementById("admin-nav-item");
+    if (adminNavItem) {
+      if (me?.is_admin) {
+        adminNavItem.classList.remove("hidden");
+      } else {
+        adminNavItem.classList.add("hidden");
+      }
+    }
 
     const savedPage =
         localStorage.getItem(

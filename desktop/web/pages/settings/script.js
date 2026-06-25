@@ -1,4 +1,5 @@
-
+import { getUser } from "../../services/auth.js";
+const currentUser = getUser();
 const navButtons = Array.from(document.querySelectorAll("[data-nav]"));
 
 function navigate(page) {
