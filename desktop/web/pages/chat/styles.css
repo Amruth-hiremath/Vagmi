@@ -1363,3 +1363,35 @@ button {
 .composer {
   width: 100%;
 }
+.chat-image-preview {
+  max-width: 220px;
+  max-height: 220px;
+  width: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+}
+.chat-image-preview:hover {
+  opacity: 0.95;
+  transform: scale(1.01);
+}
+
+.message-row.self .chat-image-preview {
+  margin-left: auto;
+}
+
+.message-row.other .chat-image-preview {
+  margin-right: auto;
+}
+.chat-image-preview{
+    transition:0.2s;
+}
+
+.chat-image-preview:hover{
+    transform:scale(1.02);
+}
+
+.chat-image-preview:active{
+    transform:scale(.98);
+}

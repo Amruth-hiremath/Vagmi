@@ -139,6 +139,58 @@ function closeAttachmentModal() {
   if (attachmentModalTitle) attachmentModalTitle.textContent = "Preview";
 }
 
+let imgViewerZoom = 1;
+
+function openImageViewer(src, filename) {
+  const modal = document.getElementById("image-viewer-modal");
+  const img   = document.getElementById("img-viewer-el");
+  if (!modal || !img) return;
+  imgViewerZoom = 1;
+  img.src = src;
+  img.alt = filename || "image";
+  img.style.transform = "scale(1)";
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeImageViewer() {
+  const modal = document.getElementById("image-viewer-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.getElementById("img-viewer-el").src = "";
+}
+
+document.getElementById("img-viewer-close")?.addEventListener("click", closeImageViewer);
+
+document.getElementById("image-viewer-modal")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeImageViewer(); // click backdrop to close
+});
+
+document.getElementById("img-zoom-in")?.addEventListener("click", () => {
+  imgViewerZoom = Math.min(imgViewerZoom + 0.25, 4);
+  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
+});
+
+document.getElementById("img-zoom-out")?.addEventListener("click", () => {
+  imgViewerZoom = Math.max(imgViewerZoom - 0.25, 0.25);
+  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
+});
+
+document.getElementById("img-download")?.addEventListener("click", () => {
+  const img = document.getElementById("img-viewer-el");
+  if (!img?.src) return;
+  const link = document.createElement("a");
+  link.href = img.src;
+  link.download = img.alt || "image";
+  link.click();
+});
+
+// Escape key closes viewer
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeImageViewer();
+});
+
 function openAttachmentModal() {
   if (!attachmentModal) return;
   attachmentModal.classList.remove("hidden");
@@ -539,6 +591,66 @@ threadList.addEventListener("click", (event) => {
   openThread(threadId);
 });
 
+async function loadInlineImages() {
+
+  console.log("========== loadInlineImages called ==========");
+
+  const images = document.querySelectorAll(".chat-image-preview");
+
+  console.log("Images found:", images.length);
+
+  for (const img of images) {
+
+    const threadId = Number(img.dataset.threadId);
+    const messageId = Number(img.dataset.messageId);
+
+    console.log("Thread ID:", threadId);
+    console.log("Message ID:", messageId);
+
+    const thread = state.threads.find((t) => t.id === threadId);
+
+    if (!thread) {
+      console.log(" Thread not found");
+      continue;
+    }
+
+    const message = thread.messages.find((m) => m.id === messageId);
+
+    if (!message) {
+      console.log(" Message not found");
+      continue;
+    }
+
+    try {
+
+      console.log(" Fetching attachment...");
+
+      const { blob } = await fetchAttachmentBlob(thread, message);
+
+      console.log(" Blob received");
+      console.log("Blob size:", blob.size);
+      console.log("Blob type:", blob.type);
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      console.log("Blob URL:", blobUrl);
+
+      img.src = blobUrl;
+
+      img.onclick = () => {
+      openImageViewer(blobUrl, message.originalFilename);
+      };
+
+      console.log(" Image src assigned");
+
+    } catch (err) {
+
+      console.error(" Image load failed:", err);
+
+    }
+  }
+}
+
 function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
   const senderLine =
@@ -598,18 +710,56 @@ function messageHTML(thread, message) {
     }
 
 
-  if (message.type === "IMAGE" || message.type === "FILE") {
-    return `
-      <div class="message-row ${sideClass}">
-        <div class="message-bubble">
-          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          ${buildAttachmentCard(thread, message)}
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
-        </div>
-      </div>
-    `;
-  }
+  if (message.type === "IMAGE") {
+  const imageUrl = buildAttachmentUrl(thread, message);
+  
+  // TEMP DEBUG - remove later
+  console.log("IMG DEBUG:", JSON.stringify({
+    id: message.id,
+    attachmentId: message.attachmentId,
+    attachmentPath: message.attachmentPath,
+    imageUrl: imageUrl
+  }));
 
+  // show debug info visually on screen
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        
+        <img
+    class="chat-image-preview"
+    data-thread-id="${thread.id}"
+    data-message-id="${message.id}"
+    alt="${escapeHTML(message.originalFilename || "Image")}"
+    style="
+        max-width:240px;
+        max-height:240px;
+        width:auto;
+        height:auto;
+        border-radius:10px;
+        cursor:pointer;
+        display:block;
+        object-fit:cover;
+    "
+/>
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
+
+if (message.type === "FILE") {
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        ${buildAttachmentCard(thread, message)}
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
   return "";
 }
 
@@ -666,10 +816,13 @@ function renderMessages(thread) {
   dayChip.textContent = "Today";
   messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
 
+  loadInlineImages();
+
   requestAnimationFrame(() => {
     messagesScroll.scrollTop = messagesScroll.scrollHeight;
   });
 }
+
 
 function updateConversationMeta(thread) {
   if (!thread) return;
@@ -711,7 +864,9 @@ async function loadMessages(conversationId, loadToken = 0) {
 
     thread.messages = (messages || []).map((message) => {
       const senderName = message.sender_username || "Unknown";
+      console.log(message);
       const isSelf = senderName === (currentUser?.username || "");
+      
       return {
         id: message.id,
         sender: isSelf ? "self" : "other",
@@ -1139,6 +1294,14 @@ newChatResults?.addEventListener("click", (event) => {
 });
 
 messagesScroll.addEventListener("click", (event) => {
+  const imgEl = event.target.closest(".chat-image-preview");
+  if (imgEl) {
+  openImageViewer(
+    imgEl.src,
+    imgEl.dataset.messageId
+  );
+    return;
+  }
   const actionBtn = event.target.closest("[data-attachment-action]");
   const card = event.target.closest(".attachment-card.clickable");
   if (!actionBtn && !card) return;
