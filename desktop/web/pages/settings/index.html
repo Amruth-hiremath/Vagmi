@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vāgmi - Settings</title>
-  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="icon" type="image/png" href="../../assets/logo_dark.png" />
+  <script src="../../core/theme.js"></script>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="../../theme.css" />
 </head>
 <body>
   <div class="page settings-page">
@@ -22,10 +24,51 @@
 
     <div class="settings-grid">
       <section class="panel profile-card">
-        <img src="../../assets/logo-full.png" alt="Vāgmi logo" class="brand-banner" />
+        <img
+          data-theme-logo="full"
+          src="../../assets/logo_dark_full.png"
+          alt="Vāgmi logo"
+          class="brand-banner"
+        />
         <div class="profile-meta">
           <div class="profile-name">Amruthesh</div>
           <div class="profile-sub mono">Secure LAN user</div>
+        </div>
+      </section>
+
+      <section class="panel setting-card theme-card">
+        <div class="panel-head">
+          <h2>Appearance</h2>
+          <span class="pill mono" id="active-theme-pill">Dark</span>
+        </div>
+        <p class="theme-copy">
+          Choose a workspace appearance. Layout, spacing, and behavior stay consistent across themes.
+        </p>
+
+        <div class="theme-options" id="theme-options">
+          <button class="theme-option" type="button" data-theme-option="enterprise-dark" data-theme="enterprise-dark">
+            <span class="theme-preview theme-preview-dark"></span>
+            <span class="theme-option-copy">
+              <span class="theme-option-name">Dark</span>
+              <span class="theme-option-desc">Original secure workspace</span>
+            </span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-option="claude-light" data-theme="claude-light">
+            <span class="theme-preview theme-preview-light"></span>
+            <span class="theme-option-copy">
+              <span class="theme-option-name">Light</span>
+              <span class="theme-option-desc">Warm cream workspace</span>
+            </span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-option="midnight-slate" data-theme="midnight-slate">
+            <span class="theme-preview theme-preview-slate"></span>
+            <span class="theme-option-copy">
+              <span class="theme-option-name">Graphite</span>
+              <span class="theme-option-desc">Premium blue-gray workspace</span>
+            </span>
+          </button>
         </div>
       </section>
 
@@ -44,19 +87,6 @@
 
       <section class="panel setting-card">
         <div class="panel-head">
-          <h2>Interface</h2>
-          <span class="pill mono">Dark</span>
-        </div>
-        <div class="setting-list">
-          <div class="setting-row"><span>Theme</span><span class="mono">Enterprise dark</span></div>
-          <div class="setting-row"><span>Accent</span><span class="mono">Orange / subtle</span></div>
-          <div class="setting-row"><span>Layout</span><span class="mono">Split workspace</span></div>
-          <div class="setting-row"><span>Sidebar</span><span class="mono">Collapsible</span></div>
-        </div>
-      </section>
-
-      <section class="panel setting-card">
-        <div class="panel-head">
           <h2>Storage</h2>
           <span class="pill mono">Local</span>
         </div>
@@ -67,10 +97,6 @@
       </section>
     </div>
   </div>
-      
-
-
-
 
   <script src="./script.js"></script>
 </body>

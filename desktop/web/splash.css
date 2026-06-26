@@ -14,7 +14,7 @@ body{
 
     overflow:hidden;
 
-    background: #0f1117;
+    background: var(--page-bg);
 
     font-family:Inter,sans-serif;
 
@@ -34,8 +34,12 @@ body.fade-out{
 }
 
 .logo{
-    width:150px;
+    width:min(260px, 34vw);
+    height:auto;
+    display:block;
     animation:logoFloat 4s ease-in-out infinite;
+    background:transparent;
+    border:0;
 }
 
 @keyframes logoFloat{
@@ -55,7 +59,7 @@ body.fade-out{
 .name{
     font-size:72px;
     font-weight:300;
-    color:#FAFAFA;
+    color:var(--text-primary);
 
     letter-spacing:-0.05em;
 
@@ -64,7 +68,7 @@ body.fade-out{
 }
 
 .subtitle{
-    color:#8A8A94;
+    color:var(--text-secondary);
 
     font-size:14px;
 
@@ -76,7 +80,7 @@ body.fade-out{
 .status{
     margin-top:10px;
 
-    color:#6F7178;
+    color:var(--text-muted);
 
     font-size:15px;
 

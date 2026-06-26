@@ -347,6 +347,7 @@ button {
   opacity: 0.92;
 }
 
+/* Badge – improved visibility in light mode */
 .badge {
   min-width: 20px;
   height: 20px;
@@ -356,7 +357,9 @@ button {
   place-items: center;
   color: var(--white);
   font-size: 11px;
+  font-weight: 700;
   background: var(--branding-gradient);
+  box-shadow: 0 0 0 1px rgba(232,80,2,0.2);
 }
 
 .thread-empty-state {

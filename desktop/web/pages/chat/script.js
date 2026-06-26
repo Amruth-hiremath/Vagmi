@@ -32,10 +32,51 @@ let newChatSearchTimer = null;
 let loadSequence = 0;
 let attachmentPreview = null;
 
+let scrollRaf1 = null;
+let scrollRaf2 = null;
+let scrollTimeout = null;
+let messagesObserver = null;
+
+function scrollMessagesToBottom() {
+  if (!messagesScroll) return;
+  if (scrollRaf1) cancelAnimationFrame(scrollRaf1);
+  if (scrollRaf2) cancelAnimationFrame(scrollRaf2);
+  if (scrollTimeout) window.clearTimeout(scrollTimeout);
+
+  const jump = () => {
+    messagesScroll.scrollTop = messagesScroll.scrollHeight;
+  };
+
+  scrollRaf1 = requestAnimationFrame(() => {
+    scrollRaf2 = requestAnimationFrame(jump);
+  });
+
+  scrollTimeout = window.setTimeout(jump, 60);
+}
+
+
 const threadList = document.getElementById("thread-list");
 const chatSearch = document.getElementById("chat-search");
 const filterButtons = Array.from(document.querySelectorAll(".filter-btn"));
 const messagesScroll = document.getElementById("messages-scroll");
+
+if (messagesScroll && "MutationObserver" in window) {
+  messagesObserver = new MutationObserver(() => {
+    if (state.activeThreadId !== null) {
+      scrollMessagesToBottom();
+    }
+  });
+  messagesObserver.observe(messagesScroll, {
+    childList: true,
+    subtree: true
+  });
+}
+
+window.addEventListener("resize", () => {
+  if (state.activeThreadId !== null) {
+    scrollMessagesToBottom();
+  }
+});
 const dayChip = document.getElementById("day-chip");
 const conversationPane = document.getElementById("conversation-pane");
 const conversationContent = document.getElementById("conversation-content");
@@ -798,9 +839,7 @@ function renderMessages(thread) {
 
   loadInlineImages();
 
-  requestAnimationFrame(() => {
-    messagesScroll.scrollTop = messagesScroll.scrollHeight;
-  });
+  scrollMessagesToBottom();
 }
 
 
@@ -864,6 +903,7 @@ async function loadMessages(conversationId, loadToken = 0) {
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
     renderMessages(thread);
+    scrollMessagesToBottom();
   } catch (error) {
     console.error("Failed loading messages", error);
   }
@@ -937,6 +977,7 @@ async function handleSend() {
 
     await loadMessages(thread.id);
     renderThreads();
+    scrollMessagesToBottom();
   } catch (error) {
     console.error("Message send failed", error);
     setComposerText(text);
@@ -962,6 +1003,7 @@ function handleAttachment(file, forceType = null) {
         thread.lastMessageType = "IMAGE";
         thread.lastMessageTime = formatTime(new Date());
         renderThreads();
+        scrollMessagesToBottom();
       })
       .catch((error) => {
         console.error("Image send failed", error);
@@ -1058,27 +1100,27 @@ inputField.addEventListener("keydown", (event) => {
   }
 });
 
-sendBtn.addEventListener("click", handleSend);
-backBtn.addEventListener("click", closeConversationAndShowEmptyState);
+sendBtn?.addEventListener("click", handleSend);
+backBtn?.addEventListener("click", closeConversationAndShowEmptyState);
 
 threadNewChatBtn?.addEventListener("click", () => requestNewChat());
 
-attachBtn.addEventListener("click", () => fileInput.click());
-imageBtn.addEventListener("click", () => imageInput.click());
+attachBtn?.addEventListener("click", () => fileInput?.click());
+imageBtn?.addEventListener("click", () => imageInput?.click());
 
-fileInput.addEventListener("change", () => {
+fileInput?.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (file) handleAttachment(file, "FILE");
   fileInput.value = "";
 });
 
-imageInput.addEventListener("change", () => {
+imageInput?.addEventListener("change", () => {
   const file = imageInput.files?.[0];
   if (file) handleAttachment(file, "IMAGE");
   imageInput.value = "";
 });
 
-micBtn.addEventListener(
+micBtn?.addEventListener(
   "click",
   async () => {
 
@@ -1154,6 +1196,7 @@ micBtn.addEventListener(
               await loadMessages(
                 thread.id
               );
+              scrollMessagesToBottom();
 
             } catch (error) {
 
@@ -1181,7 +1224,7 @@ micBtn.addEventListener(
   }
 );
 
-chatSearch.addEventListener("input", currentSearchUpdate);
+chatSearch?.addEventListener("input", currentSearchUpdate);
 
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -1192,12 +1235,13 @@ filterButtons.forEach((button) => {
   });
 });
 
-searchToggle.addEventListener("click", () => {
+searchToggle?.addEventListener("click", (event) => {
+  event.stopPropagation();
   conversationSearchRow.classList.remove("hidden");
   conversationSearch.focus();
 });
 
-closeSearch.addEventListener("click", () => {
+closeSearch?.addEventListener("click", () => {
   conversationSearchRow.classList.add("hidden");
   state.convoSearch = "";
   conversationSearch.value = "";
@@ -1205,23 +1249,34 @@ closeSearch.addEventListener("click", () => {
   if (thread) renderMessages(thread);
 });
 
-conversationSearch.addEventListener("input", () => {
+conversationSearch?.addEventListener("input", () => {
   state.convoSearch = conversationSearch.value;
   const thread = activeThread();
   if (thread) renderMessages(thread);
 });
 
-menuToggle.addEventListener("click", (event) => {
+menuToggle?.addEventListener("click", (event) => {
   event.stopPropagation();
   state.menuOpen = !state.menuOpen;
   menuPopover.classList.toggle("hidden", !state.menuOpen);
 });
 
-document.addEventListener("click", () => {
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  if (
+    target.closest(".menu-wrap") ||
+    target.closest("#search-toggle") ||
+    target.closest(".conversation-search") ||
+    target.closest("#info-drawer") ||
+    target.closest("#new-chat-modal") ||
+    target.closest("#attachment-modal")
+  ) {
+    return;
+  }
   closeOverlays();
 });
 
-menuPopover.addEventListener("click", (event) => {
+menuPopover?.addEventListener("click", (event) => {
   event.stopPropagation();
   const btn = event.target.closest(".menu-item");
   if (!btn) return;
@@ -1318,6 +1373,8 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+
+
 async function initialize() {
   try {
     const savedThreadId = getSavedActiveThreadId();
@@ -1330,6 +1387,7 @@ async function initialize() {
       state.activeThreadId = null;
       saveActiveThreadId(null);
       showConversationEmptyState();
+      scrollMessagesToBottom();
     }
   } catch (error) {
     console.error("Conversation load failed", error);
