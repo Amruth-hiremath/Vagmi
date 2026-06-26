@@ -196,7 +196,6 @@ html[data-theme] body {
 }
 
 html[data-theme] .page,
-html[data-theme] .auth-shell,
 html[data-theme] .home-page,
 html[data-theme] .settings-page,
 html[data-theme] .intelligence-page,
@@ -212,7 +211,6 @@ html[data-theme] .splash {
 }
 
 html[data-theme="claude-light"] .page,
-html[data-theme="claude-light"] .auth-shell,
 html[data-theme="claude-light"] .home-page,
 html[data-theme="claude-light"] .settings-page,
 html[data-theme="claude-light"] .intelligence-page,
@@ -247,8 +245,6 @@ html[data-theme] .attachment-modal-dialog,
 html[data-theme] .conversation-empty-card,
 html[data-theme] .messages-empty-card,
 html[data-theme] .thread-empty-card,
-html[data-theme] .auth-card,
-html[data-theme] .auth-notice,
 html[data-theme] .toast,
 html[data-theme] .user-card {
   background: var(--surface) !important;
@@ -262,12 +258,10 @@ html[data-theme] .composer,
 html[data-theme] .conversation-search,
 html[data-theme] .menu-popover,
 html[data-theme] .info-drawer,
-html[data-theme] .auth-card,
 html[data-theme] .panel,
 html[data-theme] .hero-card,
 html[data-theme] .stat-card,
 html[data-theme] .setting-card,
-html[data-theme] .auth-notice,
 html[data-theme] .toast {
   backdrop-filter: blur(14px);
 }
@@ -296,7 +290,6 @@ html[data-theme] .thread-empty-card {
     var(--surface) !important;
 }
 
-html[data-theme] .auth-card,
 html[data-theme] .panel,
 html[data-theme] .hero-card,
 html[data-theme] .stat-card,
@@ -313,7 +306,6 @@ html[data-theme] .menu-popover,
 html[data-theme] .info-drawer,
 html[data-theme] .new-chat-dialog,
 html[data-theme] .attachment-modal-dialog,
-html[data-theme] .auth-notice,
 html[data-theme] .toast {
   border: 1px solid var(--border-subtle) !important;
 }
@@ -411,4 +403,51 @@ html[data-theme] .splash {
 html[data-theme="enterprise-dark"] .sidebar,
 html[data-theme="midnight-slate"] .sidebar {
   background: #0f1117 !important;
+}
+
+/* ===== Auth & Splash are always dark ===== */
+
+.auth-shell {
+    background: #000 !important;
+}
+
+.splash,
+.auth-card,
+.auth-notice {
+    background: #0f1117 !important;
+    color: #f3f4f6 !important;
+    border-color: rgba(255,255,255,.08) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45) !important;
+}
+
+.auth-tab {
+    background: #171a22 !important;
+    color: #a1a1aa !important;
+}
+
+.auth-tab.active {
+    background: rgba(232,80,2,.18) !important;
+    color: #fff !important;
+}
+
+.field input {
+    background: #171a22 !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+.field span,
+.eyebrow,
+.status {
+    color: #a1a1aa !important;
+}
+
+/* ===== Splash always dark ===== */
+
+html[data-theme] .splash {
+    background: #0f1117 !important;
+}
+
+html[data-theme] body:has(.splash) {
+    background: #0f1117 !important;
 }

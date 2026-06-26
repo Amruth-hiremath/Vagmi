@@ -56,11 +56,11 @@
   }
 
   function applyLogoSources(doc = document, theme = getTheme()) {
-    doc.querySelectorAll("[data-theme-logo]").forEach((img) => {
-      const kind = (img.getAttribute("data-theme-logo") || "mark").toLowerCase();
-      img.src = getLogoPath(kind === "full" ? "full" : "mark", theme);
-    });
-  }
+  doc.querySelectorAll("[data-theme-logo]").forEach((img) => {
+    const kind = (img.getAttribute("data-theme-logo") || "mark").toLowerCase();
+    img.src = getLogoPath(kind === "full" ? "full" : "mark", theme);
+  });
+}
 
   function applyTheme(theme = getTheme(), doc = document) {
     const normalized = normalizeTheme(theme);
