@@ -29,15 +29,15 @@ html[data-theme] {
   --warning: #f59e0b;
   --danger: #ef4444;
 
-  --page-bg: #0f1117;
+  --page-bg: #000000;
   --page-bg-alt: #11131A;
   --page-bg-gradient:
     radial-gradient(circle at top right, rgba(232, 80, 2, 0.04), transparent 22%),
     radial-gradient(circle at bottom left, rgba(193, 8, 1, 0.03), transparent 22%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 18%);
 
-  --surface: rgba(18, 22, 30, 0.94);
-  --surface-strong: rgba(15, 18, 26, 0.98);
+  --surface: #0f1117;
+  --surface-strong: #0f1117;
   --surface-soft: rgba(255, 255, 255, 0.03);
   --surface-hover: rgba(255, 255, 255, 0.055);
   --surface-active: rgba(232, 80, 2, 0.12);
@@ -201,11 +201,14 @@ html[data-theme] .home-page,
 html[data-theme] .settings-page,
 html[data-theme] .intelligence-page,
 html[data-theme] .chat-page,
-html[data-theme] .splash,
 html[data-theme] .app-shell,
 html[data-theme] .workspace {
   background: var(--page-bg-gradient), var(--page-bg) !important;
   color: var(--text-primary) !important;
+}
+
+html[data-theme] .splash {
+    background: #0f1117 !important;
 }
 
 html[data-theme="claude-light"] .page,
@@ -349,8 +352,8 @@ html[data-theme] .logo-shell {
 }
 
 html[data-theme] .auth-logo {
-  width: min(360px, 100%);
-  max-width: 360px;
+  height: auto;
+  width: auto;
   max-height: 260px;
   background: transparent;
   border-radius: 0;
