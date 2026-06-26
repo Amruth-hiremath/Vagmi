@@ -32,7 +32,7 @@ body{
 
 body{
   font-family:Inter,sans-serif;
-  background:#0f1117;
+  background:var(--surface, #0f1117);
   color:var(--text-primary);
 }
 
@@ -61,9 +61,9 @@ input{
 
   padding:36px;
 
-  background:rgba(20,20,20,.95);
+  background:var(--page-bg, rgba(20,20,20,.95));
 
-  border:1px solid rgba(255,255,255,.08);
+  border:1px solid var(--border-subtle, rgba(255,255,255,.08));
 
   border-radius:24px;
 

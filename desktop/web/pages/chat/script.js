@@ -627,13 +627,6 @@ function renderThreads() {
   });
 }
 
-threadList.addEventListener("click", (event) => {
-  const btn = event.target.closest(".thread-item");
-  if (!btn) return;
-  const threadId = Number(btn.dataset.threadId);
-  if (!Number.isFinite(threadId)) return;
-  openThread(threadId);
-});
 
 async function loadInlineImages() {
 
@@ -903,7 +896,7 @@ async function loadMessages(conversationId, loadToken = 0) {
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
     renderMessages(thread);
-    scrollMessagesToBottom();
+    requestAnimationFrame(() => scrollMessagesToBottom());
   } catch (error) {
     console.error("Failed loading messages", error);
   }
@@ -977,7 +970,7 @@ async function handleSend() {
 
     await loadMessages(thread.id);
     renderThreads();
-    scrollMessagesToBottom();
+    requestAnimationFrame(() => scrollMessagesToBottom());
   } catch (error) {
     console.error("Message send failed", error);
     setComposerText(text);
@@ -1003,7 +996,7 @@ function handleAttachment(file, forceType = null) {
         thread.lastMessageType = "IMAGE";
         thread.lastMessageTime = formatTime(new Date());
         renderThreads();
-        scrollMessagesToBottom();
+        requestAnimationFrame(() => scrollMessagesToBottom());
       })
       .catch((error) => {
         console.error("Image send failed", error);
@@ -1193,10 +1186,8 @@ micBtn?.addEventListener(
                 file
               );
 
-              await loadMessages(
-                thread.id
-              );
-              scrollMessagesToBottom();
+              await loadMessages(thread.id);
+              requestAnimationFrame(() => scrollMessagesToBottom());
 
             } catch (error) {
 
@@ -1374,6 +1365,14 @@ document.addEventListener("keydown", (event) => {
 });
 
 
+if (messagesScroll && !messagesObserver && "MutationObserver" in window) {
+  messagesObserver = new MutationObserver(() => {
+    if (state.activeThreadId !== null) {
+      scrollMessagesToBottom();
+    }
+  });
+  messagesObserver.observe(messagesScroll, { childList: true, subtree: true });
+}
 
 async function initialize() {
   try {
