@@ -7,6 +7,10 @@ class RoomCreate(BaseModel):
     name: str
 
 
+class RoomUpdate(BaseModel):
+    name: str | None = None
+
+
 class AddMemberRequest(BaseModel):
     username: str
 

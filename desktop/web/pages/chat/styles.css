@@ -1562,24 +1562,49 @@ button {
   padding: 20px;
 }
 
+.room-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.room-field > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 .room-field textarea,
-.room-field input {
+.room-field input,
+.member-picker > input {
   width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.room-field input::placeholder,
+.member-picker > input::placeholder {
+  color: var(--text-muted);
 }
 
 .room-field textarea {
   min-height: 96px;
   resize: vertical;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-soft);
-  color: var(--text-primary);
-  outline: none;
-  border-radius: 12px;
   padding: 12px 14px;
 }
 
-.room-field textarea:focus {
+.room-field textarea:focus,
+.room-field input:focus,
+.member-picker > input:focus {
   border-color: var(--input-border-strong);
+  background: rgba(255, 255, 255, 0.03);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -1587,6 +1612,7 @@ button {
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.6;
+  margin: 0;
 }
 
 .room-actions {
@@ -1594,11 +1620,49 @@ button {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 2px;
+  align-items: center;
+}
+
+.room-actions button {
+    flex: 1;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
 }
 
 .room-actions .primary-btn,
 .room-actions .empty-state-btn {
   min-width: 132px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.room-actions .primary-btn {
+  border: 1px solid rgba(232, 80, 2, 0.22);
+  background: var(--branding-gradient);
+  color: var(--white);
+  box-shadow: 0 10px 24px rgba(232, 80, 2, 0.16);
+}
+
+.room-actions .primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(232, 80, 2, 0.20);
+}
+
+.room-actions .empty-state-btn {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.room-actions .empty-state-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .member-picker {

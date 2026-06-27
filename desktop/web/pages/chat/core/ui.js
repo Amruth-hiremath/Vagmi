@@ -103,7 +103,8 @@ export function renderThreads(state) {
   const filterTerm = state.chatSearch.trim().toLowerCase();
 
   const filteredThreads = state.threads.filter((thread) => {
-    const matchesKind = state.threadFilter === "all" || thread.kind === state.threadFilter;
+    const filterKind = state.threadFilter === "group" ? "room" : state.threadFilter;
+    const matchesKind = state.threadFilter === "all" || thread.kind === filterKind;
     const haystack = [
       thread.title || "",
       thread.lastMessage || "",
@@ -170,11 +171,11 @@ export function updateConversationMeta(thread) {
   
   conversationTitle.textContent = thread.title || "Conversation";
   conversationStatus.textContent = thread.kind === "room"
-    ? `Group · ${thread.members?.length || 1} members`
+    ? `Room · ${thread.members?.length || 1} members`
     : (thread.status || "Direct Message");
   conversationAvatar.textContent = thread.initials || "VA";
   document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
+  document.getElementById("info-type").textContent = thread.kind === "room" ? "Room" : "DM";
   document.getElementById("info-files").textContent = String(
     (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
   );
@@ -183,7 +184,7 @@ export function updateConversationMeta(thread) {
 export function updateInfoDrawer(thread) {
   if (!thread) return;
   document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
+  document.getElementById("info-type").textContent = thread.kind === "room" ? "Room" : "DM";
   document.getElementById("info-files").textContent = String(
     (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
   );

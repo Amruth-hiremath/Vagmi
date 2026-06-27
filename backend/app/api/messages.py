@@ -37,7 +37,7 @@ from app.models.room_member import RoomMember
 
 router = APIRouter(
     prefix="/rooms",
-    tags=["Messages"]
+    tags=["Chat"]
 )
 
 
@@ -85,6 +85,10 @@ def send_message(
     }
 
 
+@router.post(
+    "/{room_id}/image",
+    response_model=MessageResponse
+)
 @router.post(
     "/room/{room_id}/image",
     response_model=MessageResponse
@@ -140,6 +144,10 @@ def send_image_message(
         "created_at": message.created_at
     }
 
+@router.post(
+    "/{room_id}/voice",
+    response_model=MessageResponse
+)
 @router.post(
     "/room/{room_id}/voice",
     response_model=MessageResponse
@@ -250,6 +258,9 @@ def get_messages(
 @router.get(
     "/{room_id}/messages/{message_id}/attachment"
 )
+@router.get(
+    "/room/{room_id}/message/{message_id}/attachment"
+)
 def download_room_message_attachment(
     room_id: int,
     message_id: int,
@@ -293,6 +304,9 @@ def download_room_message_attachment(
         media_type=media_type or "application/octet-stream"
     )
 
+@router.delete(
+    "/messages/{message_id}"
+)
 @router.delete(
     "/message/{message_id}"
 )

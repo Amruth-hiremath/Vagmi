@@ -68,6 +68,7 @@ import {
 } from "./core/modal.js";
 import { currentSearchUpdate, searchRegisteredUsers, startChatWithUser } from "./core/search.js";
 import { searchUsers } from "../../services/users.js";
+import { uploadRoomAttachment, uploadDmAttachment } from "../../services/attachment.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getUser();
@@ -193,12 +194,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!key) return;
     if (roomMemberState.selected.some((picked) => getRoomMemberKey(picked) === key)) return;
     if (String(user.username || "").toLowerCase() === currentUser.username.toLowerCase()) return;
+
     roomMemberState.selected.push({ id: Number(user.id), username: user.username });
     renderSelectedRoomMembers();
+
     if (roomMemberSearch) {
       roomMemberSearch.value = "";
-      roomMemberSearch.focus();
+      roomMemberSearch.focus({ preventScroll: true });
+      roomMemberSearch.setSelectionRange(0, 0);
     }
+
     clearRoomMemberSearchResults();
   }
 
@@ -375,8 +380,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const roomCreateCancel = document.getElementById("room-create-cancel");
   const roomCreateForm = document.getElementById("room-create-form");
   const roomNameInput = document.getElementById("room-name-input");
-  const roomMemberSearch = document.getElementById("room-member-search");
   const roomMemberPicker = document.getElementById("room-member-picker");
+  const roomMemberSearch = document.getElementById("room-member-search");
   const roomMemberResults = document.getElementById("room-member-results");
   const roomMemberSelected = document.getElementById("room-member-selected");
 
@@ -389,6 +394,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const attachmentModal = document.getElementById("attachment-modal");
   const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
   const attachmentModalClose = document.getElementById("attachment-modal-close");
+  const roomCreateDialog = document.querySelector(".room-create-dialog");
+
+  roomCreateDialog?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  roomMemberPicker?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
 
   document.querySelectorAll("[data-icon]").forEach((el) => {
     const iconName = el.dataset.icon;
@@ -406,9 +420,12 @@ document.addEventListener("DOMContentLoaded", () => {
   window.sendRoomMessage = sendRoomMessage;
   window.sendRoomImage = sendRoomImage;
   window.sendRoomVoice = sendRoomVoice;
+  window.uploadRoomAttachment = uploadRoomAttachment;
+  window.uploadDmAttachment = uploadDmAttachment;
   window.formatTime = formatTime;
   window.formatFileSize = formatFileSize;
   window.renderThreads = renderThreads;
+  window.renderMessages = renderMessages;
   window.markConversationRead = markConversationRead;
   window.loadMessages = loadMessages;
   window.getMessages = getMessages;
@@ -435,6 +452,8 @@ document.addEventListener("DOMContentLoaded", () => {
   window.closeRoomCreateModal = closeRoomCreateModal;
   window.openNewChatModal = openNewChatModal;
   window.closeNewChatModal = closeNewChatModal;
+  window.sendAttachment = handleAttachment;
+  window.handleAttachment = handleAttachment;
 
   if (messagesScroll && "MutationObserver" in window) {
     messagesObserver = new MutationObserver(() => {
@@ -510,8 +529,6 @@ document.addEventListener("DOMContentLoaded", () => {
   roomCreateClose?.addEventListener("click", closeRoomCreateModal);
   roomCreateCancel?.addEventListener("click", closeRoomCreateModal);
   roomCreateForm?.addEventListener("submit", submitRoomCreation);
-  roomCreateModal?.addEventListener("click", (event) => event.stopPropagation());
-  roomMemberPicker?.addEventListener("click", (event) => event.stopPropagation());
 
   roomMemberSearch?.addEventListener("input", () => {
     if (roomMemberState.timer) {
@@ -541,18 +558,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  roomMemberResults?.addEventListener("click", (event) => {
-    event.stopPropagation();
+  const handleRoomMemberChoice = (event) => {
     const btn = event.target.closest(".member-result");
     if (!btn) return;
+    event.preventDefault();
+    event.stopPropagation();
     const id = Number(btn.dataset.memberId);
     const username = btn.dataset.memberUsername;
     if (!Number.isFinite(id) || !username) return;
     addRoomMemberSelection({ id, username });
-  });
+  };
+
+  roomMemberResults?.addEventListener("pointerdown", handleRoomMemberChoice);
+  roomMemberResults?.addEventListener("click", handleRoomMemberChoice);
 
   roomMemberSelected?.addEventListener("click", (event) => {
-    event.stopPropagation();
     const removeBtn = event.target.closest("[data-remove-user-id]");
     if (!removeBtn) return;
     removeRoomMemberSelection(removeBtn.dataset.removeUserId);
@@ -658,22 +678,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
-    const isInside = (selector) =>
-      path.some((node) => node instanceof Element && node.matches?.(selector));
-
+    const target = event.target;
     if (
-      isInside(".menu-wrap") ||
-      isInside("#search-toggle") ||
-      isInside(".conversation-search") ||
-      isInside("#info-drawer") ||
-      isInside("#new-chat-modal") ||
-      isInside("#room-create-modal") ||
-      isInside("#chat-launcher-modal") ||
-      isInside("#attachment-modal") ||
-      isInside(".menu-popover") ||
-      isInside("#room-member-picker") ||
-      isInside("#room-member-results")
+      target.closest(".menu-wrap") ||
+      target.closest("#search-toggle") ||
+      target.closest(".conversation-search") ||
+      target.closest("#info-drawer") ||
+      target.closest("#new-chat-modal") ||
+      target.closest("#room-create-modal") ||
+      target.closest("#chat-launcher-modal") ||
+      target.closest("#attachment-modal") ||
+      target.closest(".menu-popover") ||
+      target.closest("#room-member-picker") ||
+      target.closest("#room-member-results")
     ) {
       return;
     }

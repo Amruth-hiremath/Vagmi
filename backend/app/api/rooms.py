@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 
@@ -14,6 +15,7 @@ from app.models.room_member import RoomMember
 
 from app.schemas.room import (
     RoomCreate,
+    RoomUpdate,
     RoomResponse,
     AddMemberRequest,
     MemberResponse
@@ -33,8 +35,16 @@ from app.core.logging_config import logger
 
 router = APIRouter(
     prefix="/rooms",
-    tags=["Rooms"]
+    tags=["Chat"]
 )
+
+
+def _require_room_admin(room: Room, current_user: User):
+    if room.created_by != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only room admin can perform this action"
+        )
 
 @router.post(
     "",
@@ -104,6 +114,50 @@ def list_rooms(
 
     return rooms
 
+@router.patch(
+    "/{room_id}",
+    response_model=RoomResponse
+)
+def update_room(
+    room_id: int,
+    room_data: RoomUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    room = (
+        db.query(Room)
+        .filter(Room.id == room_id)
+        .first()
+    )
+
+    if room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    _require_room_admin(room, current_user)
+
+    if room_data.name is not None:
+        validate_room_name(room_data.name)
+        candidate = room_data.name.strip()
+        duplicate = (
+            db.query(Room)
+            .filter(
+                Room.created_by == current_user.id,
+                func.lower(Room.name) == candidate.lower(),
+                Room.id != room_id,
+            )
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=400,
+                detail="You already have a room with this name"
+            )
+        room.name = candidate
+
+    db.commit()
+    db.refresh(room)
+    return room
+
 @router.post(
     "/{room_id}/members"
 )
@@ -127,11 +181,7 @@ def add_member(
             detail="Room not found"
         )
 
-    if room.created_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Only room creator can add members"
-        )
+    _require_room_admin(room, current_user)
 
     user = (
         db.query(User)
@@ -253,11 +303,7 @@ def remove_member(
             detail="Room not found"
         )
 
-    if room.created_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Only room creator can remove members"
-        )
+    _require_room_admin(room, current_user)
 
     user = (
         db.query(User)
@@ -361,11 +407,7 @@ def delete_room(
             detail="Room not found"
         )
 
-    if room.created_by != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Only room creator can delete room"
-        )
+    _require_room_admin(room, current_user)
 
     messages = (
         db.query(Message)

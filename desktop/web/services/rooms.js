@@ -36,6 +36,17 @@ export async function sendRoomMessage(roomId, text) {
   );
 }
 
+
+export async function updateRoom(roomId, data) {
+  return parseJson(
+    await apiRequest(`/rooms/${roomId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+  );
+}
+
 export async function getRoom(roomId) {
   return parseJson(
     await apiRequest(`/rooms/${roomId}`)

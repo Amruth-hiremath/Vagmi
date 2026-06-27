@@ -1,6 +1,7 @@
 // desktop/web/pages/chat/core/state.js
 
 const ACTIVE_THREAD_KEY = "vagmi-active-chat-thread";
+const ROOM_READ_PREFIX = "vagmi-room-last-read-";
 
 export function makeThreadKey(threadOrType, id = null) {
   if (threadOrType && typeof threadOrType === "object") {
@@ -28,6 +29,28 @@ export function getSavedActiveThreadKey() {
     return raw ? raw : null;
   } catch {
     return null;
+  }
+}
+
+export function getRoomReadMarker(roomId) {
+  try {
+    const raw = localStorage.getItem(`${ROOM_READ_PREFIX}${String(roomId)}`);
+    return raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setRoomReadMarker(roomId, value) {
+  try {
+    const key = `${ROOM_READ_PREFIX}${String(roomId)}`;
+    if (!value) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* ignore storage failures */
   }
 }
 

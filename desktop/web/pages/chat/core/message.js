@@ -323,12 +323,14 @@ export async function loadMessages(conversationId, loadToken = 0) {
         id: message.id,
         sender: isSelf ? "self" : "other",
         senderName,
+        senderId: message.sender_id,
         type: (message.message_type || "TEXT").toUpperCase(),
         text: message.message_text || "",
         originalFilename: message.original_filename || "",
         attachmentPath: message.attachment_path || "",
         attachmentId: message.attachment_id || null,
         fileMeta: message.original_filename || "",
+        createdAt: message.created_at,
         time: formatTime(message.created_at)
       };
     });
@@ -394,57 +396,42 @@ export function setComposerText(inputField, text) {
   inputField.dispatchEvent(new Event("input"));
 }
 
-export function handleAttachment(file, forceType = null) {
+export async function handleAttachment(file, forceType = null) {
   const state = window.chatState;
-  const currentUser = window.currentUser;
   const sendImage = window.sendImage;
   const sendRoomImage = window.sendRoomImage;
+  const uploadRoomAttachment = window.uploadRoomAttachment;
+  const uploadDmAttachment = window.uploadDmAttachment;
   const loadMessages = window.loadMessages;
   const renderThreads = window.renderThreads;
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
   const formatTime = window.formatTime;
-  const formatFileSize = window.formatFileSize;
-  const renderMessages = window.renderMessages;
-  
   const thread = activeThread(state);
   if (!thread) return;
 
   const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
 
-  if (type === "IMAGE") {
-    const uploader = thread.type === "room" ? sendRoomImage : sendImage;
-    uploader(thread.id, file)
-       .then(() => loadMessages(thread.key))
-      .then(() => {
-        thread.lastMessage = "Image";
-        thread.lastMessageType = "IMAGE";
-        thread.lastMessageTime = formatTime(new Date());
-        renderThreads(state);
-        requestAnimationFrame(() => scrollMessagesToBottom());
-      })
-      .catch((error) => {
-        console.error("Image send failed", error);
-      });
-    return;
-  }
+  try {
+    if (type === "IMAGE") {
+      const uploader = thread.type === "room" ? sendRoomImage : sendImage;
+      if (typeof uploader !== "function") throw new Error("Image upload is not available.");
+      await uploader(thread.id, file);
+    } else {
+      const uploader = thread.type === "room" ? uploadRoomAttachment : uploadDmAttachment;
+      if (typeof uploader !== "function") throw new Error("Attachment upload is not available.");
+      await uploader(thread.id, file);
+    }
 
-  // File attachments are not yet supported by the backend DM flow.
-  // We keep the composer functional without breaking the interface.
-  const time = formatTime(new Date());
-  thread.messages.push({
-    id: `local-${Date.now()}`,
-    sender: "self",
-    senderName: currentUser?.username || "You",
-    type: "FILE",
-    originalFilename: file.name,
-    fileMeta: formatFileSize(file.size),
-    time
-  });
-  thread.lastMessage = file.name;
-  thread.lastMessageType = "FILE";
-  thread.lastMessageTime = time;
-  renderMessages(thread);
-  renderThreads(state);
+    await loadMessages(thread.key);
+    thread.lastMessage = file.type.startsWith("image/") ? "Image" : file.name;
+    thread.lastMessageType = file.type.startsWith("image/") ? "IMAGE" : "FILE";
+    thread.lastMessageTime = formatTime(new Date());
+    renderThreads(state);
+    requestAnimationFrame(() => scrollMessagesToBottom());
+  } catch (error) {
+    console.error("Attachment send failed", error);
+    alert(error?.message || "Failed to send attachment.");
+  }
 }
 
 function clearConversationCanvas(messagesScroll, dayChip) {
