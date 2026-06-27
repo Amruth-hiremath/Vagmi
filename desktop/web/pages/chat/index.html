@@ -204,11 +204,20 @@
 
         <label class="field room-field">
           <span>Invite members (optional)</span>
-          <textarea id="room-members-input" rows="4" placeholder="Comma separated usernames, e.g. srujan, amruthesh"></textarea>
+          <div class="member-picker" id="room-member-picker">
+            <input
+              id="room-member-search"
+              type="text"
+              placeholder="Search approved users to add"
+              autocomplete="off"
+            />
+            <div class="member-picker-results hidden" id="room-member-results" aria-live="polite"></div>
+            <div class="member-picker-selected" id="room-member-selected"></div>
+          </div>
         </label>
 
         <p class="room-helper">
-          The creator will be added automatically. Members can be invited now or later.
+          The creator will be added automatically. Only approved users appear in search.
         </p>
 
         <div class="room-actions">

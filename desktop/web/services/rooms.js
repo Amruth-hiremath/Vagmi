@@ -99,7 +99,7 @@ export async function sendRoomImage(roomId, file) {
   formData.append("file", file);
 
   return parseJson(
-    await apiRequest(`/rooms/room/${roomId}/image`, {
+    await apiRequest(`/rooms/${roomId}/image`, {
       method: "POST",
       body: formData
     })
@@ -111,7 +111,7 @@ export async function sendRoomVoice(roomId, file) {
   formData.append("file", file);
 
   return parseJson(
-    await apiRequest(`/rooms/room/${roomId}/voice`, {
+    await apiRequest(`/rooms/${roomId}/voice`, {
       method: "POST",
       body: formData
     })
@@ -120,7 +120,7 @@ export async function sendRoomVoice(roomId, file) {
 
 export async function deleteRoomMessage(messageId) {
   return parseJson(
-    await apiRequest(`/rooms/message/${messageId}`, {
+    await apiRequest(`/rooms/messages/${messageId}`, {
       method: "DELETE"
     })
   );

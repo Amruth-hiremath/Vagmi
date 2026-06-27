@@ -1,7 +1,6 @@
 // desktop/web/pages/chat/script.js
 
 import { getConversations, getMessages, sendMessage, sendImage, sendVoice, markConversationRead, clearConversation, deleteMessage } from "../../services/dm.js";
-import { searchUsers } from "../../services/users.js";
 import { apiRequest } from "../../services/api.js";
 import { getUser } from "../../services/auth.js";
 import {
@@ -68,6 +67,7 @@ import {
   setupImageViewerEvents
 } from "./core/modal.js";
 import { currentSearchUpdate, searchRegisteredUsers, startChatWithUser } from "./core/search.js";
+import { searchUsers } from "../../services/users.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getUser();
@@ -92,6 +92,127 @@ document.addEventListener("DOMContentLoaded", () => {
   let mediaRecorder = null;
   let recordedChunks = [];
   let isRecording = false;
+
+  const roomMemberState = {
+    selected: [],
+    timer: null
+  };
+
+  function getRoomMemberKey(user) {
+    if (!user) return null;
+    return `${String(user.id)}:${String(user.username || "").toLowerCase()}`;
+  }
+
+  function clearRoomMemberSearchResults() {
+    if (roomMemberResults) {
+      roomMemberResults.innerHTML = "";
+      roomMemberResults.classList.add("hidden");
+    }
+  }
+
+  function renderSelectedRoomMembers() {
+    if (!roomMemberSelected) return;
+
+    if (roomMemberState.selected.length === 0) {
+      roomMemberSelected.innerHTML = '<div class="member-picker-empty">No members selected yet.</div>';
+      return;
+    }
+
+    roomMemberSelected.innerHTML = roomMemberState.selected.map((user) => `
+      <div class="member-chip" data-user-id="${String(user.id)}">
+        <span class="member-chip-label">${escapeHTML(user.username)}</span>
+        <button type="button" class="member-chip-remove" data-remove-user-id="${String(user.id)}" aria-label="Remove ${escapeHTML(user.username)}">×</button>
+      </div>
+    `).join("");
+  }
+
+  function setRoomMemberStatus(message, tone = "muted") {
+    if (!roomMemberResults) return;
+    roomMemberResults.innerHTML = `<div class="member-picker-state ${tone}">${escapeHTML(message)}</div>`;
+    roomMemberResults.classList.remove("hidden");
+  }
+
+  function syncRoomMemberResults(users) {
+    const list = (Array.isArray(users) ? users : [])
+      .filter((user) => user && String(user.username || "").trim())
+      .filter((user) => user.username.toLowerCase() !== currentUser.username.toLowerCase())
+      .filter((user) => !roomMemberState.selected.some((picked) => picked.id === user.id));
+
+    if (!roomMemberResults) return;
+
+    if (list.length === 0) {
+      setRoomMemberStatus(roomMemberSearch?.value?.trim() ? "No matching approved users found." : "Type to search approved users.");
+      return;
+    }
+
+    roomMemberResults.innerHTML = list.map((user) => {
+      const username = user.username || "User";
+      const initials = username
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("") || "U";
+
+      return `
+        <button type="button" class="member-result" data-member-id="${String(user.id)}" data-member-username="${escapeHTML(username)}">
+          <div class="avatar">${escapeHTML(initials)}</div>
+          <div class="member-result-copy">
+            <div class="member-result-name">${escapeHTML(username)}</div>
+            <div class="member-result-meta">Approved user</div>
+          </div>
+          <div class="member-result-action">Add</div>
+        </button>
+      `;
+    }).join("");
+    roomMemberResults.classList.remove("hidden");
+  }
+
+  async function searchRoomMembers(query) {
+    if (!roomMemberResults) return;
+    const normalized = String(query || "").trim();
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
+    }
+    roomMemberResults.classList.remove("hidden");
+    roomMemberResults.innerHTML = '<div class="member-picker-state muted">Searching approved users…</div>';
+
+    try {
+      const users = await searchUsers(normalized);
+      syncRoomMemberResults(users);
+    } catch (error) {
+      console.error("Room member search failed", error);
+      setRoomMemberStatus("Unable to load approved users right now.", "error");
+    }
+  }
+
+  function addRoomMemberSelection(user) {
+    if (!user) return;
+    const key = getRoomMemberKey(user);
+    if (!key) return;
+    if (roomMemberState.selected.some((picked) => getRoomMemberKey(picked) === key)) return;
+    if (String(user.username || "").toLowerCase() === currentUser.username.toLowerCase()) return;
+    roomMemberState.selected.push({ id: Number(user.id), username: user.username });
+    renderSelectedRoomMembers();
+    if (roomMemberSearch) {
+      roomMemberSearch.value = "";
+      roomMemberSearch.focus();
+    }
+    clearRoomMemberSearchResults();
+  }
+
+  function removeRoomMemberSelection(userId) {
+    const numericId = Number(userId);
+    roomMemberState.selected = roomMemberState.selected.filter((user) => Number(user.id) !== numericId);
+    renderSelectedRoomMembers();
+    if (roomMemberSearch?.value?.trim()) {
+      searchRoomMembers(roomMemberSearch.value);
+    } else {
+      setRoomMemberStatus("Type to search approved users.");
+    }
+  }
+
 
   let scrollRaf1 = null;
   let scrollRaf2 = null;
@@ -145,18 +266,33 @@ document.addEventListener("DOMContentLoaded", () => {
     state.roomCreateOpen = true;
     roomCreateModal?.classList.remove("hidden");
     roomCreateModal?.setAttribute("aria-hidden", "false");
-    if (roomNameInput) {
-      roomNameInput.value = "";
-      roomNameInput.focus();
+    roomMemberState.selected = [];
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
     }
-    if (roomMembersInput) roomMembersInput.value = "";
+    renderSelectedRoomMembers();
+    clearRoomMemberSearchResults();
+    if (roomMemberSearch) {
+      roomMemberSearch.value = "";
+      roomMemberSearch.focus();
+      searchRoomMembers("");
+    }
   }
 
   function closeRoomCreateModal() {
     state.roomCreateOpen = false;
     roomCreateModal?.classList.add("hidden");
     roomCreateModal?.setAttribute("aria-hidden", "true");
+    roomMemberState.selected = [];
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
+    }
     if (roomCreateForm) roomCreateForm.reset();
+    renderSelectedRoomMembers();
+    clearRoomMemberSearchResults();
+    if (roomMemberSearch) roomMemberSearch.value = "";
   }
 
   async function submitRoomCreation(event) {
@@ -168,16 +304,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const members = (roomMembersInput?.value || "")
-      .split(",")
-      .map((name) => name.trim())
+    const members = roomMemberState.selected
+      .map((user) => String(user.username || "").trim())
       .filter(Boolean)
       .filter((name) => name.toLowerCase() !== currentUser.username.toLowerCase());
 
     try {
       const room = await createRoom(roomName);
 
-      const uniqueMembers = [...new Set(members.map((m) => m.toLowerCase()))];
+      const uniqueMembers = [...new Set(members.map((name) => name.toLowerCase()))];
       const originalNames = members.filter((name, idx) => uniqueMembers.indexOf(name.toLowerCase()) === idx);
 
       for (const username of originalNames) {
@@ -240,7 +375,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const roomCreateCancel = document.getElementById("room-create-cancel");
   const roomCreateForm = document.getElementById("room-create-form");
   const roomNameInput = document.getElementById("room-name-input");
-  const roomMembersInput = document.getElementById("room-members-input");
+  const roomMemberSearch = document.getElementById("room-member-search");
+  const roomMemberPicker = document.getElementById("room-member-picker");
+  const roomMemberResults = document.getElementById("room-member-results");
+  const roomMemberSelected = document.getElementById("room-member-selected");
 
   const newChatModal = document.getElementById("new-chat-modal");
   const newChatBackdrop = document.getElementById("new-chat-backdrop");
@@ -372,6 +510,53 @@ document.addEventListener("DOMContentLoaded", () => {
   roomCreateClose?.addEventListener("click", closeRoomCreateModal);
   roomCreateCancel?.addEventListener("click", closeRoomCreateModal);
   roomCreateForm?.addEventListener("submit", submitRoomCreation);
+  roomCreateModal?.addEventListener("click", (event) => event.stopPropagation());
+  roomMemberPicker?.addEventListener("click", (event) => event.stopPropagation());
+
+  roomMemberSearch?.addEventListener("input", () => {
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+    }
+    roomMemberState.timer = setTimeout(() => {
+      searchRoomMembers(roomMemberSearch.value);
+    }, 220);
+  });
+
+  roomMemberSearch?.addEventListener("focus", () => {
+    if (!roomMemberResults || roomMemberResults.children.length === 0) {
+      searchRoomMembers(roomMemberSearch.value || "");
+    }
+  });
+
+  roomMemberSearch?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      clearRoomMemberSearchResults();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const first = roomMemberResults?.querySelector(".member-result");
+      if (first) first.click();
+    }
+  });
+
+  roomMemberResults?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const btn = event.target.closest(".member-result");
+    if (!btn) return;
+    const id = Number(btn.dataset.memberId);
+    const username = btn.dataset.memberUsername;
+    if (!Number.isFinite(id) || !username) return;
+    addRoomMemberSelection({ id, username });
+  });
+
+  roomMemberSelected?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const removeBtn = event.target.closest("[data-remove-user-id]");
+    if (!removeBtn) return;
+    removeRoomMemberSelection(removeBtn.dataset.removeUserId);
+  });
 
   attachBtn?.addEventListener("click", () => fileInput?.click());
   imageBtn?.addEventListener("click", () => imageInput?.click());
@@ -473,20 +658,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    const target = event.target;
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    const isInside = (selector) =>
+      path.some((node) => node instanceof Element && node.matches?.(selector));
+
     if (
-      target.closest(".menu-wrap") ||
-      target.closest("#search-toggle") ||
-      target.closest(".conversation-search") ||
-      target.closest("#info-drawer") ||
-      target.closest("#new-chat-modal") ||
-      target.closest("#room-create-modal") ||
-      target.closest("#chat-launcher-modal") ||
-      target.closest("#attachment-modal") ||
-      target.closest(".menu-popover")
+      isInside(".menu-wrap") ||
+      isInside("#search-toggle") ||
+      isInside(".conversation-search") ||
+      isInside("#info-drawer") ||
+      isInside("#new-chat-modal") ||
+      isInside("#room-create-modal") ||
+      isInside("#chat-launcher-modal") ||
+      isInside("#attachment-modal") ||
+      isInside(".menu-popover") ||
+      isInside("#room-member-picker") ||
+      isInside("#room-member-results")
     ) {
       return;
     }
+    clearRoomMemberSearchResults();
     closeAllOverlays();
   });
 
