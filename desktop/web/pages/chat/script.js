@@ -7,7 +7,8 @@ import {
   sendVoice,
   markConversationRead,
   startConversation,
-  clearConversation
+  clearConversation,
+  deleteMessage
 } from "../../services/dm.js";
 
 import { searchUsers } from "../../services/users.js";
@@ -681,6 +682,20 @@ function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+
+          ${
+            message.sender === "self"
+              ? `
+              <button
+                class="delete-message-btn"
+                data-message-id="${message.id}"
+                title="Delete message"
+              >
+                ×
+              </button>
+              `
+              : ""
+          }
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
@@ -697,6 +712,20 @@ function messageHTML(thread, message) {
       return `
         <div class="message-row ${sideClass}">
           <div class="message-bubble">
+
+            ${
+              message.sender === "self"
+                ? `
+                <button
+                  class="delete-message-btn"
+                  data-message-id="${message.id}"
+                  title="Delete message"
+                >
+                  ×
+                </button>
+                `
+                : ""
+            }
 
             ${
               senderLine
@@ -735,6 +764,20 @@ function messageHTML(thread, message) {
   return `
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
+
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
         ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
         
         <img
@@ -763,6 +806,20 @@ if (message.type === "FILE") {
   return `
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
+
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
         ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
         ${buildAttachmentCard(thread, message)}
         <div class="message-time mono">${escapeHTML(message.time || "")}</div>
@@ -1340,7 +1397,46 @@ newChatResults?.addEventListener("click", (event) => {
   startChatWithUser(username);
 });
 
-messagesScroll.addEventListener("click", (event) => {
+messagesScroll.addEventListener("click", async (event) => {
+  const deleteBtn = event.target.closest(".delete-message-btn");
+
+  if (deleteBtn) {
+
+    const messageId = Number(deleteBtn.dataset.messageId);
+
+    if (
+      !confirm(
+        "Delete this message?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+
+      await deleteMessage(messageId);
+
+      const thread = activeThread();
+
+      if (!thread) return;
+
+      await loadMessages(thread.id);
+
+      await loadConversations({
+        preserveSelection: true
+      });
+
+    } catch (error) {
+
+      alert(
+        error.message ||
+        "Failed to delete message."
+      );
+
+    }
+
+    return;
+  }
   const imgEl = event.target.closest(".chat-image-preview");
   if (imgEl) {
   openImageViewer(

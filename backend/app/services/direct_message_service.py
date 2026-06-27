@@ -159,9 +159,13 @@ def get_user_conversations(
                     "Image"
                     if last_message and last_message.message_type == "IMAGE"
                     else(
-                        last_message.message_text
-                        if last_message
-                        else None
+                        "Voice message"
+                        if last_message and last_message.message_type == "VOICE"
+                        else(
+                            last_message.message_text
+                            if last_message
+                            else None
+                        )
                     )
                 ),
                 "last_message_sender": (
@@ -177,7 +181,15 @@ def get_user_conversations(
                     if last_message
                     else None
                 ),
+
+                "last_message_type": (
+                    last_message.message_type
+                    if last_message
+                    else "TEXT"
+                ),
+
                 "unread_count": unread_count
+
             }
         )
 
