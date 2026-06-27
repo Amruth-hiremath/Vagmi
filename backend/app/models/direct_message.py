@@ -55,3 +55,12 @@ class DirectMessage(Base):
         DateTime,
         default=lambda: datetime.now(timezone.utc)
     )
+    delivered_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    seen_at = Column(
+        DateTime,
+        nullable=True
+    )

@@ -1,0 +1,267 @@
+:root {
+  --branding-orange: #E85002;
+  --primary-black: #000;
+  --white: #F9F9F9;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --border-subtle: rgba(255,255,255,.08);
+
+  --gradient-1: #C10801;
+  --gradient-2: #F16001;
+  --branding-gradient: linear-gradient(135deg,var(--gradient-1),var(--gradient-2));
+}
+
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+html,
+body{
+  width:100%;
+  min-height:100vh;
+}
+
+body{
+  font-family:Inter,sans-serif;
+  background:#0f1117;
+  color:var(--text-primary);
+}
+
+button,
+input{
+  font:inherit;
+}
+
+.hidden{
+  display:none!important;
+}
+
+.auth-shell{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:32px;
+}
+
+.auth-card{
+  width:min(950px,100%);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:40px;
+  padding:36px;
+  background:rgba(20,20,20,.95);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:24px;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);
+}
+
+.auth-brand{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  gap:30px;
+}
+
+.auth-logo{
+  width:180px;
+  display:block;
+  margin:0 auto;
+}
+
+.eyebrow{
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+  margin-bottom:12px;
+}
+
+.auth-copy h1{
+  font-size:54px;
+  line-height:1;
+  margin-bottom:18px;
+}
+
+.auth-copy p{
+  color:var(--text-secondary);
+  line-height:1.7;
+  max-width:34ch;
+}
+
+.auth-tabs{
+  display:flex;
+  gap:10px;
+  margin-bottom:24px;
+}
+
+.auth-tab{
+  flex:1;
+  border:none;
+  background:rgba(255,255,255,.04);
+  color:var(--text-secondary);
+  border-radius:12px;
+  height:46px;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.auth-tab.active{
+  background:rgba(232,80,2,.18);
+  color:white;
+}
+
+.auth-form{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:18px;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.field span{
+  color:var(--text-secondary);
+  font-size:14px;
+}
+
+.field input{
+  height:52px;
+  border:none;
+  outline:none;
+  border-radius:12px;
+  padding:0 16px;
+  background:rgba(255,255,255,.05);
+  color:white;
+}
+
+.field input:focus{
+  box-shadow:0 0 0 2px rgba(232,80,2,.4);
+}
+
+.primary-btn{
+  height:52px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  color:white;
+  background:var(--branding-gradient);
+  font-weight:600;
+  transition:.2s;
+}
+
+.primary-btn:hover{
+  transform:translateY(-2px);
+}
+
+.error-text{
+  color:#ff8f8f;
+  min-height:20px;
+  font-size:14px;
+}
+
+@media(max-width:900px){
+
+  .auth-card{
+    grid-template-columns:1fr;
+    max-width:500px;
+  }
+
+  .auth-copy h1{
+    font-size:42px;
+  }
+
+  .auth-brand{
+    text-align:center;
+    align-items:center;
+  }
+}
+
+.hidden {
+  display: none !important;
+}
+
+.password-live-check {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.password-meter {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.password-meter-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #333333, #E85002);
+  transition: width 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.password-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #A1A1AA;
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rule-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #52525B;
+  flex: 0 0 auto;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rule.valid {
+  color: #F4F4F5;
+}
+
+.rule.valid .rule-dot {
+  background: #E85002;
+  box-shadow: 0 0 0 4px rgba(232, 80, 2, 0.12);
+}
+
+.rule.invalid .rule-dot {
+  background: #52525B;
+}
+
+.error {
+  min-height: 20px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.error-message {
+  color: #f87171;
+}
+
+.success-message {
+  color: #86efac;
+}

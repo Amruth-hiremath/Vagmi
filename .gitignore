@@ -1,32 +1,70 @@
-# Virtual environment
+# =========================
+# Virtual Environments
+# =========================
 venv/
 .venv/
 
+# =========================
 # Python
+# =========================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Database
+# =========================
+# Databases
+# =========================
 *.db
+*.sqlite
+*.sqlite3
 
-data/chromadb/
-data/vagmi.db
-
-# User data
+# =========================
+# Runtime Data
+# =========================
 storage/
 
-# Environment variables
+backend/data/chromadb/
+backend/data/*.db
+
+# =========================
+# Logs
+# =========================
+logs/
+backend/logs/
+*.log
+
+# =========================
+# Environment Variables
+# =========================
 .env
 
-# VS Code
+# =========================
+# IDE / Editors
+# =========================
 .vscode/
+.idea/
 
-# OS files
+# =========================
+# macOS
+# =========================
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# =========================
+# Windows
+# =========================
 Thumbs.db
+Desktop.ini
 
-logs/
+# =========================
+# Build / Packaging
+# =========================
+dist/
+build/
+*.egg-info/
 
-backend/data/chromadb/
-
+# =========================
+# Offline Models
+# =========================
 backend/offline_models/

@@ -1,6 +1,7 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-
+from datetime import datetime
+from datetime import timezone
 from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
@@ -63,7 +64,8 @@ def create_direct_message(
         conversation_id=conversation_id,
         sender_id=sender_id,
         message_text=message_text,
-        message_type="TEXT"
+        message_type="TEXT",
+        delivered_at=datetime.now(timezone.utc)
     )
 
     db.add(message)
@@ -115,6 +117,19 @@ def get_user_conversations(
             )
             .first()
         )
+        unread_count = (
+            db.query(DirectMessage)
+            .filter(
+                DirectMessage.conversation_id == conversation.id
+            )
+            .filter(
+                DirectMessage.sender_id != user_id
+            )
+            .filter(
+                DirectMessage.seen_at.is_(None)
+            )
+            .count()
+        )
 
         result.append(
             {
@@ -143,7 +158,8 @@ def get_user_conversations(
                     last_message.created_at
                     if last_message
                     else None
-                )
+                ),
+                "unread_count": unread_count
             }
         )
 
