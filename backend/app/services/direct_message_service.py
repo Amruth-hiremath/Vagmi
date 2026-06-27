@@ -107,17 +107,31 @@ def get_user_conversations(
             .first()
         )
 
-        last_message = (
+        query = (
             db.query(DirectMessage)
             .filter(
                 DirectMessage.conversation_id == conversation.id
             )
+        )
+
+        if user_id == conversation.user1_id:
+            cleared_at = conversation.user1_cleared_at
+        else:
+            cleared_at = conversation.user2_cleared_at
+
+        if cleared_at:
+            query = query.filter(
+                DirectMessage.created_at > cleared_at
+            )
+
+        last_message = (
+            query
             .order_by(
                 DirectMessage.created_at.desc()
             )
             .first()
         )
-        unread_count = (
+        unread_query = (
             db.query(DirectMessage)
             .filter(
                 DirectMessage.conversation_id == conversation.id
@@ -128,8 +142,14 @@ def get_user_conversations(
             .filter(
                 DirectMessage.seen_at.is_(None)
             )
-            .count()
         )
+
+        if cleared_at:
+            unread_query = unread_query.filter(
+                DirectMessage.created_at > cleared_at
+            )
+
+        unread_count = unread_query.count()
 
         result.append(
             {

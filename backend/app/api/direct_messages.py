@@ -315,11 +315,25 @@ def get_messages(
             detail="Access denied"
         )
 
-    messages = (
+    query = (
         db.query(DirectMessage)
         .filter(
             DirectMessage.conversation_id == conversation_id
         )
+    )
+
+    if current_user.id == conversation.user1_id:
+        cleared_at = conversation.user1_cleared_at
+    else:
+        cleared_at = conversation.user2_cleared_at
+
+    if cleared_at:
+        query = query.filter(
+            DirectMessage.created_at > cleared_at
+        )
+
+    messages = (
+        query
         .order_by(
             DirectMessage.created_at
         )
@@ -580,4 +594,49 @@ def delete_direct_message(
 
     return {
         "status": "deleted"
+    }
+
+@router.post(
+    "/{conversation_id}/clear"
+)
+def clear_conversation(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == conversation_id
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if current_user.id == conversation.user1_id:
+        conversation.user1_cleared_at = now
+    else:
+        conversation.user2_cleared_at = now
+
+    db.commit()
+    db.refresh(conversation)
+
+    return {
+        "message": "Conversation cleared successfully."
     }

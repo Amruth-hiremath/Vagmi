@@ -6,7 +6,8 @@ import {
   sendImage,
   sendVoice,
   markConversationRead,
-  startConversation
+  startConversation,
+  clearConversation
 } from "../../services/dm.js";
 
 import { searchUsers } from "../../services/users.js";
@@ -1263,7 +1264,7 @@ document.addEventListener("click", (event) => {
   closeOverlays();
 });
 
-menuPopover?.addEventListener("click", (event) => {
+menuPopover?.addEventListener("click", async (event)=> {
   event.stopPropagation();
   const btn = event.target.closest(".menu-item");
   if (!btn) return;
@@ -1277,15 +1278,39 @@ menuPopover?.addEventListener("click", (event) => {
   }
 
   if (action === "clear") {
+
     const thread = activeThread();
+
     if (!thread) return;
-    thread.messages = [];
-    thread.lastMessage = "";
-    thread.lastMessageType = "TEXT";
-    thread.lastMessageTime = "";
-    updateConversationMeta(thread);
-    renderThreads();
-    renderMessages(thread);
+
+    const confirmed = confirm(
+      "Clear this conversation? This only removes it from your view."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+
+      await clearConversation(thread.id);
+
+      const id = thread.id;
+
+      await loadConversations({
+        preserveSelection: false
+      });
+
+      await openThread(id);
+
+    } catch (error) {
+
+      alert(
+        error.message ||
+        "Failed to clear conversation."
+      );
+
+    }
   }
 
   if (action === "info") {

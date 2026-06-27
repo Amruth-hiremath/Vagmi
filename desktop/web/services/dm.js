@@ -73,3 +73,13 @@ export async function markConversationRead(conversationId) {
     })
   );
 }
+export async function clearConversation(conversationId) {
+  const response = await apiRequest(
+    `/dm/${conversationId}/clear`,
+    {
+      method: "POST"
+    }
+  );
+
+  return response.json();
+}
