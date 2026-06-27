@@ -450,3 +450,9 @@ html[data-theme] .splash {
 html[data-theme] body:has(.splash) {
     background: #0f1117 !important;
 }
+
+html[data-theme="claude-light"] .message-row.other .message-bubble {
+    background: #f8f4ee;
+    border: 1px solid #ddd3c5;
+    color: var(--text-primary);
+}

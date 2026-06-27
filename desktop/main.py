@@ -332,7 +332,7 @@ def main() -> None:
             resizable=True,
             
         )
-        webview.start(window.maximize, debug=True)
+        webview.start(window.maximize, debug=False)
 
     finally:
         server.shutdown()
