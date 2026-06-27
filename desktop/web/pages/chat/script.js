@@ -11,8 +11,12 @@ import {
 
 import { searchUsers } from "../../services/users.js";
 import { apiRequest } from "../../services/api.js";
+import { getUser } from "../../services/auth.js";
 
-const state = {
+document.addEventListener("DOMContentLoaded", () => {
+  const currentUser = getUser();
+  
+  const state = {
   activeThreadId: null,
   threadFilter: "all",
   chatSearch: "",
@@ -94,6 +98,7 @@ const searchToggle = document.getElementById("search-toggle");
 const closeSearch = document.getElementById("close-search");
 const menuToggle = document.getElementById("menu-toggle");
 const menuPopover = document.getElementById("menu-popover");
+const menuItems = document.querySelectorAll(".menu-item");
 const infoDrawer = document.getElementById("info-drawer");
 const closeInfo = document.getElementById("close-info");
 const attachBtn = document.getElementById("attach-btn");
@@ -116,16 +121,6 @@ const attachmentModalTitle = document.getElementById("attachment-modal-title");
 const attachmentModalBody = document.getElementById("attachment-modal-body");
 const attachmentModalOpen = document.getElementById("attachment-modal-open");
 const attachmentModalDownload = document.getElementById("attachment-modal-download");
-
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem("vagmi_user") || "null");
-  } catch {
-    return null;
-  }
-}
-
-const currentUser = getCurrentUser();
 
 const iconMap = {
   search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"></circle><line x1="20" y1="20" x2="16.5" y2="16.5"></line></svg>`,
@@ -1260,7 +1255,8 @@ document.addEventListener("click", (event) => {
     target.closest(".conversation-search") ||
     target.closest("#info-drawer") ||
     target.closest("#new-chat-modal") ||
-    target.closest("#attachment-modal")
+    target.closest("#attachment-modal") ||
+    target.closest(".menu-popover") 
   ) {
     return;
   }
@@ -1397,3 +1393,4 @@ async function initialize() {
 }
 
 initialize();
+});

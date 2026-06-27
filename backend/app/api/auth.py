@@ -74,9 +74,7 @@ def register(
     db.commit()
     db.refresh(user)
 
-    create_user_workspace(
-        user.id
-    )
+    
 
     if user.is_admin:
         logger.info(f"Administrator account created: {user.username}")

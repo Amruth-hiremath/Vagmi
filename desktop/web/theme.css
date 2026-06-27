@@ -253,10 +253,9 @@ html[data-theme] .user-card {
 }
 
 html[data-theme] .thread-pane,
-html[data-theme] .conversation-header,
+/* html[data-theme] .conversation-header, */
 html[data-theme] .composer,
 html[data-theme] .conversation-search,
-html[data-theme] .menu-popover,
 html[data-theme] .info-drawer,
 html[data-theme] .panel,
 html[data-theme] .hero-card,
