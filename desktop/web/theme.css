@@ -456,3 +456,38 @@ html[data-theme="claude-light"] .message-row.other .message-bubble {
     border: 1px solid #ddd3c5;
     color: var(--text-primary);
 }
+
+
+/* Extra light-theme contrast guardrails */
+html[data-theme="claude-light"] .chat-page,
+html[data-theme="claude-light"] .thread-pane,
+html[data-theme="claude-light"] .conversation-header,
+html[data-theme="claude-light"] .composer,
+html[data-theme="claude-light"] .conversation-search,
+html[data-theme="claude-light"] .menu-popover,
+html[data-theme="claude-light"] .info-drawer,
+html[data-theme="claude-light"] .new-chat-dialog,
+html[data-theme="claude-light"] .room-create-dialog,
+html[data-theme="claude-light"] .attachment-modal-dialog,
+html[data-theme="claude-light"] .conversation-empty-card,
+html[data-theme="claude-light"] .messages-empty-card,
+html[data-theme="claude-light"] .thread-empty-card,
+html[data-theme="claude-light"] .panel,
+html[data-theme="claude-light"] .hero-card,
+html[data-theme="claude-light"] .stat-card,
+html[data-theme="claude-light"] .setting-card,
+html[data-theme="claude-light"] .logo-card,
+html[data-theme="claude-light"] .user-card {
+  border-color: rgba(124, 92, 59, 0.22) !important;
+}
+
+html[data-theme="claude-light"] .auth-logo,
+html[data-theme="claude-light"] .splash .logo {
+  width: min(390px, 86vw) !important;
+  max-height: 280px !important;
+  object-fit: contain !important;
+}
+
+html[data-theme="claude-light"] .splash {
+  padding: 28px !important;
+}

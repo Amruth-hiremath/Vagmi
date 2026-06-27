@@ -15,7 +15,7 @@ export function openNewChatModal() {
   newChatSearch.value = "";
   renderNewChatState("Search registered users to start a new chat.");
   setTimeout(() => newChatSearch?.focus(), 0);
-  searchRegisteredUsers("");
+  window.searchRegisteredUsers?.("");
 }
 
 export function closeNewChatModal() {
@@ -28,6 +28,10 @@ export function closeNewChatModal() {
   if (newChatSearchTimer) {
     clearTimeout(newChatSearchTimer);
     newChatSearchTimer = null;
+  }
+  if (window.newChatSearchTimer) {
+    clearTimeout(window.newChatSearchTimer);
+    window.newChatSearchTimer = null;
   }
   newChatModal.classList.add("hidden");
   newChatSearch.value = "";
@@ -92,16 +96,14 @@ export function setupImageViewerEvents() {
 
     const state = window.chatState;
 
-    const threadId = Number(
-      document.getElementById("img-viewer-el").dataset.threadId
-    );
+    const threadKey = document.getElementById("img-viewer-el").dataset.threadKey;
 
     const messageId = Number(
       document.getElementById("img-viewer-el").dataset.messageId
     );
 
     const thread = state.threads.find(
-      (t) => t.id === threadId
+      (t) => t.key === threadKey
     );
 
     if (!thread) return;

@@ -17,14 +17,6 @@
           <div class="section-kicker mono">Chat</div>
           <h1>Conversations</h1>
         </div>
-
-        <button class="icon-btn thread-new-chat-btn" id="thread-new-chat-btn" title="New chat" aria-label="New chat" type="button">
-          <span class="icon" data-icon="compose"></span>
-        </button>
-        <button id="create-room-btn" class="icon-btn" title="Create Group">
-          👥
-        </button>
-
       </div>
 
 
@@ -39,6 +31,16 @@
       </div>
 
       <div class="thread-list" id="thread-list" aria-live="polite"></div>
+
+      <button
+        class="chat-fab"
+        id="chat-launcher-btn"
+        type="button"
+        aria-label="Start new conversation"
+        title="Start new conversation"
+      >
+        <span class="chat-fab-icon" data-icon="plus"></span>
+      </button>
     </aside>
 
     <section class="conversation-pane is-empty" id="conversation-pane">
@@ -151,6 +153,72 @@
       <div class="new-chat-results" id="new-chat-results"></div>
     </div>
   </div>
+
+  <div class="chat-launcher-modal hidden" id="chat-launcher-modal" aria-hidden="true">
+    <div class="chat-launcher-backdrop" id="chat-launcher-backdrop"></div>
+    <div class="chat-launcher-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-launcher-title">
+      <div class="new-chat-header">
+        <div>
+          <div class="section-kicker mono">New conversation</div>
+          <div class="new-chat-title" id="chat-launcher-title">Choose what to start</div>
+        </div>
+        <button class="text-btn" id="chat-launcher-close" type="button">Close</button>
+      </div>
+
+      <div class="chat-launcher-actions">
+        <button class="launcher-card" id="launcher-dm-btn" type="button">
+          <div class="launcher-card-icon">DM</div>
+          <div class="launcher-card-copy">
+            <div class="launcher-card-title">Direct Message</div>
+            <div class="launcher-card-subtitle">Start a private conversation with a user.</div>
+          </div>
+        </button>
+
+        <button class="launcher-card" id="launcher-room-btn" type="button">
+          <div class="launcher-card-icon">RM</div>
+          <div class="launcher-card-copy">
+            <div class="launcher-card-title">Create Room</div>
+            <div class="launcher-card-subtitle">Create a group space and invite members.</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="room-create-modal hidden" id="room-create-modal" aria-hidden="true">
+    <div class="room-create-backdrop" id="room-create-backdrop"></div>
+    <div class="room-create-dialog" role="dialog" aria-modal="true" aria-labelledby="room-create-title">
+      <div class="new-chat-header">
+        <div>
+          <div class="section-kicker mono">Create room</div>
+          <div class="new-chat-title" id="room-create-title">Set up a group room</div>
+        </div>
+        <button class="text-btn" id="room-create-close" type="button">Close</button>
+      </div>
+
+      <form class="room-form" id="room-create-form">
+        <label class="field room-field">
+          <span>Room name</span>
+          <input id="room-name-input" type="text" placeholder="e.g. Project Alpha" autocomplete="off" maxlength="80" />
+        </label>
+
+        <label class="field room-field">
+          <span>Invite members (optional)</span>
+          <textarea id="room-members-input" rows="4" placeholder="Comma separated usernames, e.g. srujan, amruthesh"></textarea>
+        </label>
+
+        <p class="room-helper">
+          The creator will be added automatically. Members can be invited now or later.
+        </p>
+
+        <div class="room-actions">
+          <button class="empty-state-btn" type="button" id="room-create-cancel">Cancel</button>
+          <button class="primary-btn" type="submit">Create room</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 
   <div class="attachment-modal hidden" id="attachment-modal" aria-hidden="true">
     <div class="attachment-modal-backdrop" id="attachment-modal-backdrop"></div>

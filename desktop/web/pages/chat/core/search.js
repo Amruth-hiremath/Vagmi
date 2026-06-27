@@ -29,10 +29,10 @@ export async function searchRegisteredUsers(query) {
   try {
     newChatResults.innerHTML = `<div class="new-chat-loading">Searching users...</div>`;
     const users = await searchUsers(query ?? "");
-    renderNewChatResults(newChatResults, users, escapeHTML);
+    renderNewChatResults(users);
   } catch (error) {
     console.error("User search failed", error);
-    renderNewChatState(newChatResults, "Unable to search users right now.");
+    renderNewChatState("Unable to search users right now.");
   }
 }
 
@@ -41,10 +41,10 @@ export async function startChatWithUser(username) {
     const conversation = await startConversation(username);
     closeNewChatModal();
     await loadConversations({ preserveSelection: false });
-    await openThread(conversation.id, { remember: true });
+    await openThread(`dm:${conversation.id}`, { remember: true });
   } catch (error) {
     console.error("Failed to start conversation", error);
-    renderNewChatState(document.getElementById("new-chat-results"), error?.message || "Failed to start conversation.");
+    renderNewChatState(error?.message || "Failed to start conversation.");
   }
 }
 

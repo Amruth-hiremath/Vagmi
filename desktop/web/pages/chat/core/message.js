@@ -50,8 +50,7 @@ export function messageHTML(thread, message) {
 
     if (message.type === "VOICE") {
 
-      const audioUrl =
-        `/api/dm/voice/${message.id}`;
+      const audioUrl = buildAttachmentUrl(thread, message) || `/api/dm/voice/${message.id}`;
 
       return `
         <div class="message-row ${sideClass}">
@@ -126,7 +125,7 @@ export function messageHTML(thread, message) {
         
         <img
     class="chat-image-preview"
-    data-thread-id="${thread.id}"
+    data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
     data-message-id="${message.id}"
     alt="${escapeHTML(message.originalFilename || "Image")}"
     style="
@@ -183,11 +182,10 @@ export async function loadInlineImages() {
 
   for (const img of images) {
 
-    const threadId = Number(img.dataset.threadId);
+    const threadKey = img.dataset.threadKey;
     const messageId = Number(img.dataset.messageId);
 
-
-    const thread = state.threads.find((t) => t.id === threadId);
+    const thread = state.threads.find((t) => t.key === threadKey);
 
     if (!thread) {
 
@@ -212,7 +210,7 @@ export async function loadInlineImages() {
       img.src = blobUrl;
 
       img.onclick = () => {
-      openImageViewer(blobUrl, message.originalFilename);
+      openImageViewer(blobUrl, message.originalFilename, thread, message);
       };
 
     } catch (err) {
@@ -230,7 +228,7 @@ export function renderMessages(thread) {
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
   const loadInlineImages = window.loadInlineImages;
   
-  if (!thread || state.activeThreadId !== thread.id) {
+  if (!thread || state.activeThreadKey !== thread.key) {
     clearConversationCanvas(messagesScroll, dayChip);
     return;
   }
@@ -296,16 +294,21 @@ export async function loadMessages(conversationId, loadToken = 0) {
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
 
   try {
-    const thread = state.threads.find(
-      (t) => t.id === Number(conversationId)
-    );
+    const lookupKey = typeof conversationId === "string" && conversationId.includes(":")
+      ? conversationId
+      : null;
+
+    const numericConversationId = Number(conversationId);
+    const thread = state.threads.find((t) => (
+      lookupKey ? t.key === lookupKey : t.id === numericConversationId
+    ));
 
     if (!thread) return;
 
     const messages =
       thread.type === "room"
-        ? await getRoomMessages(conversationId)
-        : await getMessages(conversationId);
+        ? await getRoomMessages(thread.id)
+        : await getMessages(thread.id);
 
     // Ignore stale requests
     if (loadToken !== 0 && loadToken !== window.loadSequence) {
@@ -372,7 +375,7 @@ export async function handleSend() {
     thread.lastMessageTime = formatTime(new Date());
     thread.unread = 0;
 
-    await loadMessages(thread.id);
+    await loadMessages(thread.key);
 
     renderThreads(state);
 
@@ -395,6 +398,7 @@ export function handleAttachment(file, forceType = null) {
   const state = window.chatState;
   const currentUser = window.currentUser;
   const sendImage = window.sendImage;
+  const sendRoomImage = window.sendRoomImage;
   const loadMessages = window.loadMessages;
   const renderThreads = window.renderThreads;
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
@@ -408,8 +412,9 @@ export function handleAttachment(file, forceType = null) {
   const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
 
   if (type === "IMAGE") {
-    sendImage(thread.id, file)
-      .then(() => loadMessages(thread.id))
+    const uploader = thread.type === "room" ? sendRoomImage : sendImage;
+    uploader(thread.id, file)
+       .then(() => loadMessages(thread.key))
       .then(() => {
         thread.lastMessage = "Image";
         thread.lastMessageType = "IMAGE";

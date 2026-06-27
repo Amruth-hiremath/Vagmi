@@ -28,26 +28,37 @@ export function closeAttachmentModal() {
 
 let imgViewerZoom = 1;
 
-export function openImageViewer(src, filename,thread,message) {
+export function openImageViewer(src, filename, thread, message) {
   const modal = document.getElementById("image-viewer-modal");
-  const img   = document.getElementById("img-viewer-el");
+  const img = document.getElementById("img-viewer-el");
   if (!modal || !img) return;
   imgViewerZoom = 1;
   img.src = src;
   img.alt = filename || "image";
-  img.thread = thread;
-  img.message = message;
   img.style.transform = "scale(1)";
+  if (thread?.key) {
+    img.dataset.threadKey = thread.key;
+  } else if (thread?.id !== undefined && thread?.type) {
+    img.dataset.threadKey = `${thread.type}:${String(thread.id)}`;
+  }
+  if (message?.id !== undefined) {
+    img.dataset.messageId = String(message.id);
+  }
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
 }
 
 export function closeImageViewer() {
   const modal = document.getElementById("image-viewer-modal");
+  const img = document.getElementById("img-viewer-el");
   if (!modal) return;
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
-  document.getElementById("img-viewer-el").src = "";
+  if (img) {
+    img.src = "";
+    img.dataset.threadKey = "";
+    img.dataset.messageId = "";
+  }
 }
 
 export function openAttachmentModal(attachmentModal) {
@@ -99,7 +110,7 @@ export function buildAttachmentCard(thread, message) {
   return `
     <div
       class="attachment-card${hasRemoteAttachment ? " clickable" : ""}"
-      data-attachment-thread-id="${thread.id}"
+      data-attachment-thread-key="${thread.key || `${thread.kind}:${thread.id}`}"
       data-attachment-message-id="${message.id}"
       data-attachment-kind="${message.type}"
       ${hasRemoteAttachment ? 'role="button" tabindex="0"' : ""}

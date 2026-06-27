@@ -122,12 +122,13 @@ button {
 }
 
 .thread-pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 18px 16px 16px;
+  padding: 18px 16px 84px;
   border-right: 1px solid var(--border-subtle);
   background: linear-gradient(180deg, rgba(10, 10, 10, 0.98), rgba(7, 7, 7, 0.98));
 }
@@ -151,6 +152,41 @@ button {
   height: 40px;
   border-radius: 12px;
   margin-top: 2px;
+}
+
+.chat-fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 54px;
+  height: 54px;
+  border: none;
+  border-radius: 18px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--branding-gradient);
+  color: var(--white);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  z-index: 4;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 34px rgba(0, 0, 0, 0.32);
+}
+
+.chat-fab-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.chat-fab-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .section-kicker {
@@ -1434,4 +1470,133 @@ button {
 
 .chat-image-preview:active{
     transform:scale(.98);
+}
+
+.chat-launcher-modal,
+.room-create-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+}
+
+.chat-launcher-backdrop,
+.room-create-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.chat-launcher-dialog,
+.room-create-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(620px, calc(100% - 40px));
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(16, 16, 16, 0.98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  overflow: hidden;
+}
+
+.chat-launcher-actions {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.launcher-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.launcher-card:hover {
+  border-color: rgba(232, 80, 2, 0.24);
+  background: rgba(232, 80, 2, 0.06);
+  transform: translateY(-1px);
+}
+
+.launcher-card-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--white);
+  background: var(--branding-gradient);
+}
+
+.launcher-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.launcher-card-subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.room-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.room-field textarea,
+.room-field input {
+  width: 100%;
+}
+
+.room-field textarea {
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-primary);
+  outline: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.room-field textarea:focus {
+  border-color: rgba(232, 80, 2, 0.34);
+  box-shadow: 0 0 0 3px rgba(232, 80, 2, 0.10);
+}
+
+.room-helper {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.room-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.room-actions .primary-btn,
+.room-actions .empty-state-btn {
+  min-width: 132px;
 }

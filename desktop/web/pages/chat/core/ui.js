@@ -56,7 +56,7 @@ export function openConversationView() {
   );
 }
 
-export function renderThreadEmptyState(threadList, title, copy, actionLabel = "New chat", actionKind = "new-chat", requestNewChat) {
+export function renderThreadEmptyState(threadList, title, copy, actionLabel = "New chat", actionKind = "new-chat") {
   threadList.innerHTML = `
     <div class="thread-empty-state">
       <div class="thread-empty-card">
@@ -73,11 +73,16 @@ export function renderThreadEmptyState(threadList, title, copy, actionLabel = "N
     if (actionKind === "clear-search") {
       const state = window.chatState;
       state.chatSearch = "";
-      document.getElementById("chat-search").value = "";
+      const chatSearch = document.getElementById("chat-search");
+      if (chatSearch) chatSearch.value = "";
       renderThreads(state);
       return;
     }
-    requestNewChat();
+
+    const launcher = window.openLauncherModal || window.openNewChatModal;
+    if (typeof launcher === "function") {
+      launcher();
+    }
   });
 }
 
@@ -135,8 +140,8 @@ export function renderThreads(state) {
   filteredThreads.forEach((thread) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = "thread-item" + (thread.id === state.activeThreadId ? " active" : "");
-    item.dataset.threadId = String(thread.id);
+    item.className = "thread-item" + (thread.key === state.activeThreadKey ? " active" : "");
+    item.dataset.threadKey = thread.key || `${thread.type}:${thread.id}`;
     item.innerHTML = `
       <div class="avatar">${escapeHTML(thread.initials)}</div>
       <div class="thread-meta">
@@ -164,7 +169,9 @@ export function updateConversationMeta(thread) {
   const conversationAvatar = document.getElementById("conversation-avatar");
   
   conversationTitle.textContent = thread.title || "Conversation";
-  conversationStatus.textContent = thread.status || "Direct Message";
+  conversationStatus.textContent = thread.kind === "room"
+    ? `Group · ${thread.members?.length || 1} members`
+    : (thread.status || "Direct Message");
   conversationAvatar.textContent = thread.initials || "VA";
   document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
   document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
