@@ -47,6 +47,25 @@ export async function sendImage(conversationId, file) {
   );
 }
 
+export async function sendVoice(conversationId, file) {
+  const formData = new FormData();
+
+  formData.append(
+    "file",
+    file
+  );
+
+  return parseJson(
+    await apiRequest(
+      `/dm/${conversationId}/voice`,
+      {
+        method: "POST",
+        body: formData
+      }
+    )
+  );
+}
+
 export async function markConversationRead(conversationId) {
   return parseJson(
     await apiRequest(`/dm/${conversationId}/mark-read`, {

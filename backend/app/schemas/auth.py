@@ -11,6 +11,17 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 # this is the schema for the token response, it includes the access token and the token type
 class TokenResponse(BaseModel):
     access_token: str
@@ -21,6 +32,8 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
+    is_admin: bool
+    must_change_password: bool
 
     class Config:
         from_attributes = True

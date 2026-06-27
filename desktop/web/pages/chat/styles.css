@@ -102,6 +102,12 @@ button {
   flex: 0 0 auto;
 }
 
+.icon-btn.recording {
+  background: rgba(232, 80, 2, 0.18);
+  color: var(--branding-orange);
+  border-color: rgba(232, 80, 2, 0.4);
+}
+
 .chat-page {
   position: relative;
   width: 100%;
@@ -391,6 +397,15 @@ button {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.55;
+}
+
+.voice-card {
+  min-width: 220px;
+}
+
+.voice-player {
+  width: 100%;
+  height: 40px;
 }
 
 .thread-empty-btn,

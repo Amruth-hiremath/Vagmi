@@ -330,6 +330,7 @@ def main() -> None:
             min_size=(1280, 840),
             background_color="#000000",
             resizable=True,
+            
         )
         webview.start(window.maximize, debug=False)
 
