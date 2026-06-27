@@ -1,0 +1,448 @@
+// desktop/web/pages/chat/core/message.js
+
+import { escapeHTML, formatTime } from "./utils.js";
+import { iconMap } from "./icons.js";
+import { buildAttachmentUrl, buildAttachmentCard } from "./attachment.js";
+
+import {
+  updateConversationMeta,
+  updateInfoDrawer,
+  renderThreads
+} from "./ui.js";
+
+import {
+  activeThread
+} from "./conversation.js";
+
+
+export function messageHTML(thread, message) {
+  const sideClass = message.sender === "self" ? "self" : "other";
+  const senderLine =
+    message.sender === "other"
+      ? `<div class="message-sender">${escapeHTML(message.senderName || "Sender")}</div>`
+      : "";
+
+  if (message.type === "TEXT") {
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble">
+
+          ${
+            message.sender === "self"
+              ? `
+              <button
+                class="delete-message-btn"
+                data-message-id="${message.id}"
+                title="Delete message"
+              >
+                ×
+              </button>
+              `
+              : ""
+          }
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+          <div class="message-text">${escapeHTML(message.text || "")}</div>
+          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+        </div>
+      </div>
+    `;
+  }
+
+    if (message.type === "VOICE") {
+
+      const audioUrl =
+        `/api/dm/voice/${message.id}`;
+
+      return `
+        <div class="message-row ${sideClass}">
+          <div class="message-bubble">
+
+            ${
+              message.sender === "self"
+                ? `
+                <button
+                  class="delete-message-btn"
+                  data-message-id="${message.id}"
+                  title="Delete message"
+                >
+                  ×
+                </button>
+                `
+                : ""
+            }
+
+            ${
+              senderLine
+                ? `<div class="message-meta">${senderLine}</div>`
+                : ""
+            }
+
+            <div class="voice-card">
+
+              <audio
+                controls
+                preload="metadata"
+                class="voice-player"
+              >
+                <source
+                  src="${audioUrl}"
+                  type="audio/webm"
+                >
+              </audio>
+
+            </div>
+
+            <div class="message-time mono">
+              ${escapeHTML(message.time)}
+            </div>
+
+          </div>
+        </div>
+      `;
+    }
+
+
+  if (message.type === "IMAGE") {
+  const imageUrl = buildAttachmentUrl(thread, message);
+  
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
+
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        
+        <img
+    class="chat-image-preview"
+    data-thread-id="${thread.id}"
+    data-message-id="${message.id}"
+    alt="${escapeHTML(message.originalFilename || "Image")}"
+    style="
+        max-width:240px;
+        max-height:240px;
+        width:auto;
+        height:auto;
+        border-radius:10px;
+        cursor:pointer;
+        display:block;
+        object-fit:cover;
+    "
+/>
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
+
+if (message.type === "FILE") {
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
+
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        ${buildAttachmentCard(thread, message)}
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
+  return "";
+}
+
+export async function loadInlineImages() {
+  const state = window.chatState;
+  const fetchAttachmentBlob = window.fetchAttachmentBlob;
+  const openImageViewer = window.openImageViewer;
+  
+  const images = document.querySelectorAll(".chat-image-preview");
+
+  for (const img of images) {
+
+    const threadId = Number(img.dataset.threadId);
+    const messageId = Number(img.dataset.messageId);
+
+
+    const thread = state.threads.find((t) => t.id === threadId);
+
+    if (!thread) {
+
+      continue;
+    }
+
+    const message = thread.messages.find((m) => m.id === messageId);
+
+    if (!message) {
+
+      continue;
+    }
+
+    try {
+
+      const { blob } = await fetchAttachmentBlob(thread, message);
+
+
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      img.src = blobUrl;
+
+      img.onclick = () => {
+      openImageViewer(blobUrl, message.originalFilename);
+      };
+
+    } catch (err) {
+
+      console.error(" Image load failed:", err);
+
+    }
+  }
+}
+
+export function renderMessages(thread) {
+  const state = window.chatState;
+  const messagesScroll = document.getElementById("messages-scroll");
+  const dayChip = document.getElementById("day-chip");
+  const scrollMessagesToBottom = window.scrollMessagesToBottom;
+  const loadInlineImages = window.loadInlineImages;
+  
+  if (!thread || state.activeThreadId !== thread.id) {
+    clearConversationCanvas(messagesScroll, dayChip);
+    return;
+  }
+
+  const messages = thread.messages.filter((msg) => msg.type !== "DAY");
+  const term = state.convoSearch.trim().toLowerCase();
+
+  const filtered = !term
+    ? messages
+    : messages.filter((msg) => {
+        const haystack = [
+          msg.senderName || "",
+          msg.text || "",
+          msg.originalFilename || "",
+          msg.fileMeta || ""
+        ].join(" ").toLowerCase();
+        return haystack.includes(term);
+      });
+
+  if (messages.length === 0) {
+    messagesScroll.innerHTML = `
+      <div class="messages-empty">
+        <div class="messages-empty-card">
+          <div class="messages-empty-kicker mono">Conversation ready</div>
+          <div class="messages-empty-title">No messages yet</div>
+          <div class="messages-empty-copy">Use the composer below to start this conversation.</div>
+        </div>
+      </div>
+    `;
+    dayChip.hidden = true;
+    return;
+  }
+
+  if (filtered.length === 0) {
+    messagesScroll.innerHTML = `
+      <div class="messages-empty">
+        <div class="messages-empty-card">
+          <div class="messages-empty-kicker mono">Search</div>
+          <div class="messages-empty-title">No messages match your search</div>
+          <div class="messages-empty-copy">Try another term or clear the search box.</div>
+        </div>
+      </div>
+    `;
+    dayChip.hidden = true;
+    return;
+  }
+
+  dayChip.hidden = false;
+  dayChip.textContent = "Today";
+  messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
+
+  loadInlineImages();
+
+  scrollMessagesToBottom();
+}
+
+export async function loadMessages(conversationId, loadToken = 0) {
+  const state = window.chatState;
+  const getMessages = window.getMessages;
+  const getRoomMessages = window.getRoomMessages;
+  const currentUser = window.currentUser;
+  const formatTime = window.formatTime;
+  const scrollMessagesToBottom = window.scrollMessagesToBottom;
+
+  try {
+    const thread = state.threads.find(
+      (t) => t.id === Number(conversationId)
+    );
+
+    if (!thread) return;
+
+    const messages =
+      thread.type === "room"
+        ? await getRoomMessages(conversationId)
+        : await getMessages(conversationId);
+
+    // Ignore stale requests
+    if (loadToken !== 0 && loadToken !== window.loadSequence) {
+      return;
+    }
+
+    thread.messages = (messages || []).map((message) => {
+      const senderName = message.sender_username || "Unknown";
+      const isSelf = senderName === (currentUser?.username || "");
+
+      return {
+        id: message.id,
+        sender: isSelf ? "self" : "other",
+        senderName,
+        type: (message.message_type || "TEXT").toUpperCase(),
+        text: message.message_text || "",
+        originalFilename: message.original_filename || "",
+        attachmentPath: message.attachment_path || "",
+        attachmentId: message.attachment_id || null,
+        fileMeta: message.original_filename || "",
+        time: formatTime(message.created_at)
+      };
+    });
+
+    updateConversationMeta(thread);
+    updateInfoDrawer(thread);
+    renderMessages(thread);
+
+    requestAnimationFrame(() => {
+      scrollMessagesToBottom();
+    });
+
+  } catch (error) {
+    console.error("Failed loading messages", error);
+  }
+}
+
+export async function handleSend() {
+  const state = window.chatState;
+  const inputField = document.getElementById("message-input");
+  const sendMessage = window.sendMessage;
+  const sendRoomMessage = window.sendRoomMessage;
+  const scrollMessagesToBottom = window.scrollMessagesToBottom;
+
+  const thread = activeThread(state);
+  if (!thread) return;
+
+  const text = inputField.value.trim();
+  if (!text) return;
+
+  try {
+    inputField.value = "";
+    inputField.style.height = "44px";
+    inputField.style.overflowY = "hidden";
+
+    if (thread.type === "room") {
+      await sendRoomMessage(thread.id, text);
+    } else {
+      await sendMessage(thread.id, text);
+    }
+
+    thread.lastMessage = text;
+    thread.lastMessageType = "TEXT";
+    thread.lastMessageTime = formatTime(new Date());
+    thread.unread = 0;
+
+    await loadMessages(thread.id);
+
+    renderThreads(state);
+
+    requestAnimationFrame(() => {
+      scrollMessagesToBottom();
+    });
+
+  } catch (error) {
+    console.error("Message send failed", error);
+    setComposerText(inputField, text);
+  }
+}
+
+export function setComposerText(inputField, text) {
+  inputField.value = text;
+  inputField.dispatchEvent(new Event("input"));
+}
+
+export function handleAttachment(file, forceType = null) {
+  const state = window.chatState;
+  const currentUser = window.currentUser;
+  const sendImage = window.sendImage;
+  const loadMessages = window.loadMessages;
+  const renderThreads = window.renderThreads;
+  const scrollMessagesToBottom = window.scrollMessagesToBottom;
+  const formatTime = window.formatTime;
+  const formatFileSize = window.formatFileSize;
+  const renderMessages = window.renderMessages;
+  
+  const thread = activeThread(state);
+  if (!thread) return;
+
+  const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
+
+  if (type === "IMAGE") {
+    sendImage(thread.id, file)
+      .then(() => loadMessages(thread.id))
+      .then(() => {
+        thread.lastMessage = "Image";
+        thread.lastMessageType = "IMAGE";
+        thread.lastMessageTime = formatTime(new Date());
+        renderThreads(state);
+        requestAnimationFrame(() => scrollMessagesToBottom());
+      })
+      .catch((error) => {
+        console.error("Image send failed", error);
+      });
+    return;
+  }
+
+  // File attachments are not yet supported by the backend DM flow.
+  // We keep the composer functional without breaking the interface.
+  const time = formatTime(new Date());
+  thread.messages.push({
+    id: `local-${Date.now()}`,
+    sender: "self",
+    senderName: currentUser?.username || "You",
+    type: "FILE",
+    originalFilename: file.name,
+    fileMeta: formatFileSize(file.size),
+    time
+  });
+  thread.lastMessage = file.name;
+  thread.lastMessageType = "FILE";
+  thread.lastMessageTime = time;
+  renderMessages(thread);
+  renderThreads(state);
+}
+
+function clearConversationCanvas(messagesScroll, dayChip) {
+  messagesScroll.innerHTML = "";
+  dayChip.hidden = true;
+}

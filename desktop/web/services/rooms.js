@@ -35,3 +35,85 @@ export async function sendRoomMessage(roomId, text) {
     })
   );
 }
+
+export async function getRoom(roomId) {
+  return parseJson(
+    await apiRequest(`/rooms/${roomId}`)
+  );
+}
+
+export async function getRoomMembers(roomId) {
+  return parseJson(
+    await apiRequest(`/rooms/${roomId}/members`)
+  );
+}
+
+export async function addRoomMember(
+  roomId,
+  username
+) {
+  return parseJson(
+    await apiRequest(
+      `/rooms/${roomId}/members`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          username
+        })
+      }
+    )
+  );
+}
+
+export async function removeRoomMember(
+  roomId,
+  username
+) {
+  return parseJson(
+    await apiRequest(
+      `/rooms/${roomId}/members/${username}`,
+      {
+        method: "DELETE"
+      }
+    )
+  );
+}
+
+export async function deleteRoom(
+  roomId
+) {
+  return parseJson(
+    await apiRequest(
+      `/rooms/${roomId}`,
+      {
+        method: "DELETE"
+      }
+    )
+  );
+}
+export async function sendRoomImage(roomId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return parseJson(
+    await apiRequest(`/rooms/room/${roomId}/image`, {
+      method: "POST",
+      body: formData
+    })
+  );
+}
+
+export async function sendRoomVoice(roomId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return parseJson(
+    await apiRequest(`/rooms/room/${roomId}/voice`, {
+      method: "POST",
+      body: formData
+    })
+  );
+}
