@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import webview
 
 
-BACKEND_BASE_URL = "0.0.0.0:8000"
+BACKEND_BASE_URL = "http://127.0.0.1:8000"
 
 HOST = "127.0.0.1"
 

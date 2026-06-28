@@ -124,7 +124,7 @@ export function buildAttachmentCard(thread, message) {
       <div class="attachment-card-actions">
         ${
           hasRemoteAttachment
-            ? `<button class="attachment-action-btn" data-attachment-action="view" type="button">Open</button>
+            ? `
                <button class="attachment-action-btn" data-attachment-action="download" type="button">Download</button>`
             : `<span class="attachment-local-label">Stored locally</span>`
         }
