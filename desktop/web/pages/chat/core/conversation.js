@@ -129,12 +129,12 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     title: conversation.username || "Conversation",
     initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
     status: "Direct Message",
+    lastMessageTimestamp: conversation.last_message_time,
     unread: conversation.unread_count || 0,
     lastMessage: conversation.last_message || "",
     lastMessageSender: conversation.last_message_sender || "",
     lastMessageType: conversation.last_message_type || "TEXT",
     lastMessageTime: formatTime(conversation.last_message_time),
-    lastMessageTimestamp: conversation.last_message_time,
     members: [conversation.username],
     messages: [],
     
@@ -147,6 +147,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     let lastMessageType = "TEXT";
     let lastMessageTime = "";
     let unread = 0;
+    let lastMessageTimestamp = "";
 
     try {
       if (typeof getRoomMessages === "function") {
@@ -170,7 +171,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
         lastMessage = last.message_text || "Message";
       }
       lastMessageTime = formatTime(last.created_at);
-      const lastMessageTimestamp = last.created_at;
+      lastMessageTimestamp = last.created_at;
 
       const readMarker = getRoomReadMarker(room.id);
       const readTs = readMarker ? Date.parse(readMarker) : 0;
@@ -198,10 +199,11 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       lastMessageSender: "",
       lastMessageType,
       lastMessageTime,
-      members: [],
       lastMessageTime,
       lastMessageTimestamp,
-      messages: [],
+      members: [],
+      messages: []
+      
       
     };
   }));
