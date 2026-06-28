@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import webview
 
 
-BACKEND_BASE_URL = "https://starts-gras-mechanics-areas.trycloudflare.com"
+BACKEND_BASE_URL = "0.0.0.0:8000"
 
 HOST = "127.0.0.1"
 
