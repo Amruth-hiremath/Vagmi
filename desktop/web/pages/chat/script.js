@@ -454,6 +454,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.closeNewChatModal = closeNewChatModal;
   window.sendAttachment = handleAttachment;
   window.handleAttachment = handleAttachment;
+  const chatState = window.chatState;
 
   if (messagesScroll && "MutationObserver" in window) {
     messagesObserver = new MutationObserver(() => {
@@ -840,6 +841,9 @@ document.addEventListener("DOMContentLoaded", () => {
         showConversationEmptyState(state);
         scrollMessagesToBottom();
       }
+      
+      startConversationPolling();
+
     } catch (error) {
       console.error("Conversation load failed", error);
       state.activeThreadId = null;
@@ -851,3 +855,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initialize();
 });
+
+let refreshTimer = null;
+
+function startConversationPolling() {
+
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+
+  refreshTimer = setInterval(async () => {
+
+    if (document.hidden) {
+      return;
+    }
+
+    try {
+
+      await loadConversations({
+        preserveSelection: true
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Polling failed:",
+        error
+      );
+
+    }
+
+  }, 2000);
+
+}
+

@@ -134,8 +134,10 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     lastMessageSender: conversation.last_message_sender || "",
     lastMessageType: conversation.last_message_type || "TEXT",
     lastMessageTime: formatTime(conversation.last_message_time),
+    lastMessageTimestamp: conversation.last_message_time,
     members: [conversation.username],
-    messages: []
+    messages: [],
+    
   }));
 
   const roomThreads = await Promise.all((rooms || []).map(async (room) => {
@@ -168,6 +170,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
         lastMessage = last.message_text || "Message";
       }
       lastMessageTime = formatTime(last.created_at);
+      const lastMessageTimestamp = last.created_at;
 
       const readMarker = getRoomReadMarker(room.id);
       const readTs = readMarker ? Date.parse(readMarker) : 0;
@@ -196,15 +199,79 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       lastMessageType,
       lastMessageTime,
       members: [],
-      messages: []
+      lastMessageTime,
+      lastMessageTimestamp,
+      messages: [],
+      
     };
   }));
-
+  const previousThreads = state.threads;
   state.threads = [...dmThreads, ...roomThreads];
+  state.threads.sort((a, b) => {
+
+    const ta = Date.parse(a.lastMessageTimestamp || "") || 0;
+    const tb = Date.parse(b.lastMessageTimestamp || "") || 0;
+
+    return tb - ta;
+
+  });
+
+  const activeThreadChanged = (() => {
+
+    if (!activeKey) {
+      return false;
+    }
+
+    const previous = previousThreads.find(
+      (thread) => thread.key === activeKey
+    );
+
+    const current = state.threads.find(
+      (thread) => thread.key === activeKey
+    );
+
+    if (!previous || !current) {
+      return true;
+    }
+
+    return (
+      previous.lastMessageTimestamp !== current.lastMessageTimestamp ||
+      previous.unread !== current.unread ||
+      previous.lastMessage !== current.lastMessage
+    );
+
+  })();
+
+
+
   renderThreads(state);
 
-  if (activeKey && state.threads.some((thread) => thread.key === activeKey)) {
-    await openThread(activeKey, { remember: false });
+  if (
+    activeKey &&
+    state.threads.some((thread) => thread.key === activeKey)
+  ) {
+
+    if (activeThreadChanged) {
+
+      await openThread(
+        activeKey,
+        {
+          remember: false
+        }
+      );
+
+    } else {
+
+      state.activeThreadKey = activeKey;
+      state.activeThreadId =
+        state.threads.find(
+          thread => thread.key === activeKey
+        )?.id ?? null;
+
+      renderThreads(state);
+
+    }
+
     return;
   }
 

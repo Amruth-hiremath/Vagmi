@@ -1,3 +1,4 @@
+// desktop/web/services/rooms.js
 import { apiRequest } from "./api.js";
 
 async function parseJson(response) {
