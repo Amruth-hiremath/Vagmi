@@ -28,6 +28,94 @@ export function closeAttachmentModal() {
 
 let imgViewerZoom = 1;
 
+function fallbackAttachmentName(message) {
+  const raw =
+    message?.originalFilename ||
+    message?.fileMeta ||
+    message?.attachmentName ||
+    (typeof message?.attachmentPath === "string" ? message.attachmentPath.split(/[\\/]/).pop() : "") ||
+    "";
+  return raw || "attachment";
+}
+
+async function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function saveBlobToDownloads(blob, filename) {
+  const safeName = filename || "attachment";
+  console.log("saveBlobToDownloads called with filename:", safeName, "blob size:", blob?.size);
+
+  const bridge = window.pywebview?.api?.save_chat_download;
+  console.log("Pywebview bridge available:", typeof bridge === "function");
+  if (typeof bridge === "function") {
+    try {
+      const dataUrl = await blobToDataUrl(blob);
+      console.log("Data URL created, length:", dataUrl?.length);
+      const savedPath = await bridge(dataUrl, safeName);
+      console.log("File saved to:", savedPath);
+      if (savedPath === "") return;
+      return;
+    } catch (error) {
+      console.error("Pywebview save failed:", error);
+    }
+  }
+
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const options = { suggestedName: safeName };
+      if (blob?.type) {
+        const extension = safeName.includes(".") ? `.${safeName.split('.').pop()}` : "";
+        options.types = [
+          {
+            description: "Attachment",
+            accept: {
+              [blob.type]: extension ? [extension] : []
+            }
+          }
+        ];
+      }
+      const handle = await window.showSaveFilePicker(options);
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (error) {
+      console.error("Native save picker failed:", error);
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+}
+
+/**
+ * Save a URL that is already loaded in the viewer (object/data URL) without
+ * re-fetching it from the backend.
+ */
+export async function saveLoadedUrl(url, filename) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    await saveBlobToDownloads(blob, filename || "image");
+  } catch (error) {
+    console.error("Save failed", error);
+    alert(error?.message || "Failed to save the file.");
+  }
+}
+
 export function openImageViewer(src, filename, thread, message) {
   const modal = document.getElementById("image-viewer-modal");
   const img = document.getElementById("img-viewer-el");
@@ -61,28 +149,32 @@ export function closeImageViewer() {
   }
 }
 
-export function openAttachmentModal(attachmentModal) {
+export function openAttachmentModal(attachmentModal = document.getElementById("attachment-modal")) {
   if (!attachmentModal) return;
   attachmentModal.classList.remove("hidden");
   attachmentModal.setAttribute("aria-hidden", "false");
 }
 
 export function attachmentDownloadName(message) {
-  return message?.originalFilename || "attachment";
+  return fallbackAttachmentName(message);
 }
 
 export function buildAttachmentUrl(thread, message) {
   if (!thread || !message) return "";
+  if (message.attachmentUrl) return message.attachmentUrl;
   if (message.attachmentId) {
     return `/attachments/${message.attachmentId}`;
   }
   if (message.attachmentPath) {
-    if (thread.kind === "dm") {
+    if (thread.kind === "dm" || thread.type === "dm") {
       return `/dm/${thread.id}/messages/${message.id}/attachment`;
     }
     return `/rooms/${thread.id}/messages/${message.id}/attachment`;
   }
-  return "";
+  if (thread.kind === "dm" || thread.type === "dm") {
+    return `/dm/${thread.id}/messages/${message.id}/attachment`;
+  }
+  return `/rooms/${thread.id}/messages/${message.id}/attachment`;
 }
 
 export async function fetchAttachmentBlob(thread, message) {
@@ -101,7 +193,8 @@ export async function fetchAttachmentBlob(thread, message) {
 }
 
 export function buildAttachmentCard(thread, message) {
-  const name = escapeHTML(message.originalFilename || "Attachment");
+  const displayName = fallbackAttachmentName(message);
+  const name = escapeHTML(displayName);
   const meta = message.type === "IMAGE" ? "Image attachment" : "File attachment";
   const icon = message.type === "IMAGE" ? iconMap.imageSmall : iconMap.file;
   const attachmentUrl = buildAttachmentUrl(thread, message);
@@ -112,7 +205,10 @@ export function buildAttachmentCard(thread, message) {
       class="attachment-card${hasRemoteAttachment ? " clickable" : ""}"
       data-attachment-thread-key="${thread.key || `${thread.kind}:${thread.id}`}"
       data-attachment-message-id="${message.id}"
+      data-attachment-id="${message.attachmentId ?? ""}"
       data-attachment-kind="${message.type}"
+      data-attachment-filename="${escapeHTML(displayName)}"
+      data-attachment-url="${escapeHTML(attachmentUrl)}"
       ${hasRemoteAttachment ? 'role="button" tabindex="0"' : ""}
       aria-label="${hasRemoteAttachment ? `Open attachment ${name}` : `Attachment ${name}`}"
     >
@@ -139,7 +235,7 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
   const attachmentModalOpen = document.getElementById("attachment-modal-open");
   const attachmentModalDownload = document.getElementById("attachment-modal-download");
   
-  const title = message.originalFilename || "Attachment";
+  const title = fallbackAttachmentName(message);
   const objectUrl = URL.createObjectURL(blob);
   clearAttachmentPreview();
   attachmentPreview = { objectUrl, filename: title, contentType };
@@ -182,20 +278,22 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
     `;
   }
 
-  attachmentModalOpen.onclick = () => {
-    if (!attachmentPreview?.objectUrl) return;
-    window.open(attachmentPreview.objectUrl, "_blank", "noopener,noreferrer");
-  };
+  if (attachmentModalOpen) {
+    attachmentModalOpen.onclick = () => {
+      if (!attachmentPreview?.objectUrl) return;
+      window.open(attachmentPreview.objectUrl, "_blank", "noopener,noreferrer");
+    };
+  }
 
-  attachmentModalDownload.onclick = () => {
-    if (!attachmentPreview?.objectUrl) return;
-    const link = document.createElement("a");
-    link.href = attachmentPreview.objectUrl;
-    link.download = attachmentPreview.filename || "attachment";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
+  if (attachmentModalDownload) {
+    attachmentModalDownload.onclick = async () => {
+      if (!attachmentPreview?.objectUrl) return;
+      await saveBlobToDownloads(
+        blob,
+        attachmentPreview.filename || "attachment"
+      );
+    };
+  }
 }
 
 export async function openAttachmentViewer(thread, message) {
@@ -211,15 +309,9 @@ export async function openAttachmentViewer(thread, message) {
 export async function downloadAttachment(thread, message) {
   try {
     const { blob, filename } = await fetchAttachmentBlob(thread, message);
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename || "attachment";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+    await saveBlobToDownloads(blob, filename || "attachment");
   } catch (error) {
     console.error("Attachment download failed", error);
+    alert(error?.message || "Failed to download the attachment.");
   }
 }

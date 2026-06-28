@@ -24,7 +24,8 @@ def create_room(
 
     membership = RoomMember(
         room_id=room.id,
-        user_id=creator_id
+        user_id=creator_id,
+        last_read_at=room.created_at
     )
 
     db.add(membership)

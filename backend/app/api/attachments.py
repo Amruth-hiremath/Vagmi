@@ -55,6 +55,13 @@ def upload_attachment(
         file_path=str(file_path),
     )
 
+    # Keep the message row and attachment row in sync so both the
+    # message download endpoint and the attachment endpoint remain usable.
+    message.attachment_path = str(file_path)
+    message.original_filename = original_name
+    db.commit()
+    db.refresh(message)
+
     logger.info("Attachment uploaded: %s", original_name)
     return attachment
 

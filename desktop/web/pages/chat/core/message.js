@@ -5,21 +5,29 @@ import { iconMap } from "./icons.js";
 import { buildAttachmentUrl, buildAttachmentCard } from "./attachment.js";
 
 import {
+  clearConversationCanvas,
   updateConversationMeta,
   updateInfoDrawer,
-  renderThreads
+  renderThreads,
+  decorateAvatars
 } from "./ui.js";
 
 import {
   activeThread
 } from "./conversation.js";
 
+function attachmentLabel(message) {
+  return message?.originalFilename || message?.fileMeta || "Attachment";
+}
 
 export function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
+  const senderId = message.senderId || null;
   const senderLine =
     message.sender === "other"
-      ? `<div class="message-sender">${escapeHTML(message.senderName || "Sender")}</div>`
+      ? `<div class="message-sender">
+           <span class="message-sender-name">${escapeHTML(message.senderName || "Sender")}</span>
+         </div>`
       : "";
 
   if (message.type === "TEXT") {
@@ -127,7 +135,9 @@ export function messageHTML(thread, message) {
     class="chat-image-preview"
     data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
     data-message-id="${message.id}"
-    alt="${escapeHTML(message.originalFilename || "Image")}"
+    data-attachment-url="${escapeHTML(buildAttachmentUrl(thread, message))}"
+    data-attachment-filename="${escapeHTML(attachmentLabel(message) || "Image")}"
+    alt="${escapeHTML(attachmentLabel(message) || "Image")}"
     style="
         max-width:240px;
         max-height:240px;
@@ -143,33 +153,33 @@ export function messageHTML(thread, message) {
       </div>
     </div>
   `;
-}
+  }
 
-if (message.type === "FILE") {
-  return `
-    <div class="message-row ${sideClass}">
-      <div class="message-bubble">
+  if (message.type === "FILE") {
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble">
 
-        ${
-          message.sender === "self"
-            ? `
-            <button
-              class="delete-message-btn"
-              data-message-id="${message.id}"
-              title="Delete message"
-            >
-              ×
-            </button>
-            `
-            : ""
-        }
-        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-        ${buildAttachmentCard(thread, message)}
-        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          ${
+            message.sender === "self"
+              ? `
+              <button
+                class="delete-message-btn"
+                data-message-id="${message.id}"
+                title="Delete message"
+              >
+                ×
+              </button>
+              `
+              : ""
+          }
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+          ${buildAttachmentCard(thread, message)}
+          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+        </div>
       </div>
-    </div>
-  `;
-}
+    `;
+  }
   return "";
 }
 
@@ -177,46 +187,45 @@ export async function loadInlineImages() {
   const state = window.chatState;
   const fetchAttachmentBlob = window.fetchAttachmentBlob;
   const openImageViewer = window.openImageViewer;
-  
+
   const images = document.querySelectorAll(".chat-image-preview");
 
   for (const img of images) {
-
     const threadKey = img.dataset.threadKey;
     const messageId = Number(img.dataset.messageId);
+    const attachmentUrl = img.dataset.attachmentUrl || "";
+    const attachmentName = img.dataset.attachmentFilename || "Image";
 
     const thread = state.threads.find((t) => t.key === threadKey);
-
-    if (!thread) {
-
-      continue;
-    }
-
-    const message = thread.messages.find((m) => m.id === messageId);
-
-    if (!message) {
-
-      continue;
-    }
+    const message = thread?.messages?.find((m) => Number(m.id) === messageId) || null;
 
     try {
+      let blob;
 
-      const { blob } = await fetchAttachmentBlob(thread, message);
-
-
+      if (thread && message) {
+        ({ blob } = await fetchAttachmentBlob(thread, message));
+      } else if (attachmentUrl) {
+        const response = await window.apiRequest(attachmentUrl);
+        if (!response.ok) {
+          throw new Error("Failed to load image");
+        }
+        blob = await response.blob();
+      } else {
+        continue;
+      }
 
       const blobUrl = URL.createObjectURL(blob);
-
       img.src = blobUrl;
-
       img.onclick = () => {
-      openImageViewer(blobUrl, message.originalFilename, thread, message);
+        openImageViewer(
+          blobUrl,
+          message?.originalFilename || attachmentName,
+          thread,
+          message || { id: messageId, originalFilename: attachmentName }
+        );
       };
-
     } catch (err) {
-
-      console.error(" Image load failed:", err);
-
+      console.error("Image load failed:", err);
     }
   }
 }
@@ -276,11 +285,16 @@ export function renderMessages(thread) {
     return;
   }
 
-  dayChip.hidden = false;
-  dayChip.textContent = "Today";
-  messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
+  if (dayChip) {
+    dayChip.hidden = false;
+    dayChip.textContent = "Today";
+  }
+  if (messagesScroll) {
+    messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
+  }
 
   loadInlineImages();
+  decorateAvatars(messagesScroll);
 
   scrollMessagesToBottom();
 }
@@ -319,6 +333,14 @@ export async function loadMessages(conversationId, loadToken = 0) {
       const senderName = message.sender_username || "Unknown";
       const isSelf = senderName === (currentUser?.username || "");
 
+      const attachmentName =
+        message.original_filename ||
+        message.originalFilename ||
+        (typeof message.attachment_path === "string"
+          ? message.attachment_path.split(/[\\/]/).pop()
+          : "") ||
+        "";
+
       return {
         id: message.id,
         sender: isSelf ? "self" : "other",
@@ -326,10 +348,10 @@ export async function loadMessages(conversationId, loadToken = 0) {
         senderId: message.sender_id,
         type: (message.message_type || "TEXT").toUpperCase(),
         text: message.message_text || "",
-        originalFilename: message.original_filename || "",
+        originalFilename: attachmentName,
         attachmentPath: message.attachment_path || "",
         attachmentId: message.attachment_id || null,
-        fileMeta: message.original_filename || "",
+        fileMeta: attachmentName,
         createdAt: message.created_at,
         time: formatTime(message.created_at)
       };
@@ -358,13 +380,15 @@ export async function handleSend() {
   const thread = activeThread(state);
   if (!thread) return;
 
-  const text = inputField.value.trim();
+  const text = inputField?.value?.trim();
   if (!text) return;
 
   try {
-    inputField.value = "";
-    inputField.style.height = "44px";
-    inputField.style.overflowY = "hidden";
+    if (inputField) {
+      inputField.value = "";
+      inputField.style.height = "44px";
+      inputField.style.overflowY = "hidden";
+    }
 
     if (thread.type === "room") {
       await sendRoomMessage(thread.id, text);
@@ -392,8 +416,10 @@ export async function handleSend() {
 }
 
 export function setComposerText(inputField, text) {
-  inputField.value = text;
-  inputField.dispatchEvent(new Event("input"));
+  if (inputField) {
+    inputField.value = text;
+    inputField.dispatchEvent(new Event("input"));
+  }
 }
 
 export async function handleAttachment(file, forceType = null) {
@@ -434,7 +460,3 @@ export async function handleAttachment(file, forceType = null) {
   }
 }
 
-function clearConversationCanvas(messagesScroll, dayChip) {
-  messagesScroll.innerHTML = "";
-  dayChip.hidden = true;
-}

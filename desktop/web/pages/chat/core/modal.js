@@ -1,18 +1,18 @@
 // desktop/web/pages/chat/core/modal.js
 import { openImageViewer, closeImageViewer } from "./attachment.js";
 import { escapeHTML } from "./utils.js";
-import { downloadAttachment } from "./attachment.js";
 let newChatSearchTimer = null;
+let imgViewerZoom = 1;
 
 export function openNewChatModal() {
   const state = window.chatState;
   const newChatModal = document.getElementById("new-chat-modal");
   const newChatSearch = document.getElementById("new-chat-search");
-  
+
   if (!newChatModal) return;
   state.newChatOpen = true;
   newChatModal.classList.remove("hidden");
-  newChatSearch.value = "";
+  if (newChatSearch) newChatSearch.value = "";
   renderNewChatState("Search registered users to start a new chat.");
   setTimeout(() => newChatSearch?.focus(), 0);
   window.searchRegisteredUsers?.("");
@@ -22,7 +22,7 @@ export function closeNewChatModal() {
   const state = window.chatState;
   const newChatModal = document.getElementById("new-chat-modal");
   const newChatSearch = document.getElementById("new-chat-search");
-  
+
   if (!newChatModal) return;
   state.newChatOpen = false;
   if (newChatSearchTimer) {
@@ -34,7 +34,7 @@ export function closeNewChatModal() {
     window.newChatSearchTimer = null;
   }
   newChatModal.classList.add("hidden");
-  newChatSearch.value = "";
+  if (newChatSearch) newChatSearch.value = "";
   renderNewChatState("Search registered users to start a new chat.");
 }
 
@@ -63,8 +63,8 @@ export function renderNewChatResults(users) {
       .join("") || "U";
 
     return `
-      <button type="button" class="new-chat-result" data-username="${escapeHTML(username)}">
-        <div class="avatar">${escapeHTML(initials)}</div>
+      <button type="button" class="new-chat-result" data-username="${escapeHTML(username)}" data-user-id="${Number(user.id) || ""}">
+        <div class="avatar avatar-has-image" data-avatar-user-id="${Number(user.id) || ""}">${escapeHTML(initials)}</div>
         <div>
           <div class="result-name">${escapeHTML(username)}</div>
           <div class="result-meta">Direct message</div>
@@ -73,6 +73,18 @@ export function renderNewChatResults(users) {
       </button>
     `;
   }).join("");
+
+  // Decorate avatars with profile images where available.
+  const loadAvatarObjectUrl = window.loadAvatarObjectUrl;
+  if (typeof loadAvatarObjectUrl === "function") {
+    newChatResults.querySelectorAll("[data-avatar-user-id]").forEach(async (el) => {
+      const id = Number(el.dataset.avatarUserId);
+      if (!Number.isFinite(id)) return;
+      const url = await loadAvatarObjectUrl(id);
+      if (!url) return;
+      el.innerHTML = `<img class="avatar-img" src="${url}" alt="" />`;
+    });
+  }
 }
 
 export function setupImageViewerEvents() {
@@ -94,30 +106,15 @@ export function setupImageViewerEvents() {
 
   document.getElementById("img-download")?.addEventListener("click", async () => {
 
-    const state = window.chatState;
+    const imgEl = document.getElementById("img-viewer-el");
+    const url = imgEl?.getAttribute("src");
+    if (!url) return;
 
-    const threadKey = document.getElementById("img-viewer-el").dataset.threadKey;
-
-    const messageId = Number(
-      document.getElementById("img-viewer-el").dataset.messageId
-    );
-
-    const thread = state.threads.find(
-      (t) => t.key === threadKey
-    );
-
-    if (!thread) return;
-
-    const message = thread.messages.find(
-      (m) => m.id === messageId
-    );
-
-    if (!message) return;
-
-    await downloadAttachment(
-      thread,
-      message
-    );
+    const filename = imgEl.getAttribute("alt") || "image";
+    const saveLoadedUrl = window.saveLoadedUrl;
+    if (typeof saveLoadedUrl === "function") {
+      await saveLoadedUrl(url, filename);
+    }
 
   });
 
@@ -126,7 +123,5 @@ export function setupImageViewerEvents() {
     if (e.key === "Escape") closeImageViewer();
   });
 }
-
-let imgViewerZoom = 1;
 
 

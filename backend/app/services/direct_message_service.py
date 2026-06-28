@@ -155,6 +155,7 @@ def get_user_conversations(
             {
                 "conversation_id": conversation.id,
                 "username": other_user.username if other_user else "Unknown",
+                "user_id": other_user.id if other_user else None,
                 "last_message": (
                     "Image"
                     if last_message and last_message.message_type == "IMAGE"

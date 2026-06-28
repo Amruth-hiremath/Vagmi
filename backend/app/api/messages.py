@@ -238,6 +238,9 @@ def get_messages(
             .first()
         )
 
+        attachment_path = message.attachment_path or (attachment.file_path if attachment else None)
+        original_filename = message.original_filename or (attachment.original_filename if attachment else None)
+
         result.append(
             {
                 "id": message.id,
@@ -247,8 +250,8 @@ def get_messages(
                 "message_text": message.message_text,
                 "message_type": message.message_type,
                 "attachment_id": attachment.id if attachment else None,
-                "attachment_path": message.attachment_path,
-                "original_filename": message.original_filename,
+                "attachment_path": attachment_path,
+                "original_filename": original_filename,
                 "created_at": message.created_at
             }
         )
@@ -282,13 +285,26 @@ def download_room_message_attachment(
         .first()
     )
 
-    if not message or not message.attachment_path:
+    attachment = (
+        db.query(Attachment)
+        .filter(Attachment.message_id == message_id)
+        .first()
+    )
+
+    file_path_value = message.attachment_path if message and message.attachment_path else None
+    filename_value = message.original_filename if message and message.original_filename else None
+
+    if attachment:
+        file_path_value = file_path_value or attachment.file_path
+        filename_value = filename_value or attachment.original_filename
+
+    if not file_path_value:
         raise HTTPException(
             status_code=404,
             detail="Attachment not found"
         )
 
-    file_path = Path(message.attachment_path)
+    file_path = Path(file_path_value)
 
     if not file_path.exists():
         raise HTTPException(
@@ -300,7 +316,7 @@ def download_room_message_attachment(
 
     return FileResponse(
         path=str(file_path),
-        filename=message.original_filename or file_path.name,
+        filename=filename_value or file_path.name,
         media_type=media_type or "application/octet-stream"
     )
 

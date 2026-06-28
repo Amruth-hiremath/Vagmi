@@ -7,8 +7,12 @@ load_dotenv()
 
 # Force offline behavior for any transformer-based dependency.
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", str(Path(__file__).resolve().parent.parent.parent / "offline_models"))
+os.environ.setdefault("TRANSFORMERS_CACHE", str(Path(__file__).resolve().parent.parent.parent / "offline_models"))
+os.environ.setdefault("HF_HOME", str(Path(__file__).resolve().parent.parent.parent / "offline_models"))
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

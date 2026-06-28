@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from pathlib import Path
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -46,6 +47,19 @@ def _require_room_admin(room: Room, current_user: User):
             detail="Only room admin can perform this action"
         )
 
+
+def _resolve_room_member(db: Session, request: AddMemberRequest) -> User:
+    user = None
+    if request.user_id is not None:
+        user = db.query(User).filter(User.id == request.user_id).first()
+    elif request.username and request.username.strip():
+        user = db.query(User).filter(User.username == request.username.strip()).first()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
 @router.post(
     "",
     response_model=RoomResponse
@@ -86,6 +100,34 @@ def create_room_endpoint(
 
     return room
 
+def _room_unread_count(db: Session, room: Room, current_user_id: int) -> int:
+    membership = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room.id,
+            RoomMember.user_id == current_user_id
+        )
+        .first()
+    )
+
+    if membership is None:
+        return 0
+
+    last_seen_at = membership.last_read_at or membership.joined_at or room.created_at
+    if last_seen_at is None:
+        return 0
+
+    return (
+        db.query(Message)
+        .filter(
+            Message.room_id == room.id,
+            Message.sender_id != current_user_id,
+            Message.created_at > last_seen_at
+        )
+        .count()
+    )
+
+
 @router.get(
     "",
     response_model=list[RoomResponse]
@@ -112,7 +154,43 @@ def list_rooms(
         .all()
     )
 
-    return rooms
+    result = []
+    for room in rooms:
+        result.append({
+            "id": room.id,
+            "name": room.name,
+            "created_by": room.created_by,
+            "created_at": room.created_at,
+            "unread_count": _room_unread_count(db, room, current_user.id),
+        })
+
+    return result
+
+@router.post(
+    "/{room_id}/read"
+)
+def mark_room_read(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    membership.last_read_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {"message": "Room marked as read"}
+
 
 @router.patch(
     "/{room_id}",
@@ -183,20 +261,8 @@ def add_member(
 
     _require_room_admin(room, current_user)
 
-    user = (
-        db.query(User)
-        .filter(
-            User.username == request.username
-        )
-        .first()
-    )
+    user = _resolve_room_member(db, request)
 
-    if user is None:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-    
     if not user.is_approved:
         raise HTTPException(
             status_code=403,
@@ -226,7 +292,8 @@ def add_member(
 
     membership = RoomMember(
         room_id=room_id,
-        user_id=user.id
+        user_id=user.id,
+        last_read_at=datetime.now(timezone.utc)
     )
 
     db.add(membership)
@@ -234,7 +301,7 @@ def add_member(
     db.commit()
 
     logger.info(
-        f"User {request.username} "
+        f"User {user.username} "
         f"added to room {room_id}"
     )
 
@@ -281,11 +348,11 @@ def list_members(
     return members
 
 @router.delete(
-    "/{room_id}/members/{username}"
+    "/{room_id}/members/{member_identifier}"
 )
 def remove_member(
     room_id: int,
-    username: str,
+    member_identifier: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -305,13 +372,10 @@ def remove_member(
 
     _require_room_admin(room, current_user)
 
-    user = (
-        db.query(User)
-        .filter(
-            User.username == username
-        )
-        .first()
-    )
+    if member_identifier.isdigit():
+        user = db.query(User).filter(User.id == int(member_identifier)).first()
+    else:
+        user = db.query(User).filter(User.username == member_identifier).first()
 
     if user is None:
         raise HTTPException(
@@ -345,7 +409,7 @@ def remove_member(
     db.commit()
 
     logger.info(
-        f"User {username} "
+        f"User {user.username} "
         f"removed from room {room_id}"
     )
 

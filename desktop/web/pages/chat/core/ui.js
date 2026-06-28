@@ -2,10 +2,31 @@
 
 import { escapeHTML } from "./utils.js";
 import { iconMap } from "./icons.js";
+import { initialsFor } from "../../../services/avatar.js";
+
+/**
+ * Asynchronously decorate any `[data-avatar-user-id]` element that still shows
+ * initials with the user's profile image when one exists.
+ */
+export function decorateAvatars(root = document) {
+  const loadAvatarObjectUrl = window.loadAvatarObjectUrl;
+  if (typeof loadAvatarObjectUrl !== "function") return;
+  const nodes = root.querySelectorAll("[data-avatar-user-id]:not(.avatar-decorated)");
+  nodes.forEach((el) => {
+    el.classList.add("avatar-decorated");
+    const id = Number(el.dataset.avatarUserId);
+    if (!Number.isFinite(id)) return;
+    loadAvatarObjectUrl(id).then((url) => {
+      if (!url) return;
+      el.classList.add("avatar-has-image");
+      el.innerHTML = `<img class="avatar-img" src="${url}" alt="" />`;
+    });
+  });
+}
 
 export function clearConversationCanvas(messagesScroll, dayChip) {
-  messagesScroll.innerHTML = "";
-  dayChip.hidden = true;
+  if (messagesScroll) messagesScroll.innerHTML = "";
+  if (dayChip) dayChip.hidden = true;
 }
 
 export function showConversationEmptyState(state) {
@@ -22,22 +43,22 @@ export function showConversationEmptyState(state) {
 
   state.menuOpen = false;
   state.infoOpen = false;
-  conversationSearchRow.classList.add("hidden");
-  menuPopover.classList.add("hidden");
-  infoDrawer.classList.add("hidden");
+  if (conversationSearchRow) conversationSearchRow.classList.add("hidden");
+  if (menuPopover) menuPopover.classList.add("hidden");
+  if (infoDrawer) infoDrawer.classList.add("hidden");
   state.convoSearch = "";
-  conversationSearch.value = "";
+  if (conversationSearch) conversationSearch.value = "";
 
-  conversationPane.classList.add("is-empty");
-  conversationEmptyState.hidden = false;
-  conversationContent.hidden = true;
+  if (conversationPane) conversationPane.classList.add("is-empty");
+  if (conversationEmptyState) conversationEmptyState.hidden = false;
+  if (conversationContent) conversationContent.hidden = true;
   clearConversationCanvas(
     document.getElementById("messages-scroll"),
     document.getElementById("day-chip")
   );
 
-  conversationEmptyTitle.textContent = hasThreads ? "No chat selected" : "No conversations yet";
-  conversationEmptyCopy.textContent = hasThreads
+  if (conversationEmptyTitle) conversationEmptyTitle.textContent = hasThreads ? "No chat selected" : "No conversations yet";
+  if (conversationEmptyCopy) conversationEmptyCopy.textContent = hasThreads
     ? "Choose a conversation from the left or start a new one."
     : "Your conversations will appear here once they are created.";
 }
@@ -46,10 +67,10 @@ export function openConversationView() {
   const conversationPane = document.getElementById("conversation-pane");
   const conversationEmptyState = document.getElementById("conversation-empty-state");
   const conversationContent = document.getElementById("conversation-content");
-  
-  conversationPane.classList.remove("is-empty");
-  conversationEmptyState.hidden = true;
-  conversationContent.hidden = false;
+
+  if (conversationPane) conversationPane.classList.remove("is-empty");
+  if (conversationEmptyState) conversationEmptyState.hidden = true;
+  if (conversationContent) conversationContent.hidden = false;
   clearConversationCanvas(
     document.getElementById("messages-scroll"),
     document.getElementById("day-chip")
@@ -57,6 +78,7 @@ export function openConversationView() {
 }
 
 export function renderThreadEmptyState(threadList, title, copy, actionLabel = "New chat", actionKind = "new-chat") {
+  if (!threadList) return;
   threadList.innerHTML = `
     <div class="thread-empty-state">
       <div class="thread-empty-card">
@@ -143,8 +165,11 @@ export function renderThreads(state) {
     item.type = "button";
     item.className = "thread-item" + (thread.key === state.activeThreadKey ? " active" : "");
     item.dataset.threadKey = thread.key || `${thread.type}:${thread.id}`;
+    const avatarAttrs = thread.kind === "dm" && thread.peerId
+      ? `data-avatar-user-id="${Number(thread.peerId)}"`
+      : "";
     item.innerHTML = `
-      <div class="avatar">${escapeHTML(thread.initials)}</div>
+      <div class="avatar" ${avatarAttrs}>${escapeHTML(thread.initials)}</div>
       <div class="thread-meta">
         <div class="thread-title-row">
           <div class="thread-title">${escapeHTML(thread.title)}</div>
@@ -159,8 +184,10 @@ export function renderThreads(state) {
         </div>
       </div>
     `;
-    threadList.appendChild(item);
+    if (threadList) threadList.appendChild(item);
   });
+
+  decorateAvatars(threadList);
 }
 
 export function updateConversationMeta(thread) {
@@ -168,26 +195,70 @@ export function updateConversationMeta(thread) {
   const conversationTitle = document.getElementById("conversation-title");
   const conversationStatus = document.getElementById("conversation-status");
   const conversationAvatar = document.getElementById("conversation-avatar");
-  
-  conversationTitle.textContent = thread.title || "Conversation";
-  conversationStatus.textContent = thread.kind === "room"
-    ? `Room · ${thread.members?.length || 1} members`
-    : (thread.status || "Direct Message");
-  conversationAvatar.textContent = thread.initials || "VA";
-  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "room" ? "Room" : "DM";
-  document.getElementById("info-files").textContent = String(
+  const roomAdminToggle = document.getElementById("room-admin-toggle");
+
+  if (conversationTitle) conversationTitle.textContent = thread.title || "Conversation";
+  if (conversationStatus) {
+    conversationStatus.textContent = thread.kind === "room"
+      ? `Room · ${thread.members?.length || 1} members`
+      : (thread.status || "Direct Message");
+  }
+
+  // Reset avatar then show initials; swap to pfp for DMs where available.
+  if (conversationAvatar) {
+    conversationAvatar.textContent = thread.initials || "VA";
+    conversationAvatar.removeAttribute("data-avatar-user-id");
+    conversationAvatar.classList.remove("avatar-has-image", "avatar-decorated");
+    if (thread.kind === "dm" && thread.peerId) {
+      conversationAvatar.setAttribute("data-avatar-user-id", String(thread.peerId));
+      decorateAvatars();
+    }
+  }
+
+  // Show room admin toggle only for room creators
+  const currentUser = window.currentUser || null;
+  const canManage = thread.kind === "room" && currentUser && Number(thread.createdBy) === Number(currentUser.id);
+  if (roomAdminToggle) {
+    roomAdminToggle.classList.toggle("hidden", !canManage);
+  }
+
+  const infoParticipants = document.getElementById("info-participants");
+  const infoType = document.getElementById("info-type");
+  const infoFiles = document.getElementById("info-files");
+  if (infoParticipants) infoParticipants.textContent = String(thread.members?.length || 1);
+  if (infoType) infoType.textContent = thread.kind === "room" ? "Room" : "DM";
+  if (infoFiles) infoFiles.textContent = String(
     (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
   );
 }
 
 export function updateInfoDrawer(thread) {
   if (!thread) return;
-  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "room" ? "Room" : "DM";
-  document.getElementById("info-files").textContent = String(
+  const roomAdminSection = document.getElementById("room-admin-section");
+  const currentUser = window.currentUser || null;
+
+  const infoParticipants = document.getElementById("info-participants");
+  const infoType = document.getElementById("info-type");
+  const infoFiles = document.getElementById("info-files");
+  
+  if (infoParticipants) infoParticipants.textContent = String(thread.members?.length || 1);
+  if (infoType) infoType.textContent = thread.kind === "room" ? "Room" : "DM";
+  if (infoFiles) infoFiles.textContent = String(
     (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
   );
+
+  // Show the room admin section for all room participants; admin controls are
+  // gated inside renderRoomAdminPanel based on creator status.
+  const isRoom = thread.kind === "room";
+  roomAdminSection?.classList.toggle("hidden", !isRoom);
+
+  // Trigger a panel render if the drawer is already open and the function is available.
+  if (isRoom && typeof window.renderRoomAdminPanel === "function") {
+    const state = window.chatState;
+    if (state?.infoOpen) {
+      window.renderRoomAdminPanel(thread);
+    }
+  }
 }
 
 export function closeOverlays(state) {

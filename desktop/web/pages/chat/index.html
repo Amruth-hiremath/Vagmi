@@ -62,7 +62,7 @@
             </button>
             <div class="thread-avatar avatar-large" id="conversation-avatar">VA</div>
             <div class="conversation-title-wrap">
-              <div class="conversation-title" id="conversation-title">Conversation</div>
+              <div class="conversation-title clickable" id="conversation-title" title="Tap for info">Conversation</div>
               <div class="conversation-sub">
                 <span class="online-dot"></span>
                 <span id="conversation-status">Direct Message</span>
@@ -73,6 +73,9 @@
           <div class="conversation-actions">
             <button class="icon-btn" id="search-toggle" title="Search in conversation" aria-label="Search in conversation" type="button">
               <span class="icon" data-icon="search"></span>
+            </button>
+            <button class="icon-btn hidden" id="room-admin-toggle" title="Room settings" aria-label="Room settings" type="button">
+              <span class="icon" data-icon="users"></span>
             </button>
             <div class="menu-wrap">
               <button class="icon-btn" id="menu-toggle" title="More options" aria-label="More options" type="button">
@@ -105,6 +108,40 @@
               <div class="info-row"><span>Participants</span><span id="info-participants">2</span></div>
               <div class="info-row"><span>Type</span><span id="info-type">DM</span></div>
               <div class="info-row"><span>Shared files</span><span id="info-files">0</span></div>
+            </div>
+
+            <!-- Room admin section — WhatsApp-style in-drawer panel -->
+            <div class="room-admin-section hidden" id="room-admin-section">
+              <div class="room-admin-kicker mono">Group info</div>
+
+              <div class="room-name-row" id="room-name-row">
+                <div class="room-name-display" id="room-name-display">
+                  <span class="room-name-value" id="room-name-value">Room</span>
+                </div>
+                <button class="ghost-btn room-name-edit-btn" id="room-name-edit-btn" type="button" title="Edit room name" aria-label="Edit room name"><span class="icon" data-icon="pencil"></span></button>
+                <div class="room-name-edit hidden" id="room-name-edit">
+                  <input id="room-name-input-inline" type="text" maxlength="80" autocomplete="off" />
+                  <button class="primary-btn" id="room-name-save-btn" type="button">Save</button>
+                  <button class="ghost-btn" id="room-name-cancel-btn" type="button">Cancel</button>
+                </div>
+              </div>
+
+              <div class="room-members-head">
+                <div class="room-members-title">Members</div>
+                <button class="ghost-btn hidden" id="room-add-member-toggle" type="button">+ Add</button>
+              </div>
+
+              <div class="room-members-list" id="room-members-list"></div>
+
+              <div class="room-add-member-picker hidden" id="room-add-member-picker">
+                <input
+                  id="room-add-member-search"
+                  type="text"
+                  placeholder="Search users to add"
+                  autocomplete="off"
+                />
+                <div class="member-picker-results hidden" id="room-add-member-results" aria-live="polite"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -222,7 +259,7 @@
 
         <div class="room-actions">
           <button class="empty-state-btn" type="button" id="room-create-cancel">Cancel</button>
-          <button class="primary-btn" type="submit">Create room</button>
+          <button class="primary-btn" id="room-create-submit" type="submit">Create room</button>
         </div>
       </form>
     </div>

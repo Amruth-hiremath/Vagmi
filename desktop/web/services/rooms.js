@@ -37,7 +37,6 @@ export async function sendRoomMessage(roomId, text) {
   );
 }
 
-
 export async function updateRoom(roomId, data) {
   return parseJson(
     await apiRequest(`/rooms/${roomId}`, {
@@ -60,10 +59,26 @@ export async function getRoomMembers(roomId) {
   );
 }
 
-export async function addRoomMember(
-  roomId,
-  username
-) {
+export async function addRoomMember(roomId, member) {
+  const payload = {};
+  if (typeof member === "number") {
+    payload.user_id = member;
+  } else if (typeof member === "string") {
+    const trimmed = member.trim();
+    if (/^\d+$/.test(trimmed)) {
+      payload.user_id = Number(trimmed);
+    } else {
+      payload.username = trimmed;
+    }
+  } else if (member && typeof member === "object") {
+    if (member.user_id !== undefined && member.user_id !== null) {
+      payload.user_id = Number(member.user_id);
+    }
+    if (member.username) {
+      payload.username = String(member.username);
+    }
+  }
+
   return parseJson(
     await apiRequest(
       `/rooms/${roomId}/members`,
@@ -72,21 +87,17 @@ export async function addRoomMember(
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          username
-        })
+        body: JSON.stringify(payload)
       }
     )
   );
 }
 
-export async function removeRoomMember(
-  roomId,
-  username
-) {
+export async function removeRoomMember(roomId, memberIdentifier) {
+  const identifier = String(memberIdentifier);
   return parseJson(
     await apiRequest(
-      `/rooms/${roomId}/members/${username}`,
+      `/rooms/${roomId}/members/${encodeURIComponent(identifier)}`,
       {
         method: "DELETE"
       }
@@ -94,9 +105,7 @@ export async function removeRoomMember(
   );
 }
 
-export async function deleteRoom(
-  roomId
-) {
+export async function deleteRoom(roomId) {
   return parseJson(
     await apiRequest(
       `/rooms/${roomId}`,
@@ -134,6 +143,15 @@ export async function deleteRoomMessage(messageId) {
   return parseJson(
     await apiRequest(`/rooms/messages/${messageId}`, {
       method: "DELETE"
+    })
+  );
+}
+
+
+export async function markRoomRead(roomId) {
+  return parseJson(
+    await apiRequest(`/rooms/${roomId}/read`, {
+      method: "POST"
     })
   );
 }

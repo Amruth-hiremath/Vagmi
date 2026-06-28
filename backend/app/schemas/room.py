@@ -12,7 +12,8 @@ class RoomUpdate(BaseModel):
 
 
 class AddMemberRequest(BaseModel):
-    username: str
+    user_id: int | None = None
+    username: str | None = None
 
 
 class RoomResponse(BaseModel):
@@ -20,6 +21,7 @@ class RoomResponse(BaseModel):
     name: str
     created_by: int
     created_at: datetime
+    unread_count: int = 0
 
     class Config:
         from_attributes = True

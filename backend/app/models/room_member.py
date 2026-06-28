@@ -34,3 +34,8 @@ class RoomMember(Base):
         DateTime,
         default=lambda: datetime.now(timezone.utc)
     )
+
+    last_read_at = Column(
+        DateTime,
+        nullable=True
+    )

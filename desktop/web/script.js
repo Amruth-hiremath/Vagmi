@@ -7,6 +7,10 @@ import {
 } from "./services/auth.js";
 
 import { apiRequest } from "./services/api.js";
+import {
+  initialsFor,
+  loadMyAvatarObjectUrl
+} from "./services/avatar.js";
 
 const PAGE_MAP = {
   home: "./pages/home/index.html",
@@ -26,6 +30,8 @@ const sidebarToggle = document.getElementById("sidebar-toggle");
 const userDisplay = document.getElementById("username-display");
 const logoutBtn = document.getElementById("logout-btn");
 const userAvatar = document.querySelector(".user-avatar");
+const sidebarAvatarImage = document.getElementById("sidebar-user-avatar-image");
+const sidebarAvatarInitials = document.getElementById("sidebar-user-initials");
 
 function setSidebarCollapsed(collapsed) {
   document.body.classList.toggle("sidebar-collapsed", collapsed);
@@ -54,14 +60,26 @@ function updateUserBadge(user) {
     userDisplay.textContent = user.username || "User";
   }
 
-  if (userAvatar) {
-    const initials = (user.username || "U")
-      .split(/[^a-zA-Z0-9]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join("") || "U";
-    userAvatar.textContent = initials;
+  if (sidebarAvatarInitials) {
+    sidebarAvatarInitials.textContent = initialsFor(user.username || "U");
+  }
+
+  // Load the profile image, falling back to initials when absent.
+  loadMyAvatarObjectUrl().then((url) => {
+    if (!url || !sidebarAvatarImage) return;
+    sidebarAvatarImage.src = url;
+    sidebarAvatarImage.classList.remove("hidden");
+    if (sidebarAvatarInitials) sidebarAvatarInitials.classList.add("hidden");
+  });
+}
+
+async function refreshSidebarAvatar() {
+  if (!sidebarAvatarImage) return;
+  const url = await loadMyAvatarObjectUrl();
+  if (url) {
+    sidebarAvatarImage.src = url;
+    sidebarAvatarImage.classList.remove("hidden");
+    if (sidebarAvatarInitials) sidebarAvatarInitials.classList.add("hidden");
   }
 }
 
@@ -133,6 +151,16 @@ function wireNavigation() {
     if (data.type === "logout") {
       clearSession();
       window.location.replace(getAuthPageUrl());
+    }
+  });
+
+  // Refresh the sidebar avatar when a profile image upload happens in a
+  // nested page (e.g. settings). The page bumps the shared cache token.
+  window.addEventListener("vagmi-avatar-updated", refreshSidebarAvatar);
+  window.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type === "avatar-updated") {
+      refreshSidebarAvatar();
     }
   });
 }

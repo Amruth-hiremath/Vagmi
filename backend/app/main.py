@@ -1,4 +1,5 @@
 import os
+from sqlalchemy import inspect, text
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -26,10 +27,32 @@ from app.api.users import router as users_router
 from app.api.direct_messages import router as dm_router
 from app.api.admin import router as admin_router
 
+
+def _ensure_user_profile_image_column() -> None:
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("users"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        if "profile_image_path" not in columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN profile_image_path VARCHAR"))
+
+
+def _ensure_room_member_last_read_at_column() -> None:
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("room_members"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("room_members")}
+        if "last_read_at" not in columns:
+            connection.execute(text("ALTER TABLE room_members ADD COLUMN last_read_at DATETIME"))
+
 # lifespan function to create db tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _ensure_user_profile_image_column()
+    _ensure_room_member_last_read_at_column()
     logger.info("Vagmi backend started")
     yield
     logger.info("Vagmi backend shutting down")

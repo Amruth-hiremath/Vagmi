@@ -13,6 +13,17 @@ class EmbeddingService:
     def __init__(self):
         self.model = self._load_model()
 
+    @staticmethod
+    def _is_sentence_transformers_dir(path: Path) -> bool:
+        return (
+            path.is_dir()
+            and (
+                (path / "modules.json").exists()
+                or (path / "config_sentence_transformers.json").exists()
+                or any(path.glob("0_*"))
+            )
+        )
+
     def _load_model(self) -> SentenceTransformer:
         candidates = []
         for candidate in EMBEDDING_MODEL_CANDIDATES:
@@ -22,10 +33,11 @@ class EmbeddingService:
         # Search direct candidates first, then common nested model layouts.
         nested_roots = [LOCAL_MODELS_DIR, OFFLINE_MODELS_DIR, DATA_DIR / "models"]
         for root in nested_roots:
-            if root.exists():
-                candidates.append(root)
-                candidates.extend([p for p in root.glob("**/all-MiniLM-L6-v2") if p.is_dir()])
-                candidates.extend([p for p in root.glob("**/sentence-transformers/all-MiniLM-L6-v2") if p.is_dir()])
+            if not root.exists():
+                continue
+            candidates.extend([p for p in root.glob("**/all-MiniLM-L6-v2") if p.is_dir()])
+            candidates.extend([p for p in root.glob("**/sentence-transformers/all-MiniLM-L6-v2") if p.is_dir()])
+            candidates.extend([p for p in root.glob("**/all-MiniLM-L6-v2/") if p.is_dir()])
 
         seen = set()
         for path in candidates:
@@ -35,12 +47,12 @@ class EmbeddingService:
             if resolved in seen:
                 continue
             seen.add(resolved)
-            if path.exists():
+            if path.exists() and self._is_sentence_transformers_dir(path):
                 logger.info("Loading embedding model from local path: %s", path)
                 return SentenceTransformer(str(path), local_files_only=True)
 
         raise RuntimeError(
-            "Offline embedding model not found. Place all-MiniLM-L6-v2 under local_models/, offline_models/, or data/models/ and set EMBEDDING_MODEL_PATH if needed."
+            "Offline embedding model not found. Place a full all-MiniLM-L6-v2 sentence-transformers directory under local_models/, offline_models/, or data/models/ and set EMBEDDING_MODEL_PATH if needed."
         )
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime,Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from datetime import datetime, timezone
 
 from app.core.database import Base
@@ -15,17 +15,22 @@ class User(Base):
     password_hash = Column(String, nullable=False)
 
     is_admin = Column(
-    Boolean,
-    default=False,
-    nullable=False
+        Boolean,
+        default=False,
+        nullable=False
     )
-    
+
     is_approved = Column(
-    Boolean,
-    default=False,
-    nullable=False
+        Boolean,
+        default=False,
+        nullable=False
     )
-    
+
+    profile_image_path = Column(
+        String,
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc)

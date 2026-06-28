@@ -10,9 +10,12 @@ import {
   sendRoomMessage,
   createRoom,
   addRoomMember,
+  removeRoomMember,
+  updateRoom,
   sendRoomImage,
   sendRoomVoice,
-  deleteRoomMessage
+  deleteRoomMessage,
+  markRoomRead
 } from "../../services/rooms.js";
 
 import { escapeHTML, formatTime, formatFileSize } from "./core/utils.js";
@@ -28,7 +31,8 @@ import {
   renderThreads,
   updateConversationMeta,
   updateInfoDrawer,
-  closeOverlays
+  closeOverlays,
+  decorateAvatars
 } from "./core/ui.js";
 import {
   activeThread,
@@ -57,7 +61,9 @@ import {
   buildAttachmentCard,
   renderAttachmentModalView,
   openAttachmentViewer,
-  downloadAttachment
+  downloadAttachment,
+  saveBlobToDownloads,
+  saveLoadedUrl
 } from "./core/attachment.js";
 import {
   openNewChatModal,
@@ -69,6 +75,7 @@ import {
 import { currentSearchUpdate, searchRegisteredUsers, startChatWithUser } from "./core/search.js";
 import { searchUsers } from "../../services/users.js";
 import { uploadRoomAttachment, uploadDmAttachment } from "../../services/attachment.js";
+import { loadAvatarObjectUrl, loadMyAvatarObjectUrl, bumpAvatarCache as bumpGlobalAvatarCache } from "../../services/avatar.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getUser();
@@ -98,6 +105,21 @@ document.addEventListener("DOMContentLoaded", () => {
     selected: [],
     timer: null
   };
+
+  // Predeclare room-create DOM refs so overlay helpers can safely reference them
+  // before the later DOM query block assigns the actual elements.
+  let roomCreateModal = null;
+  let roomCreateBackdrop = null;
+  let roomCreateClose = null;
+  let roomCreateCancel = null;
+  let roomCreateForm = null;
+  let roomCreateTitle = null;
+  let roomCreateSubmit = null;
+  let roomNameInput = null;
+  let roomMemberPicker = null;
+  let roomMemberSearch = null;
+  let roomMemberResults = null;
+  let roomMemberSelected = null;
 
   function getRoomMemberKey(user) {
     if (!user) return null;
@@ -264,20 +286,71 @@ document.addEventListener("DOMContentLoaded", () => {
     chatLauncherModal?.setAttribute("aria-hidden", "true");
   }
 
-  async function openRoomCreateModal() {
+  async function openRoomCreateModal(thread = null) {
     closeOverlays(state);
     closeNewChatModal();
     closeLauncherModal();
+
+    const target = thread && thread.kind === "room" ? thread : null;
     state.roomCreateOpen = true;
+    state.roomEditTarget = target;
+
     roomCreateModal?.classList.remove("hidden");
     roomCreateModal?.setAttribute("aria-hidden", "false");
-    roomMemberState.selected = [];
+
+    if (roomCreateTitle) {
+      roomCreateTitle.textContent = target ? "Edit group info" : "Set up a group room";
+    }
+
+    if (roomCreateSubmit) {
+      roomCreateSubmit.textContent = target ? "Save changes" : "Create room";
+    }
+
+    if (target) {
+      let members = Array.isArray(target.members)
+        ? target.members
+            .filter((member) => member && Number(member.id) !== currentUser.id)
+            .map((member) => ({
+              id: Number(member.id),
+              username: String(member.username || "").trim()
+            }))
+            .filter((member) => Number.isFinite(member.id) && member.username)
+        : [];
+
+      if (members.length === 0 && typeof getRoomMembers === "function") {
+        try {
+          const fetchedMembers = await getRoomMembers(target.id);
+          members = Array.isArray(fetchedMembers)
+            ? fetchedMembers
+                .filter((member) => member && Number(member.id) !== currentUser.id)
+                .map((member) => ({
+                  id: Number(member.id),
+                  username: String(member.username || "").trim()
+                }))
+                .filter((member) => Number.isFinite(member.id) && member.username)
+            : members;
+          target.members = members;
+        } catch (error) {
+          console.warn("Unable to refresh room members before editing", error);
+        }
+      }
+
+      roomMemberState.selected = members;
+      if (roomNameInput) roomNameInput.value = String(target.title || target.name || "").trim();
+    } else {
+      roomMemberState.selected = [];
+      if (roomCreateForm) roomCreateForm.reset();
+      if (roomNameInput) roomNameInput.value = "";
+    }
+
     if (roomMemberState.timer) {
       clearTimeout(roomMemberState.timer);
       roomMemberState.timer = null;
     }
+
     renderSelectedRoomMembers();
     clearRoomMemberSearchResults();
+
     if (roomMemberSearch) {
       roomMemberSearch.value = "";
       roomMemberSearch.focus();
@@ -287,14 +360,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function closeRoomCreateModal() {
     state.roomCreateOpen = false;
-    roomCreateModal?.classList.add("hidden");
-    roomCreateModal?.setAttribute("aria-hidden", "true");
+    state.roomEditTarget = null;
+    if (roomCreateModal) {
+      roomCreateModal.classList.add("hidden");
+      roomCreateModal.setAttribute("aria-hidden", "true");
+    }
     roomMemberState.selected = [];
     if (roomMemberState.timer) {
       clearTimeout(roomMemberState.timer);
       roomMemberState.timer = null;
     }
     if (roomCreateForm) roomCreateForm.reset();
+    if (roomCreateTitle) roomCreateTitle.textContent = "Set up a group room";
+    if (roomCreateSubmit) roomCreateSubmit.textContent = "Create room";
     renderSelectedRoomMembers();
     clearRoomMemberSearchResults();
     if (roomMemberSearch) roomMemberSearch.value = "";
@@ -309,22 +387,60 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const members = roomMemberState.selected
-      .map((user) => String(user.username || "").trim())
-      .filter(Boolean)
-      .filter((name) => name.toLowerCase() !== currentUser.username.toLowerCase());
+    const selectedMembers = roomMemberState.selected
+      .map((user) => ({
+        id: Number(user.id),
+        username: String(user.username || "").trim()
+      }))
+      .filter((user) => Number.isFinite(user.id) && user.username)
+      .filter((user) => user.id !== currentUser.id);
 
     try {
+      const target = state.roomEditTarget;
+      if (target) {
+        const nextRoom = await updateRoom(target.id, { name: roomName });
+        const currentMembers = Array.isArray(target.members) ? target.members : [];
+        const currentIds = new Set(
+          currentMembers
+            .map((member) => Number(member.id))
+            .filter((id) => Number.isFinite(id) && id !== currentUser.id)
+        );
+        const selectedIds = new Set(selectedMembers.map((member) => member.id));
+
+        for (const member of selectedMembers) {
+          if (!currentIds.has(member.id)) {
+            try {
+              await addRoomMember(target.id, { user_id: member.id });
+            } catch (error) {
+              console.warn(`Could not add ${member.username} to room`, error);
+            }
+          }
+        }
+
+        for (const member of currentMembers) {
+          const memberId = Number(member.id);
+          if (!Number.isFinite(memberId) || memberId === currentUser.id) continue;
+          if (!selectedIds.has(memberId)) {
+            try {
+              await removeRoomMember(target.id, memberId);
+            } catch (error) {
+              console.warn(`Could not remove ${member.username} from room`, error);
+            }
+          }
+        }
+
+        closeRoomCreateModal();
+        await refreshConversations({ preserveSelection: false });
+        await openThread(makeThreadKey("room", nextRoom.id), { remember: true });
+        return;
+      }
+
       const room = await createRoom(roomName);
-
-      const uniqueMembers = [...new Set(members.map((name) => name.toLowerCase()))];
-      const originalNames = members.filter((name, idx) => uniqueMembers.indexOf(name.toLowerCase()) === idx);
-
-      for (const username of originalNames) {
+      for (const member of selectedMembers) {
         try {
-          await addRoomMember(room.id, username);
+          await addRoomMember(room.id, { user_id: member.id });
         } catch (error) {
-          console.warn(`Could not add ${username} to room`, error);
+          console.warn(`Could not add ${member.username} to room`, error);
         }
       }
 
@@ -332,7 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await refreshConversations({ preserveSelection: false });
       await openThread(makeThreadKey("room", room.id), { remember: true });
     } catch (error) {
-      alert(error?.message || "Failed to create room.");
+      alert(error?.message || "Failed to save room.");
     }
   }
 
@@ -353,6 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const conversationSearchRow = document.getElementById("conversation-search-row");
   const conversationSearch = document.getElementById("conversation-search");
   const searchToggle = document.getElementById("search-toggle");
+  const roomAdminToggle = document.getElementById("room-admin-toggle");
   const closeSearch = document.getElementById("close-search");
   const menuToggle = document.getElementById("menu-toggle");
   const menuPopover = document.getElementById("menu-popover");
@@ -374,16 +491,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const launcherDmBtn = document.getElementById("launcher-dm-btn");
   const launcherRoomBtn = document.getElementById("launcher-room-btn");
 
-  const roomCreateModal = document.getElementById("room-create-modal");
-  const roomCreateBackdrop = document.getElementById("room-create-backdrop");
-  const roomCreateClose = document.getElementById("room-create-close");
-  const roomCreateCancel = document.getElementById("room-create-cancel");
-  const roomCreateForm = document.getElementById("room-create-form");
-  const roomNameInput = document.getElementById("room-name-input");
-  const roomMemberPicker = document.getElementById("room-member-picker");
-  const roomMemberSearch = document.getElementById("room-member-search");
-  const roomMemberResults = document.getElementById("room-member-results");
-  const roomMemberSelected = document.getElementById("room-member-selected");
+  roomCreateModal = document.getElementById("room-create-modal");
+  roomCreateBackdrop = document.getElementById("room-create-backdrop");
+  roomCreateClose = document.getElementById("room-create-close");
+  roomCreateCancel = document.getElementById("room-create-cancel");
+  roomCreateForm = document.getElementById("room-create-form");
+  roomCreateTitle = document.getElementById("room-create-title");
+  roomCreateSubmit = document.getElementById("room-create-submit");
+  roomNameInput = document.getElementById("room-name-input");
+  roomMemberPicker = document.getElementById("room-member-picker");
+  roomMemberSearch = document.getElementById("room-member-search");
+  roomMemberResults = document.getElementById("room-member-results");
+  roomMemberSelected = document.getElementById("room-member-selected");
 
   const newChatModal = document.getElementById("new-chat-modal");
   const newChatBackdrop = document.getElementById("new-chat-backdrop");
@@ -395,6 +514,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
   const attachmentModalClose = document.getElementById("attachment-modal-close");
   const roomCreateDialog = document.querySelector(".room-create-dialog");
+
+  // Drawer admin section elements
+  const roomAdminSection = document.getElementById("room-admin-section");
+  const roomNameDisplay = document.getElementById("room-name-display");
+  const roomNameValue = document.getElementById("room-name-value");
+  const roomNameEditBtn = document.getElementById("room-name-edit-btn");
+  const roomNameEdit = document.getElementById("room-name-edit");
+  const roomNameInputInline = document.getElementById("room-name-input-inline");
+  const roomNameSaveBtn = document.getElementById("room-name-save-btn");
+  const roomNameCancelBtn = document.getElementById("room-name-cancel-btn");
+  const roomMembersList = document.getElementById("room-members-list");
+  const roomAddMemberToggle = document.getElementById("room-add-member-toggle");
+  const roomAddMemberPicker = document.getElementById("room-add-member-picker");
+  const roomAddMemberSearch = document.getElementById("room-add-member-search");
+  const roomAddMemberResults = document.getElementById("room-add-member-results");
 
   roomCreateDialog?.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -420,6 +554,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.sendRoomMessage = sendRoomMessage;
   window.sendRoomImage = sendRoomImage;
   window.sendRoomVoice = sendRoomVoice;
+  window.markRoomRead = markRoomRead;
   window.uploadRoomAttachment = uploadRoomAttachment;
   window.uploadDmAttachment = uploadDmAttachment;
   window.formatTime = formatTime;
@@ -431,9 +566,13 @@ document.addEventListener("DOMContentLoaded", () => {
   window.getMessages = getMessages;
   window.getRoomMessages = getRoomMessages;
   window.getRoomMembers = getRoomMembers;
-  window.fetchAttachmentBlob = fetchAttachmentBlob;
-  window.openImageViewer = openImageViewer;
-  window.loadInlineImages = loadInlineImages;
+window.fetchAttachmentBlob = fetchAttachmentBlob;
+window.openImageViewer = openImageViewer;
+window.loadInlineImages = loadInlineImages;
+window.saveBlobToDownloads = saveBlobToDownloads;
+window.saveLoadedUrl = saveLoadedUrl;
+window.loadAvatarObjectUrl = loadAvatarObjectUrl;
+window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
   window.currentUser = currentUser;
   window.chatState = state;
   window.updateConversationMeta = updateConversationMeta;
@@ -449,6 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.openLauncherModal = openLauncherModal;
   window.closeLauncherModal = closeLauncherModal;
   window.openRoomCreateModal = openRoomCreateModal;
+  window.openRoomEditModal = openRoomCreateModal;
   window.closeRoomCreateModal = closeRoomCreateModal;
   window.openNewChatModal = openNewChatModal;
   window.closeNewChatModal = closeNewChatModal;
@@ -689,6 +829,16 @@ document.addEventListener("DOMContentLoaded", () => {
       target.closest("#room-create-modal") ||
       target.closest("#chat-launcher-modal") ||
       target.closest("#attachment-modal") ||
+      target.closest("#room-admin-toggle") ||
+      target.closest("#room-add-member-toggle") ||
+      target.closest("#room-name-edit-btn") ||
+      target.closest("#room-name-save-btn") ||
+      target.closest("#room-name-cancel-btn") ||
+      target.closest("#room-add-member-picker") ||
+      target.closest("#room-add-member-results") ||
+      target.closest(".attachment-card") ||
+      target.closest(".attachment-action-btn") ||
+      target.closest(".chat-image-preview") ||
       target.closest(".menu-popover") ||
       target.closest("#room-member-picker") ||
       target.closest("#room-member-results")
@@ -736,6 +886,229 @@ document.addEventListener("DOMContentLoaded", () => {
       infoDrawer?.classList.toggle("hidden", !state.infoOpen);
     }
   });
+
+  closeInfo?.addEventListener("click", () => {
+    state.infoOpen = false;
+    infoDrawer?.classList.add("hidden");
+  });
+
+  // ── Drawer admin panel (WhatsApp-style room management) ──
+
+  const isAdmin = () => {
+    const thread = activeThread(state);
+    const me = window.currentUser;
+    return thread?.kind === "room" && me && Number(thread.createdBy) === Number(me.id);
+  };
+
+  async function renderRoomAdminPanel(thread) {
+    if (!thread || thread.kind !== "room") {
+      roomAdminSection?.classList.add("hidden");
+      return;
+    }
+
+    const me = window.currentUser;
+    const canManage = me && Number(thread.createdBy) === Number(me.id);
+
+    // Ensure members are fresh from the server.
+    if (typeof getRoomMembers === "function") {
+      try {
+        const members = await getRoomMembers(thread.id);
+        thread.members = Array.isArray(members) ? members : [];
+      } catch (error) {
+        console.warn("Failed to refresh room members", error);
+      }
+    }
+
+    const members = thread.members || [];
+    roomAdminSection?.classList.remove("hidden");
+    roomAddMemberToggle?.classList.toggle("hidden", !canManage);
+    if (roomNameValue) roomNameValue.textContent = thread.title || "Room";
+    roomNameEditBtn?.classList.toggle("hidden", !canManage);
+
+    // Render member list
+    if (roomMembersList) {
+      roomMembersList.innerHTML = members.map((member) => {
+        const isCreator = Number(member.id) === Number(thread.createdBy);
+        const label = isCreator ? `${escapeHTML(member.username || "User")} (Admin)` : escapeHTML(member.username || "User");
+        const initials = (member.username || "U").split(/[^a-zA-Z0-9]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "U";
+        const avatarAttr = Number.isFinite(Number(member.id)) ? `data-avatar-user-id="${Number(member.id)}"` : "";
+        const canRemove = canManage && !isCreator && Number(member.id) !== Number(me.id);
+        const removeBtn = canRemove
+          ? `<button class="room-member-remove" data-remove-member-id="${Number(member.id)}" data-remove-member-name="${escapeHTML(member.username || "")}" title="Remove member" type="button">×</button>`
+          : "";
+        return `
+          <div class="room-member-row" data-member-id="${Number(member.id)}">
+            <div class="room-member-info">
+              <span class="avatar avatar-sm ${avatarAttr ? 'avatar-has-image' : ''}" ${avatarAttr}>${escapeHTML(initials)}</span>
+              <span class="room-member-name">${label}</span>
+            </div>
+            ${removeBtn}
+          </div>
+        `;
+      }).join("");
+      // Decorate member avatars
+      if (typeof window.decorateAvatars === "function") {
+        window.decorateAvatars(roomMembersList);
+      }
+    }
+  }
+
+  // Make window.renderRoomAdminPanel available for the avatar-updated listener.
+  window.renderRoomAdminPanel = renderRoomAdminPanel;
+
+  // Name edit toggle
+  roomNameEditBtn?.addEventListener("click", () => {
+    const thread = activeThread(state);
+    if (!thread) return;
+    roomNameDisplay?.classList.add("hidden");
+    roomNameEditBtn?.classList.add("hidden");
+    roomNameEdit?.classList.remove("hidden");
+    if (roomNameInputInline) {
+      roomNameInputInline.value = thread.title || "";
+      roomNameInputInline.focus();
+    }
+  });
+
+  roomNameCancelBtn?.addEventListener("click", () => {
+    roomNameDisplay?.classList.remove("hidden");
+    roomNameEditBtn?.classList.remove("hidden");
+    roomNameEdit?.classList.add("hidden");
+  });
+
+  roomNameSaveBtn?.addEventListener("click", async () => {
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    const newName = roomNameInputInline?.value?.trim();
+    if (!newName) return;
+    try {
+      await updateRoom(thread.id, { name: newName });
+      thread.title = newName;
+      thread.initials = newName.substring(0, 2).toUpperCase();
+      if (roomNameValue) roomNameValue.textContent = newName;
+      // Refresh header and thread list
+      updateConversationMeta(thread);
+      renderThreads(state);
+      roomNameDisplay?.classList.remove("hidden");
+      roomNameEditBtn?.classList.remove("hidden");
+      roomNameEdit?.classList.add("hidden");
+    } catch (error) {
+      alert(error?.message || "Failed to update room name.");
+    }
+  });
+
+  roomNameInputInline?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); roomNameSaveBtn?.click(); }
+    if (e.key === "Escape") roomNameCancelBtn?.click();
+  });
+
+  // Remove member
+  roomMembersList?.addEventListener("click", async (event) => {
+    const removeBtn = event.target.closest(".room-member-remove");
+    if (!removeBtn) return;
+    const memberId = Number(removeBtn.dataset.removeMemberId);
+    const memberName = removeBtn.dataset.removeMemberName || "this user";
+    if (!confirm(`Remove ${memberName} from the room?`)) return;
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    try {
+      await removeRoomMember(thread.id, memberId);
+      await renderRoomAdminPanel(thread);
+      renderThreads(state);
+    } catch (error) {
+      alert(error?.message || "Failed to remove member.");
+    }
+  });
+
+  // Add member picker in drawer
+  roomAddMemberToggle?.addEventListener("click", () => {
+    roomAddMemberPicker?.classList.toggle("hidden");
+    if (!roomAddMemberPicker?.classList.contains("hidden")) {
+      roomAddMemberSearch?.focus();
+    }
+  });
+
+  let addMemberSearchTimer = null;
+  roomAddMemberSearch?.addEventListener("input", () => {
+    if (addMemberSearchTimer) clearTimeout(addMemberSearchTimer);
+    addMemberSearchTimer = setTimeout(async () => {
+      const query = roomAddMemberSearch.value?.trim() || "";
+      if (!query || !roomAddMemberResults) {
+        roomAddMemberResults?.classList.add("hidden");
+        return;
+      }
+      roomAddMemberResults.classList.remove("hidden");
+      roomAddMemberResults.innerHTML = '<div class="member-picker-state muted">Searching…</div>';
+      try {
+        const users = await searchUsers(query);
+        const thread = activeThread(state);
+        const memberIds = new Set((thread?.members || []).map((m) => Number(m.id)));
+        const list = (Array.isArray(users) ? users : [])
+          .filter((u) => u && u.username)
+          .filter((u) => Number(u.id) !== Number(currentUser.id))
+          .filter((u) => !memberIds.has(Number(u.id)));
+        if (list.length === 0) {
+          roomAddMemberResults.innerHTML = '<div class="member-picker-state muted">No new users to add.</div>';
+          return;
+        }
+        roomAddMemberResults.innerHTML = list.map((user) => {
+          const initials = (user.username || "U").split(/[^a-zA-Z0-9]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "U";
+          return `
+            <button type="button" class="member-result" data-member-id="${Number(user.id)}" data-member-username="${escapeHTML(user.username)}">
+              <div class="avatar">${escapeHTML(initials)}</div>
+              <div class="member-result-copy">
+                <div class="member-result-name">${escapeHTML(user.username)}</div>
+                <div class="member-result-meta">Approved user</div>
+              </div>
+              <div class="member-result-action">Add</div>
+            </button>
+          `;
+        }).join("");
+      } catch (error) {
+        roomAddMemberResults.innerHTML = '<div class="member-picker-state error">Search failed.</div>';
+      }
+    }, 250);
+  });
+
+  roomAddMemberResults?.addEventListener("click", async (event) => {
+    const btn = event.target.closest(".member-result");
+    if (!btn) return;
+    event.preventDefault();
+    const id = Number(btn.dataset.memberId);
+    const username = btn.dataset.memberUsername;
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    try {
+      await addRoomMember(thread.id, { user_id: id });
+      roomAddMemberSearch.value = "";
+      roomAddMemberResults?.classList.add("hidden");
+      await renderRoomAdminPanel(thread);
+      renderThreads(state);
+    } catch (error) {
+      alert(error?.message || "Failed to add member.");
+    }
+  });
+
+  roomAddMemberPicker?.addEventListener("click", (event) => event.stopPropagation());
+
+  // Room admin toggle button - opens info drawer with admin panel for room creators
+  console.log("roomAdminToggle element:", roomAdminToggle);
+  if (roomAdminToggle) {
+    roomAdminToggle.addEventListener("click", () => {
+      console.log("Room admin toggle clicked");
+      state.infoOpen = true;
+      menuPopover?.classList.add("hidden");
+      infoDrawer?.classList.remove("hidden");
+      console.log("Info drawer opened, classes:", infoDrawer?.className);
+      const thread = activeThread(state);
+      console.log("Active thread for admin panel:", thread);
+      if (thread?.kind === "room") {
+        console.log("Rendering room admin panel");
+        renderRoomAdminPanel(thread);
+      }
+    });
+  } else {
+    console.log("roomAdminToggle element not found!");
+  }
 
   newChatClose?.addEventListener("click", () => closeNewChatModal());
   newChatBackdrop?.addEventListener("click", () => closeNewChatModal());
@@ -785,6 +1158,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const imgEl = event.target.closest(".chat-image-preview");
     if (imgEl) {
+      event.stopPropagation();
+      event.preventDefault();
       const thread = activeThread(state);
       const message = thread?.messages?.find((m) => String(m.id) === String(imgEl.dataset.messageId));
       openImageViewer(imgEl.src, imgEl.alt || "image", thread, message);
@@ -793,24 +1168,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const actionBtn = event.target.closest("[data-attachment-action]");
     const card = event.target.closest(".attachment-card.clickable");
+    console.log("Attachment click detection:", { actionBtn, card, target: event.target });
     if (!actionBtn && !card) return;
+
+    event.stopPropagation();
+    event.preventDefault();
 
     const targetCard = actionBtn ? actionBtn.closest(".attachment-card.clickable") : card;
     if (!targetCard) return;
 
     const threadKey = targetCard.dataset.attachmentThreadKey;
     const messageId = Number(targetCard.dataset.attachmentMessageId);
+    console.log("Attachment card data:", { threadKey, messageId });
     if (!threadKey || !Number.isFinite(messageId)) return;
 
     const thread = state.threads.find((item) => item.key === threadKey);
+    console.log("Thread found:", thread);
     if (!thread) return;
-    const message = thread.messages.find((item) => item.id === messageId);
-    if (!message) return;
+
+    const fallbackMessage = {
+      id: messageId,
+      type: targetCard.dataset.attachmentKind || "FILE",
+      originalFilename: targetCard.dataset.attachmentFilename || "Attachment",
+      fileMeta: targetCard.dataset.attachmentFilename || "Attachment",
+      attachmentId: targetCard.dataset.attachmentId ? Number(targetCard.dataset.attachmentId) : null,
+      attachmentPath: targetCard.dataset.attachmentUrl || "",
+      attachmentUrl: targetCard.dataset.attachmentUrl || ""
+    };
+
+    const message = (thread.messages || []).find((item) => String(item.id) === String(messageId)) || fallbackMessage;
+    console.log("Message found:", message);
 
     const action = actionBtn?.dataset.attachmentAction || "view";
+    console.log("Attachment action clicked:", action);
     if (action === "download") {
+      console.log("Calling downloadAttachment for:", message);
       downloadAttachment(thread, message);
     } else {
+      console.log("Calling openAttachmentViewer for:", message);
       openAttachmentViewer(thread, message);
     }
   });
@@ -827,13 +1222,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupImageViewerEvents();
 
+  // Refresh avatars app-wide after a profile image upload.
+  window.addEventListener("vagmi-avatar-updated", async () => {
+    const thread = activeThread(state);
+    if (thread) {
+      renderMessages(thread);
+      updateInfoDrawer(thread);
+      if (thread.kind === "room") {
+        renderRoomAdminPanel?.(thread);
+      }
+    }
+    renderThreads(state);
+  });
+
   async function initialize() {
     try {
       const savedThreadKey = getSavedActiveThreadKey();
       await refreshConversations({ preserveSelection: false });
 
       if (savedThreadKey !== null && state.threads.some((thread) => thread.key === savedThreadKey)) {
-        await openThread(savedThreadKey, { remember: false });
+        await openThread(savedThreadKey, { remember: false, markAsRead: false });
       } else {
         state.activeThreadId = null;
         state.activeThreadKey = null;

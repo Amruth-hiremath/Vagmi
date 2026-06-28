@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import re
 import threading
 from functools import partial
 from http import HTTPStatus
@@ -18,6 +20,82 @@ BACKEND_BASE_URL = "http://127.0.0.1:8000"
 HOST = "127.0.0.1"
 
 PORT = 0
+
+
+def _save_dialog(filename: str) -> str | None:
+    """Open a native "Save As" dialog. Returns the chosen path or None."""
+
+    try:
+
+        window = webview.active_window()
+
+    except Exception:
+
+        return None
+
+    if window is None:
+
+        return None
+
+    safe_name = Path(filename or "attachment").name
+
+    try:
+
+        result = window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            "",
+            False,
+            safe_name
+        )
+
+    except Exception:
+
+        return None
+
+    if not result:
+
+        return None
+
+    # pywebview returns a tuple on Windows, a string elsewhere.
+    if isinstance(result, (list, tuple)):
+
+        if len(result) == 0:
+            return None
+
+        return str(result[0])
+
+    return str(result)
+
+
+class DesktopBridge:
+    def save_chat_download(self, data_url: str, filename: str) -> str:
+        match = re.match(r"^data:.*?;base64,(.*)$", data_url, flags=re.DOTALL)
+        if not match:
+            raise ValueError("Invalid download payload")
+
+        payload = base64.b64decode(match.group(1))
+        safe_name = Path(filename or "attachment").name
+
+        chosen_path = _save_dialog(safe_name)
+        if not chosen_path:
+            return ""
+
+        target_path = Path(chosen_path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if target_path.exists():
+            stem = target_path.stem
+            suffix = target_path.suffix
+            counter = 1
+            while True:
+                candidate = target_path.with_name(f"{stem} ({counter}){suffix}")
+                if not candidate.exists():
+                    target_path = candidate
+                    break
+                counter += 1
+
+        target_path.write_bytes(payload)
+        return str(target_path)
 
 
 class VagmiRequestHandler(SimpleHTTPRequestHandler):
@@ -332,7 +410,7 @@ def main() -> None:
             min_size=(1280, 840),
             background_color="#000000",
             resizable=True,
-            
+            js_api=DesktopBridge(),
         )
         webview.start(window.maximize, debug=True)
 
