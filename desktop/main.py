@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import webview
 
 
-BACKEND_BASE_URL = "http://127.0.0.1:8000"
+BACKEND_BASE_URL = "https://starts-gras-mechanics-areas.trycloudflare.com"
 
 HOST = "127.0.0.1"
 
@@ -82,10 +82,12 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
         if not backend_path:
             backend_path = "/"
 
+        parsed_backend = urlsplit(BACKEND_BASE_URL)
+
         target = urlunsplit(
             (
-                "http",
-                "127.0.0.1:8000",
+                parsed_backend.scheme,
+                parsed_backend.netloc,
                 backend_path,
                 parsed.query,
                 ""
