@@ -128,6 +128,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     kind: "dm",
     title: conversation.username || "Conversation",
     initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
+    lastMessageTimestamp: conversation.last_message_time,
     status: "Direct Message",
     unread: conversation.unread_count || 0,
     lastMessage: conversation.last_message || "",
@@ -202,6 +203,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       lastMessageTime,
       lastMessageTimestamp,
       messages: [],
+      lastMessageTimestamp: conversation.last_message_time,
       
     };
   }));
