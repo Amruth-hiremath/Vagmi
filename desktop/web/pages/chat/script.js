@@ -76,6 +76,9 @@ import { currentSearchUpdate, searchRegisteredUsers, startChatWithUser } from ".
 import { searchUsers } from "../../services/users.js";
 import { uploadRoomAttachment, uploadDmAttachment } from "../../services/attachment.js";
 import { loadAvatarObjectUrl, loadMyAvatarObjectUrl, bumpAvatarCache as bumpGlobalAvatarCache } from "../../services/avatar.js";
+import { deleteMessageForMe } from "../../services/dm.js";
+import { deleteRoomMessageForMe } from "../../services/rooms.js";
+
 
 document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getUser();
@@ -1132,14 +1135,84 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
   });
 
   messagesScroll?.addEventListener("click", async (event) => {
-    const deleteBtn = event.target.closest(".delete-message-btn");
-    if (deleteBtn) {
-      const messageId = Number(deleteBtn.dataset.messageId);
-      if (!confirm("Delete this message?")) return;
+    const thread = activeThread(state);
+    if (!thread) return;
+
+    const menuBtn = event.target.closest(".message-menu-btn");
+
+    if (menuBtn) {
+
+      event.stopPropagation();
+
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
+
+      document
+        .querySelector(`[data-message-menu="${menuBtn.dataset.messageId}"]`)
+        ?.classList.toggle("hidden");
+
+      return;
+    }
+
+    const copyBtn = event.target.closest('[data-action="copy"]');
+    if (copyBtn) {
+
+      const message = thread.messages.find(
+        m => m.id === Number(copyBtn.dataset.messageId)
+      );
+
+      if (!message) return;
+
+      await navigator.clipboard.writeText(message.text);
+
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
+
+      return;
+    }
+
+    const deleteForMeBtn = event.target.closest('[data-action="delete-me"]');
+
+    if (deleteForMeBtn) {
+      const messageId = Number(deleteForMeBtn.dataset.messageId);
+
+        if (thread.type === "room") {
+
+            await deleteRoomMessageForMe(
+                messageId
+            );
+
+        } else {
+
+            await deleteMessageForMe(
+                messageId
+            );
+
+        }
+
+        await loadMessages(
+            thread.key
+        );
+
+        await loadConversations({
+            preserveSelection: true
+        });
+
+        return;
+
+    }
+
+
+    const deleteAllBtn = event.target.closest('[data-action="delete-all"]');
+    if (deleteAllBtn) {
+
+      if (!confirm("Delete this message for everyone?")) return;
+
+      const messageId = Number(deleteAllBtn.dataset.messageId);
 
       try {
-        const thread = activeThread(state);
-        if (!thread) return;
 
         if (thread.type === "room") {
           await deleteRoomMessage(messageId);
@@ -1149,12 +1222,16 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
         await loadMessages(thread.key);
         await refreshConversations({ preserveSelection: true });
-        requestAnimationScroll();
+
       } catch (error) {
+
         alert(error?.message || "Failed to delete message.");
+
       }
+
       return;
     }
+
 
     const imgEl = event.target.closest(".chat-image-preview");
     if (imgEl) {
@@ -1182,9 +1259,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     console.log("Attachment card data:", { threadKey, messageId });
     if (!threadKey || !Number.isFinite(messageId)) return;
 
-    const thread = state.threads.find((item) => item.key === threadKey);
-    console.log("Thread found:", thread);
-    if (!thread) return;
+    const attachmentThread = state.threads.find((item) => item.key === threadKey);
+    console.log("Thread found:", attachmentThread);
+    if (!attachmentThread) return;
 
     const fallbackMessage = {
       id: messageId,
@@ -1196,18 +1273,23 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       attachmentUrl: targetCard.dataset.attachmentUrl || ""
     };
 
-    const message = (thread.messages || []).find((item) => String(item.id) === String(messageId)) || fallbackMessage;
+    const message = (attachmentThread.messages || []).find((item) => String(item.id) === String(messageId)) || fallbackMessage;
     console.log("Message found:", message);
 
     const action = actionBtn?.dataset.attachmentAction || "view";
     console.log("Attachment action clicked:", action);
     if (action === "download") {
       console.log("Calling downloadAttachment for:", message);
-      downloadAttachment(thread, message);
+      downloadAttachment(attachmentThread, message);
     } else {
       console.log("Calling openAttachmentViewer for:", message);
-      openAttachmentViewer(thread, message);
+      openAttachmentViewer(attachmentThread, message);
     }
+
+    document.querySelectorAll(".message-menu").forEach(menu => {
+      menu.classList.add("hidden");
+    });
+
   });
 
   attachmentModalBackdrop?.addEventListener("click", () => closeAttachmentModal());
@@ -1250,7 +1332,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
         scrollMessagesToBottom();
       }
       
-      startConversationPolling();
+      // startConversationPolling();
 
     } catch (error) {
       console.error("Conversation load failed", error);

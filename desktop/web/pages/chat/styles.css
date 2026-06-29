@@ -653,6 +653,39 @@ button {
   background: var(--surface-hover);
 }
 
+.message-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border-subtle);
+}
+
+.message-menu-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.message-menu-item:hover {
+  background: var(--panel-hover);
+}
+
+.message-menu-item.danger {
+  color: #ff6b6b;
+}
+
+.message-menu-item.danger:hover {
+  background: rgba(255, 107, 107, 0.15);
+}
+
 .conversation-search {
   display: flex;
   align-items: center;

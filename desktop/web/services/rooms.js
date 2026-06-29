@@ -155,3 +155,14 @@ export async function markRoomRead(roomId) {
     })
   );
 }
+
+export async function deleteRoomMessageForMe(messageId) {
+  const response = await apiRequest(
+    `/rooms/messages/${messageId}/me`,
+    {
+      method: "DELETE"
+    }
+  );
+
+  return response.json();
+}

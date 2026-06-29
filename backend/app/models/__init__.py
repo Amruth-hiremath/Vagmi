@@ -8,3 +8,5 @@ from .message import Message
 from .artifact import Artifact
 from .direct_conversation import DirectConversation
 from .direct_message import DirectMessage
+from .deleted_room_message import DeletedRoomMessage
+from .deleted_direct_message import DeletedDirectMessage

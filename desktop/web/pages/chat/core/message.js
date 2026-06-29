@@ -16,13 +16,16 @@ import {
   activeThread
 } from "./conversation.js";
 
+
+
+
+
 function attachmentLabel(message) {
   return message?.originalFilename || message?.fileMeta || "Attachment";
 }
 
 export function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
-  const senderId = message.senderId || null;
   const senderLine =
     message.sender === "other"
       ? `<div class="message-sender">
@@ -35,19 +38,8 @@ export function messageHTML(thread, message) {
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
 
-          ${
-            message.sender === "self"
-              ? `
-              <button
-                class="delete-message-btn"
-                data-message-id="${message.id}"
-                title="Delete message"
-              >
-                ×
-              </button>
-              `
-              : ""
-          }
+          ${messageMenuHTML(message)}
+
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
@@ -64,19 +56,7 @@ export function messageHTML(thread, message) {
         <div class="message-row ${sideClass}">
           <div class="message-bubble">
 
-            ${
-              message.sender === "self"
-                ? `
-                <button
-                  class="delete-message-btn"
-                  data-message-id="${message.id}"
-                  title="Delete message"
-                >
-                  ×
-                </button>
-                `
-                : ""
-            }
+            ${messageMenuHTML(message)}
 
             ${
               senderLine
@@ -116,19 +96,7 @@ export function messageHTML(thread, message) {
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
 
-        ${
-          message.sender === "self"
-            ? `
-            <button
-              class="delete-message-btn"
-              data-message-id="${message.id}"
-              title="Delete message"
-            >
-              ×
-            </button>
-            `
-            : ""
-        }
+        ${messageMenuHTML(message)}
         ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
         
         <img
@@ -160,19 +128,8 @@ export function messageHTML(thread, message) {
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
 
-          ${
-            message.sender === "self"
-              ? `
-              <button
-                class="delete-message-btn"
-                data-message-id="${message.id}"
-                title="Delete message"
-              >
-                ×
-              </button>
-              `
-              : ""
-          }
+         ${messageMenuHTML(message)}
+
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           ${buildAttachmentCard(thread, message)}
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
@@ -182,6 +139,65 @@ export function messageHTML(thread, message) {
   }
   return "";
 }
+
+
+function messageMenuHTML(message) {
+
+  return `
+    <button
+      class="message-menu-btn"
+      data-message-id="${message.id}"
+      title="Message options"
+    >
+      ⋮
+    </button>
+
+    <div
+      class="message-menu hidden"
+      data-message-menu="${message.id}"
+    >
+
+      ${
+        message.type === "TEXT"
+          ? `
+          <button
+            class="message-menu-item"
+            data-action="copy"
+            data-message-id="${message.id}"
+          >
+            Copy
+          </button>
+          `
+          : ""
+      }
+
+      <button
+        class="message-menu-item"
+        data-action="delete-me"
+        data-message-id="${message.id}"
+      >
+        Delete for Me
+      </button>
+
+      ${
+        message.sender === "self"
+          ? `
+          <button
+            class="message-menu-item danger"
+            data-action="delete-all"
+            data-message-id="${message.id}"
+          >
+            Delete for Everyone
+          </button>
+          `
+          : ""
+      }
+
+    </div>
+  `;
+}
+
+
 
 export async function loadInlineImages() {
   const state = window.chatState;

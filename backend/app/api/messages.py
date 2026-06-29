@@ -16,6 +16,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.message import Message
 from app.models.attachment import Attachment
+from app.models.deleted_room_message import DeletedRoomMessage
 
 from app.schemas.message import (
     MessageCreate,
@@ -210,10 +211,22 @@ def get_messages(
         db
     )
 
+    hidden_message_ids = (
+        db.query(
+            DeletedRoomMessage.message_id
+        )
+        .filter(
+            DeletedRoomMessage.user_id == current_user.id
+        )
+    )
+
     messages = (
         db.query(Message)
         .filter(
             Message.room_id == room_id
+        )
+        .filter(
+            ~Message.id.in_(hidden_message_ids)
         )
         .order_by(
             Message.created_at.asc()
@@ -320,9 +333,7 @@ def download_room_message_attachment(
         media_type=media_type or "application/octet-stream"
     )
 
-@router.delete(
-    "/messages/{message_id}"
-)
+
 @router.delete(
     "/message/{message_id}"
 )
@@ -372,6 +383,60 @@ def delete_message(
             file_path.unlink()
 
     db.delete(message)
+    db.commit()
+
+    return {
+        "status": "deleted"
+    }
+@router.delete(
+    "/messages/{message_id}/me"
+)
+def delete_message_for_me(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == message_id
+        )
+        .first()
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    verify_room_membership(
+        message.room_id,
+        current_user.id,
+        db
+    )
+
+    existing = (
+        db.query(DeletedRoomMessage)
+        .filter(
+            DeletedRoomMessage.user_id == current_user.id,
+            DeletedRoomMessage.message_id == message.id
+        )
+        .first()
+    )
+
+    if existing:
+        return {
+            "status": "already deleted"
+        }
+
+    db.add(
+        DeletedRoomMessage(
+            user_id=current_user.id,
+            message_id=message.id
+        )
+    )
+
     db.commit()
 
     return {

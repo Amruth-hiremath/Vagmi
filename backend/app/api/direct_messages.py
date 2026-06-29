@@ -16,6 +16,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
+from app.models.deleted_direct_message import DeletedDirectMessage
 
 from app.schemas.direct_message import (
     StartConversationRequest,
@@ -390,6 +391,19 @@ def get_messages(
         )
     )
 
+    hidden_ids = (
+        db.query(
+            DeletedDirectMessage.message_id
+        )
+        .filter(
+            DeletedDirectMessage.user_id == current_user.id
+        )
+    )
+
+    query = query.filter(
+        ~DirectMessage.id.in_(hidden_ids)
+    )
+
     if current_user.id == conversation.user1_id:
         cleared_at = conversation.user1_cleared_at
     else:
@@ -658,6 +672,73 @@ def delete_direct_message(
             file_path.unlink()
 
     db.delete(message)
+    db.commit()
+
+    return {
+        "status": "deleted"
+    }
+
+@router.delete(
+    "/message/{message_id}/me"
+)
+def delete_direct_message_for_me(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.id == message_id
+        )
+        .first()
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == message.conversation_id
+        )
+        .first()
+    )
+
+    if (
+        conversation.user1_id != current_user.id
+        and
+        conversation.user2_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    existing = (
+        db.query(DeletedDirectMessage)
+        .filter(
+            DeletedDirectMessage.user_id == current_user.id,
+            DeletedDirectMessage.message_id == message.id
+        )
+        .first()
+    )
+
+    if existing:
+        return {
+            "status": "already deleted"
+        }
+
+    db.add(
+        DeletedDirectMessage(
+            user_id=current_user.id,
+            message_id=message.id
+        )
+    )
+
     db.commit()
 
     return {

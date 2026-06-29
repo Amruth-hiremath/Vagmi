@@ -17,6 +17,8 @@ from app.models import RoomMember
 from app.models import Attachment
 from app.models import Message
 from app.models import Artifact
+from app.models import DeletedRoomMessage
+from app.models import DeletedDirectMessage
 from app.api.rooms import router as rooms_router
 from app.api.messages import router as messages_router
 from app.api.attachments import router as attachments_router

@@ -96,3 +96,14 @@ export async function deleteMessage(
     )
   );
 }
+
+export async function deleteMessageForMe(messageId) {
+  const response = await apiRequest(
+    `/dm/message/${messageId}/me`,
+    {
+      method: "DELETE"
+    }
+  );
+
+  return response.json();
+}
