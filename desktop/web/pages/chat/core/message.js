@@ -41,7 +41,7 @@ export function messageHTML(thread, message) {
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
-        ${messageMenuHTML(message)}
+        ${messageMenuButtonHTML(message)}
       </div>
     `;
   }
@@ -80,7 +80,7 @@ export function messageHTML(thread, message) {
             </div>
 
           </div>
-          ${messageMenuHTML(message)}
+          ${messageMenuButtonHTML(message)}
         </div>
       `;
     }
@@ -114,7 +114,7 @@ export function messageHTML(thread, message) {
 />
         <div class="message-time mono">${escapeHTML(message.time || "")}</div>
       </div>
-      ${messageMenuHTML(message)}
+      ${messageMenuButtonHTML(message)}
     </div>
   `;
   }
@@ -127,7 +127,7 @@ export function messageHTML(thread, message) {
           ${buildAttachmentCard(thread, message)}
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
-        ${messageMenuHTML(message)}
+        ${messageMenuButtonHTML(message)}
       </div>
     `;
   }
@@ -135,59 +135,52 @@ export function messageHTML(thread, message) {
 }
 
 
-function messageMenuHTML(message) {
-
+function messageMenuButtonHTML(message) {
   return `
     <button
       class="message-menu-btn"
       data-message-id="${message.id}"
       title="Message options"
+      aria-label="Message options"
+      type="button"
     >
       ⋮
     </button>
+  `;
+}
 
-    <div
-      class="message-menu hidden"
-      data-message-menu="${message.id}"
-    >
-
-      ${
-        message.type === "TEXT"
-          ? `
-          <button
-            class="message-menu-item"
-            data-action="copy"
-            data-message-id="${message.id}"
-          >
-            Copy
-          </button>
-          `
-          : ""
-      }
-
+export function messageMenuContentHTML(message) {
+  return `
+    ${message.type === "TEXT" ? `
       <button
         class="message-menu-item"
-        data-action="delete-me"
+        data-action="copy"
         data-message-id="${message.id}"
+        type="button"
       >
-        Delete for Me
+        Copy
       </button>
+    ` : ""}
 
-      ${
-        message.sender === "self"
-          ? `
-          <button
-            class="message-menu-item danger"
-            data-action="delete-all"
-            data-message-id="${message.id}"
-          >
-            Delete for Everyone
-          </button>
-          `
-          : ""
-      }
+    <button
+      class="message-menu-item"
+      data-action="delete-me"
+      data-message-id="${message.id}"
+      type="button"
+    >
+      Delete for Me
+    </button>
 
-    </div>
+    ${message.sender === "self" ? `
+      <button
+        class="message-menu-item danger"
+        data-action="delete-all"
+        data-message-id="${message.id}"
+        type="button"
+      >
+        Delete for Everyone
+      </button>
+    ` : ""}
   `;
 }
 

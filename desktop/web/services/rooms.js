@@ -141,7 +141,7 @@ export async function sendRoomVoice(roomId, file) {
 
 export async function deleteRoomMessage(messageId) {
   return parseJson(
-    await apiRequest(`/rooms/messages/${messageId}`, {
+    await apiRequest(`/rooms/message/${messageId}`, {
       method: "DELETE"
     })
   );

@@ -42,6 +42,7 @@ import {
 } from "./core/conversation.js";
 import {
   messageHTML,
+  messageMenuContentHTML,
   loadInlineImages,
   renderMessages,
   loadMessages,
@@ -91,6 +92,8 @@ document.addEventListener("DOMContentLoaded", () => {
     convoSearch: "",
     menuOpen: false,
     infoOpen: false,
+    messageMenuOpen: false,
+    messageMenuAnchor: null,
     newChatOpen: false,
     launcherOpen: false,
     roomCreateOpen: false,
@@ -516,6 +519,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const attachmentModal = document.getElementById("attachment-modal");
   const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
   const attachmentModalClose = document.getElementById("attachment-modal-close");
+  const messageMenuOverlay = document.getElementById("message-menu-overlay");
+  const messageMenuBackdrop = document.getElementById("message-menu-backdrop");
+  const messageMenuSurface = document.getElementById("message-menu-surface");
   const roomCreateDialog = document.querySelector(".room-create-dialog");
 
   // Drawer admin section elements
@@ -618,14 +624,65 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     return attachmentModal && !attachmentModal.classList.contains("hidden");
   }
 
+  function closeMessageMenu() {
+    if (!messageMenuOverlay || !messageMenuSurface) return;
+    messageMenuOverlay.classList.add("hidden");
+    messageMenuOverlay.setAttribute("aria-hidden", "true");
+    messageMenuSurface.innerHTML = "";
+    messageMenuSurface.style.left = "";
+    messageMenuSurface.style.top = "";
+    messageMenuSurface.style.right = "";
+    messageMenuSurface.style.bottom = "";
+    messageMenuSurface.style.visibility = "";
+    state.messageMenuOpen = false;
+    state.messageMenuAnchor = null;
+  }
+
+  function positionMessageMenu(buttonEl, surfaceEl) {
+    if (!buttonEl || !surfaceEl) return;
+    const rect = buttonEl.getBoundingClientRect();
+    const viewportPadding = 12;
+    const gap = 10;
+    const menuRect = surfaceEl.getBoundingClientRect();
+    const menuWidth = menuRect.width || 260;
+    const menuHeight = menuRect.height || 180;
+    const maxLeft = window.innerWidth - menuWidth - viewportPadding;
+    let left = rect.right - menuWidth;
+    left = Math.min(Math.max(viewportPadding, left), maxLeft);
+
+    let top = rect.bottom + gap;
+    const belowOverflow = top + menuHeight > window.innerHeight - viewportPadding;
+    if (belowOverflow) {
+      top = rect.top - gap - menuHeight;
+    }
+    top = Math.max(viewportPadding, top);
+
+    surfaceEl.style.left = `${left}px`;
+    surfaceEl.style.top = `${top}px`;
+  }
+
+  function openMessageMenu(buttonEl, message, thread) {
+    if (!messageMenuOverlay || !messageMenuSurface) return;
+    messageMenuSurface.innerHTML = messageMenuContentHTML(message);
+    messageMenuOverlay.classList.remove("hidden");
+    messageMenuOverlay.setAttribute("aria-hidden", "false");
+    state.messageMenuOpen = true;
+    state.messageMenuAnchor = {
+      buttonEl,
+      messageId: Number(message?.id),
+      threadKey: thread?.key || null
+    };
+    requestAnimationFrame(() => {
+      positionMessageMenu(buttonEl, messageMenuSurface);
+    });
+  }
+
   function closeAllOverlays() {
     closeOverlays(state);
     closeNewChatModal();
     closeLauncherModal();
     closeRoomCreateModal();
-    document.querySelectorAll(".message-menu").forEach(menu => {
-      menu.classList.add("hidden");
-    });
+    closeMessageMenu();
   }
 
   function requestAnimationScroll() {
@@ -835,6 +892,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest("#room-create-modal") ||
       target.closest("#chat-launcher-modal") ||
       target.closest("#attachment-modal") ||
+      target.closest("#message-menu-overlay") ||
+      target.closest("#message-menu-surface") ||
+      target.closest("#message-menu-backdrop") ||
       target.closest("#room-admin-toggle") ||
       target.closest("#room-add-member-toggle") ||
       target.closest("#room-name-edit-btn") ||
@@ -1146,17 +1206,14 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     const menuBtn = event.target.closest(".message-menu-btn");
 
     if (menuBtn) {
-
       event.stopPropagation();
 
-      document.querySelectorAll(".message-menu").forEach(menu => {
-        menu.classList.add("hidden");
-      });
+      const messageId = Number(menuBtn.dataset.messageId);
+      const message = thread.messages.find((m) => Number(m.id) === messageId);
+      if (!message) return;
 
-      document
-        .querySelector(`[data-message-menu="${menuBtn.dataset.messageId}"]`)
-        ?.classList.toggle("hidden");
-
+      closeMessageMenu();
+      openMessageMenu(menuBtn, message, thread);
       return;
     }
 
@@ -1171,9 +1228,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
       await navigator.clipboard.writeText(message.text);
 
-      document.querySelectorAll(".message-menu").forEach(menu => {
-        menu.classList.add("hidden");
-      });
+      closeMessageMenu();
 
       return;
     }
@@ -1238,6 +1293,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     if (deleteAllBtn) {
 
       if (!confirm("Delete this message for everyone?")) return;
+      closeMessageMenu();
 
       const messageId = Number(deleteAllBtn.dataset.messageId);
 
@@ -1339,20 +1395,140 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       openAttachmentViewer(attachmentThread, message);
     }
 
-    document.querySelectorAll(".message-menu").forEach(menu => {
-      menu.classList.add("hidden");
-    });
+    closeMessageMenu();
 
   });
 
   attachmentModalBackdrop?.addEventListener("click", () => closeAttachmentModal());
   attachmentModalClose?.addEventListener("click", () => closeAttachmentModal());
 
+  messageMenuBackdrop?.addEventListener("click", () => closeMessageMenu());
+  messageMenuSurface?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  async function handleMessageMenuAction(event) {
+    const thread = activeThread(state);
+    if (!thread) return;
+
+    const copyBtn = event.target.closest('[data-action="copy"]');
+    if (copyBtn) {
+      const message = thread.messages.find(
+        (m) => Number(m.id) === Number(copyBtn.dataset.messageId)
+      );
+      if (!message) return;
+      await navigator.clipboard.writeText(message.text || "");
+      closeMessageMenu();
+      return;
+    }
+
+    const deleteForMeBtn = event.target.closest('[data-action="delete-me"]');
+    if (deleteForMeBtn) {
+      const messageId = Number(deleteForMeBtn.dataset.messageId);
+
+      if (thread.type === "room") {
+        await deleteRoomMessageForMe(messageId);
+      } else {
+        await deleteMessageForMe(messageId);
+      }
+
+      const messageIndex = thread.messages.findIndex((m) => m.id === messageId);
+      if (messageIndex !== -1) {
+        const deletedMessage = thread.messages[messageIndex];
+        thread.messages.splice(messageIndex, 1);
+
+        if (
+          thread.lastMessage === deletedMessage.text ||
+          (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+          (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")
+        ) {
+          const newLastMessage = thread.messages[thread.messages.length - 1];
+          if (newLastMessage) {
+            thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+            thread.lastMessageType = newLastMessage.type;
+            thread.lastMessageTime = newLastMessage.time;
+          } else {
+            thread.lastMessage = "";
+            thread.lastMessageType = "TEXT";
+            thread.lastMessageTime = "";
+          }
+          renderThreads(state);
+        }
+      }
+
+      await loadMessages(thread.key);
+      await loadConversations({ preserveSelection: true });
+      closeMessageMenu();
+      return;
+    }
+
+    const deleteAllBtn = event.target.closest('[data-action="delete-all"]');
+    if (deleteAllBtn) {
+      if (!confirm("Delete this message for everyone?")) return;
+      const messageId = Number(deleteAllBtn.dataset.messageId);
+
+      try {
+        if (thread.type === "room") {
+          await deleteRoomMessage(messageId);
+        } else {
+          await deleteMessage(messageId);
+        }
+
+        const messageIndex = thread.messages.findIndex((m) => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+
+          if (
+            thread.lastMessage === deletedMessage.text ||
+            (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+            (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")
+          ) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
+        }
+
+        await loadMessages(thread.key);
+        await refreshConversations({ preserveSelection: true });
+      } catch (error) {
+        alert(error?.message || "Failed to delete message.");
+      }
+
+      closeMessageMenu();
+      return;
+    }
+  }
+
+  messageMenuSurface?.addEventListener("click", handleMessageMenuAction);
+
+  window.addEventListener("resize", () => {
+    if (state.messageMenuOpen && state.messageMenuAnchor?.buttonEl) {
+      const thread = activeThread(state);
+      const message = thread?.messages?.find(
+        (m) => Number(m.id) === Number(state.messageMenuAnchor.messageId)
+      );
+      if (message) {
+        openMessageMenu(state.messageMenuAnchor.buttonEl, message, thread);
+      }
+    }
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.newChatOpen) closeNewChatModal();
     if (event.key === "Escape" && state.launcherOpen) closeLauncherModal();
     if (event.key === "Escape" && state.roomCreateOpen) closeRoomCreateModal();
     if (event.key === "Escape" && isAttachmentVisible()) closeAttachmentModal();
+    if (event.key === "Escape" && state.messageMenuOpen) closeMessageMenu();
   });
 
   setupImageViewerEvents();

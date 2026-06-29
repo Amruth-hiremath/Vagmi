@@ -341,6 +341,9 @@ def download_room_message_attachment(
 @router.delete(
     "/message/{message_id}"
 )
+@router.delete(
+    "/messages/{message_id}"
+)
 def delete_message(
     message_id: int,
     current_user: User = Depends(get_current_user),
