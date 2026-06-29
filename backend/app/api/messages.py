@@ -211,28 +211,32 @@ def get_messages(
         db
     )
 
-    hidden_message_ids = (
-        db.query(
+    hidden_message_ids = [
+        row.message_id
+        for row in db.query(
             DeletedRoomMessage.message_id
         )
         .filter(
             DeletedRoomMessage.user_id == current_user.id
         )
-    )
+        .all()
+    ]
 
     messages = (
         db.query(Message)
         .filter(
             Message.room_id == room_id
         )
-        .filter(
+    )
+
+    if hidden_message_ids:
+        messages = messages.filter(
             ~Message.id.in_(hidden_message_ids)
         )
-        .order_by(
-            Message.created_at.asc()
-        )
-        .all()
-    )
+
+    messages = messages.order_by(
+        Message.created_at.asc()
+    ).all()
 
     result = []
 

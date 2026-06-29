@@ -391,18 +391,21 @@ def get_messages(
         )
     )
 
-    hidden_ids = (
-        db.query(
+    hidden_ids = [
+        row.message_id
+        for row in db.query(
             DeletedDirectMessage.message_id
         )
         .filter(
             DeletedDirectMessage.user_id == current_user.id
         )
-    )
+        .all()
+    ]
 
-    query = query.filter(
-        ~DirectMessage.id.in_(hidden_ids)
-    )
+    if hidden_ids:
+        query = query.filter(
+            ~DirectMessage.id.in_(hidden_ids)
+        )
 
     if current_user.id == conversation.user1_id:
         cleared_at = conversation.user1_cleared_at

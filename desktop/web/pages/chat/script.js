@@ -623,6 +623,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     closeNewChatModal();
     closeLauncherModal();
     closeRoomCreateModal();
+    document.querySelectorAll(".message-menu").forEach(menu => {
+      menu.classList.add("hidden");
+    });
   }
 
   function requestAnimationScroll() {
@@ -844,7 +847,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest(".chat-image-preview") ||
       target.closest(".menu-popover") ||
       target.closest("#room-member-picker") ||
-      target.closest("#room-member-results")
+      target.closest("#room-member-results") ||
+      target.closest(".message-menu") ||
+      target.closest(".message-menu-btn")
     ) {
       return;
     }
@@ -1192,6 +1197,30 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
         }
 
+        // Remove the deleted message from local thread messages
+        const messageIndex = thread.messages.findIndex(m => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+          
+          // Update thread metadata if the deleted message was the last one
+          if (thread.lastMessage === deletedMessage.text || 
+              (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+              (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
+        }
+
         await loadMessages(
             thread.key
         );
@@ -1218,6 +1247,30 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
           await deleteRoomMessage(messageId);
         } else {
           await deleteMessage(messageId);
+        }
+
+        // Remove the deleted message from local thread messages
+        const messageIndex = thread.messages.findIndex(m => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+          
+          // Update thread metadata if the deleted message was the last one
+          if (thread.lastMessage === deletedMessage.text || 
+              (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+              (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
         }
 
         await loadMessages(thread.key);
@@ -1332,7 +1385,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
         scrollMessagesToBottom();
       }
       
-      // startConversationPolling();
+      startConversationPolling();
 
     } catch (error) {
       console.error("Conversation load failed", error);

@@ -129,6 +129,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
   const state = window.chatState;
   const getConversations = window.getConversations;
   const getRooms = window.getRooms;
+  const getMessages = window.getMessages;
   const getRoomMessages = window.getRoomMessages;
   const currentUser = window.currentUser;
   const activeKey = preserveSelection ? state.activeThreadKey : null;
@@ -140,9 +141,43 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     typeof getRooms === "function" ? getRooms() : Promise.resolve([])
   ]);
 
-  const dmThreads = (conversations || []).map((conversation) => {
+  const dmThreads = await Promise.all((conversations || []).map(async (conversation) => {
     const key = makeThreadKey("dm", conversation.conversation_id);
     const previous = previousThreadMap.get(key);
+    
+    // Fetch messages to calculate last message locally (like rooms)
+    let messages = [];
+    let lastMessage = "";
+    let lastMessageType = "TEXT";
+    let lastMessageTime = "";
+    let lastMessageTimestamp = "";
+    
+    try {
+      if (typeof getMessages === "function") {
+        messages = await getMessages(conversation.conversation_id);
+      }
+    } catch (error) {
+      console.error(`Failed loading DM preview for conversation ${conversation.conversation_id}`, error);
+    }
+
+    if (Array.isArray(messages) && messages.length > 0) {
+      const last = messages[messages.length - 1];
+      const kind = String(last.message_type || last.messageType || "TEXT").toUpperCase();
+      const lastTimestamp = last.createdAt || last.created_at || last.timestamp || last.sentAt || "";
+      lastMessageType = kind;
+      if (kind === "IMAGE") {
+        lastMessage = "Image";
+      } else if (kind === "FILE") {
+        lastMessage = last.original_filename || last.originalFilename || "File";
+      } else if (kind === "VOICE") {
+        lastMessage = "Voice message";
+      } else {
+        lastMessage = last.message_text || last.messageText || "Message";
+      }
+      lastMessageTime = formatTime(lastTimestamp);
+      lastMessageTimestamp = lastTimestamp;
+    }
+
     return {
       id: Number(conversation.conversation_id),
       key,
@@ -152,16 +187,16 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       peerId: conversation.user_id != null ? Number(conversation.user_id) : null,
       initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
       status: "Direct Message",
-      lastMessageTimestamp: conversation.last_message_time,
+      lastMessageTimestamp,
       unread: conversation.unread_count || 0,
-      lastMessage: conversation.last_message || "",
-      lastMessageSender: conversation.last_message_sender || "",
-      lastMessageType: conversation.last_message_type || "TEXT",
-      lastMessageTime: formatTime(conversation.last_message_time),
+      lastMessage,
+      lastMessageSender: "",
+      lastMessageType,
+      lastMessageTime,
       members: previous?.members || [conversation.username],
       messages: Array.isArray(previous?.messages) ? previous.messages : [],
     };
-  });
+  }));
 
   const roomThreads = await Promise.all((rooms || []).map(async (room) => {
     const roomKey = makeThreadKey("room", room.id);

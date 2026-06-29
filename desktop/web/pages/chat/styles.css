@@ -659,7 +659,7 @@ button {
   gap: 4px;
   padding: 8px;
   border-radius: 10px;
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--border-subtle);
 }
 
@@ -679,11 +679,52 @@ button {
 }
 
 .message-menu-item.danger {
-  color: #ff6b6b;
+  color: var(--text-primary)
 }
 
 .message-menu-item.danger:hover {
   background: rgba(255, 107, 107, 0.15);
+}
+
+.message-row {
+  position: relative;
+}
+
+.message-menu-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.message-row:hover .message-menu-btn {
+  opacity: 1;
+}
+
+.message-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+.message-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  z-index: 100;
 }
 
 .conversation-search {

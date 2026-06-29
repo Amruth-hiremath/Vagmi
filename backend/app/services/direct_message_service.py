@@ -5,6 +5,7 @@ from datetime import timezone
 from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
+from app.models.deleted_direct_message import DeletedDirectMessage
 
 
 def get_or_create_conversation(
@@ -113,6 +114,21 @@ def get_user_conversations(
                 DirectMessage.conversation_id == conversation.id
             )
         )
+        hidden_ids = [
+            row.message_id
+            for row in db.query(
+                DeletedDirectMessage.message_id
+            )
+            .filter(
+                DeletedDirectMessage.user_id == user_id
+            )
+            .all()
+        ]
+
+        if hidden_ids:
+            query = query.filter(
+                ~DirectMessage.id.in_(hidden_ids)
+            )
 
         if user_id == conversation.user1_id:
             cleared_at = conversation.user1_cleared_at
@@ -142,6 +158,9 @@ def get_user_conversations(
             .filter(
                 DirectMessage.seen_at.is_(None)
             )
+        )
+        unread_query = unread_query.filter(
+            ~DirectMessage.id.in_(hidden_ids)
         )
 
         if cleared_at:

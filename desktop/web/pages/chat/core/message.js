@@ -37,13 +37,11 @@ export function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
-
-          ${messageMenuHTML(message)}
-
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
+        ${messageMenuHTML(message)}
       </div>
     `;
   }
@@ -55,8 +53,6 @@ export function messageHTML(thread, message) {
       return `
         <div class="message-row ${sideClass}">
           <div class="message-bubble">
-
-            ${messageMenuHTML(message)}
 
             ${
               senderLine
@@ -84,6 +80,7 @@ export function messageHTML(thread, message) {
             </div>
 
           </div>
+          ${messageMenuHTML(message)}
         </div>
       `;
     }
@@ -95,8 +92,6 @@ export function messageHTML(thread, message) {
   return `
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
-
-        ${messageMenuHTML(message)}
         ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
         
         <img
@@ -119,6 +114,7 @@ export function messageHTML(thread, message) {
 />
         <div class="message-time mono">${escapeHTML(message.time || "")}</div>
       </div>
+      ${messageMenuHTML(message)}
     </div>
   `;
   }
@@ -127,13 +123,11 @@ export function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
-
-         ${messageMenuHTML(message)}
-
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           ${buildAttachmentCard(thread, message)}
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
+        ${messageMenuHTML(message)}
       </div>
     `;
   }
