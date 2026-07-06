@@ -1,0 +1,458 @@
+/* =========================================================
+   Vāgmi theme system
+   - enterprise-dark : Dark
+   - claude-light     : Light
+   - midnight-slate   : Graphite
+========================================================= */
+
+html[data-theme] {
+  --branding-orange: #E85002;
+  --accent-strong: #E85002;
+  --accent-mid: #F97316;
+  --accent-soft: rgba(232, 80, 2, 0.14);
+  --accent-ring: rgba(232, 80, 2, 0.20);
+  --branding-gradient: linear-gradient(135deg, var(--accent-strong), var(--accent-mid));
+
+  --primary-black: #0f1117;
+  --white: #F9FAFB;
+  --dark-gray: #262b35;
+  --gray: #6B7280;
+  --light-gray: #9CA3AF;
+  --bg-panel: rgba(17, 20, 28, 0.82);
+
+  --gradient-1: #11131A;
+  --gradient-2: #C10801;
+  --gradient-3: #F97316;
+  --gradient-4: #D9C3AB;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --page-bg: #000000;
+  --page-bg-alt: #11131A;
+  --page-bg-gradient:
+    radial-gradient(circle at top right, rgba(232, 80, 2, 0.04), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(193, 8, 1, 0.03), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 18%);
+
+  --surface: #0f1117;
+  --surface-strong: #0f1117;
+  --surface-soft: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.055);
+  --surface-active: rgba(232, 80, 2, 0.12);
+
+  --input-bg: rgba(255, 255, 255, 0.035);
+  --input-bg-hover: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.08);
+  --input-border-strong: rgba(232, 80, 2, 0.34);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text-primary: #F3F4F6;
+  --text-secondary: #B4B8C2;
+  --text-muted: #7F8694;
+  --text-inverse: #0f172a;
+  --text-on-accent: #ffffff;
+  --placeholder: rgba(243, 244, 246, 0.42);
+
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.16);
+  --shadow-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+
+  --modal-overlay: rgba(0, 0, 0, 0.92);
+  --overlay-button-bg: rgba(255, 255, 255, 0.12);
+  --overlay-button-border: rgba(255, 255, 255, 0.14);
+  --overlay-button-text: #ffffff;
+
+  --chip-bg: rgba(255, 255, 255, 0.04);
+  --chip-border: rgba(255, 255, 255, 0.06);
+  --chip-text: var(--text-secondary);
+  --logo-shell-bg: #0f1117;
+
+  color-scheme: dark;
+}
+
+html[data-theme="claude-light"] {
+  --page-bg: #f4ece1;
+  --page-bg-alt: #fffaf3;
+  --page-bg-gradient:
+    radial-gradient(circle at top right, rgba(232, 128, 32, 0.10), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(247, 147, 30, 0.08), transparent 22%),
+    linear-gradient(180deg, #fffaf3 0%, #f0e6d6 100%);
+
+  --primary-black: #f4ece1;
+  --white: #ffffff;
+  --dark-gray: #d8cfc2;
+  --gray: #8b6f5a;
+  --light-gray: #c2b8aa;
+  --bg-panel: rgba(255, 251, 244, 0.82);
+
+  --gradient-1: #E88320;
+  --gradient-2: #F97316;
+  --gradient-3: #FF9B4A;
+  --gradient-4: #F2D2A7;
+
+  --surface: rgba(255, 252, 246, 0.98);
+  --surface-strong: rgba(255, 255, 255, 0.995);
+  --surface-soft: rgba(255, 255, 255, 0.88);
+  --surface-hover: rgba(255, 255, 255, 0.995);
+  --surface-active: rgba(232, 80, 2, 0.08);
+
+  --input-bg: rgba(255, 255, 255, 0.98);
+  --input-bg-hover: rgba(255, 255, 255, 1);
+  --input-border: rgba(124, 92, 59, 0.18);
+  --input-border-strong: rgba(232, 80, 2, 0.28);
+
+  --border-subtle: rgba(124, 92, 59, 0.18);
+  --border-strong: rgba(124, 92, 59, 0.28);
+
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-inverse: #ffffff;
+  --text-on-accent: #ffffff;
+  --placeholder: rgba(75, 85, 99, 0.55);
+
+  --shadow: 0 18px 50px rgba(75, 56, 38, 0.10);
+  --shadow-soft: 0 10px 28px rgba(75, 56, 38, 0.08);
+  --shadow-inset: inset 0 0 0 1px rgba(124, 92, 59, 0.04);
+
+  --modal-overlay: rgba(17, 24, 39, 0.88);
+  --overlay-button-bg: rgba(255, 255, 255, 0.18);
+  --overlay-button-border: rgba(255, 255, 255, 0.20);
+  --overlay-button-text: #ffffff;
+
+  --chip-bg: rgba(255, 255, 255, 0.82);
+  --chip-border: rgba(124, 92, 59, 0.12);
+  --chip-text: var(--text-secondary);
+  --logo-shell-bg: #fbf7f1;
+
+  color-scheme: light;
+}
+
+html[data-theme="midnight-slate"] {
+  --page-bg: #111827;
+  --page-bg-alt: #1f2937;
+  --page-bg-gradient:
+    radial-gradient(circle at top right, rgba(232, 80, 2, 0.05), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(96, 165, 250, 0.06), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 18%);
+
+  --primary-black: #111827;
+  --white: #F8FAFC;
+  --dark-gray: #374151;
+  --gray: #64748B;
+  --light-gray: #94A3B8;
+  --bg-panel: rgba(17, 24, 39, 0.76);
+
+  --gradient-1: #111827;
+  --gradient-2: #C10801;
+  --gradient-3: #F97316;
+  --gradient-4: #DBEAFE;
+
+  --surface: rgba(31, 41, 55, 0.92);
+  --surface-strong: rgba(17, 24, 39, 0.97);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(232, 80, 2, 0.12);
+
+  --input-bg: rgba(17, 24, 39, 0.88);
+  --input-bg-hover: rgba(31, 41, 55, 0.96);
+  --input-border: rgba(148, 163, 184, 0.16);
+  --input-border-strong: rgba(232, 80, 2, 0.32);
+
+  --border-subtle: rgba(148, 163, 184, 0.15);
+  --border-strong: rgba(148, 163, 184, 0.22);
+
+  --text-primary: #F3F4F6;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0f172a;
+  --text-on-accent: #ffffff;
+  --placeholder: rgba(226, 232, 240, 0.46);
+
+  --shadow: 0 18px 50px rgba(2, 6, 23, 0.20);
+  --shadow-soft: 0 10px 28px rgba(2, 6, 23, 0.16);
+  --shadow-inset: inset 0 0 0 1px rgba(148, 163, 184, 0.04);
+
+  --modal-overlay: rgba(2, 6, 23, 0.92);
+  --overlay-button-bg: rgba(255, 255, 255, 0.12);
+  --overlay-button-border: rgba(255, 255, 255, 0.14);
+  --overlay-button-text: #ffffff;
+
+  --chip-bg: rgba(255, 255, 255, 0.04);
+  --chip-border: rgba(148, 163, 184, 0.10);
+  --chip-text: var(--text-secondary);
+  --logo-shell-bg: #111827;
+
+  color-scheme: dark;
+}
+
+html[data-theme] body {
+  background: var(--page-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme] .page,
+html[data-theme] .home-page,
+html[data-theme] .settings-page,
+html[data-theme] .intelligence-page,
+html[data-theme] .chat-page,
+html[data-theme] .app-shell,
+html[data-theme] .workspace {
+  background: var(--page-bg-gradient), var(--page-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme] .splash {
+    background: #0f1117 !important;
+}
+
+html[data-theme="claude-light"] .page,
+html[data-theme="claude-light"] .home-page,
+html[data-theme="claude-light"] .settings-page,
+html[data-theme="claude-light"] .intelligence-page,
+html[data-theme="claude-light"] .chat-page,
+html[data-theme="claude-light"] .splash {
+  background:
+    radial-gradient(circle at top right, rgba(232, 128, 32, 0.10), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(247, 147, 30, 0.08), transparent 22%),
+    linear-gradient(180deg, #fbf7f1 0%, #f3ecdf 100%) !important;
+}
+
+html[data-theme] .sidebar,
+html[data-theme] .thread-pane,
+html[data-theme] .conversation-pane,
+html[data-theme] .conversation-pane.is-empty,
+html[data-theme] .panel,
+html[data-theme] .hero-card,
+html[data-theme] .stat-card,
+html[data-theme] .setting-card,
+html[data-theme] .theme-option,
+html[data-theme] .doc-item,
+html[data-theme] .result-card,
+html[data-theme] .status-item,
+html[data-theme] .logo-card,
+html[data-theme] .conversation-header,
+html[data-theme] .conversation-search,
+html[data-theme] .composer,
+html[data-theme] .menu-popover,
+html[data-theme] .info-drawer,
+html[data-theme] .new-chat-dialog,
+html[data-theme] .attachment-modal-dialog,
+html[data-theme] .conversation-empty-card,
+html[data-theme] .messages-empty-card,
+html[data-theme] .thread-empty-card,
+html[data-theme] .toast,
+html[data-theme] .user-card {
+  background: var(--surface) !important;
+  border-color: var(--border-subtle) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+html[data-theme] .thread-pane,
+/* html[data-theme] .conversation-header, */
+html[data-theme] .composer,
+html[data-theme] .conversation-search,
+html[data-theme] .info-drawer,
+html[data-theme] .panel,
+html[data-theme] .hero-card,
+html[data-theme] .stat-card,
+html[data-theme] .setting-card,
+html[data-theme] .toast {
+  backdrop-filter: blur(14px);
+}
+
+html[data-theme] .thread-pane {
+  border-right-color: var(--border-subtle) !important;
+}
+
+html[data-theme] .sidebar,
+html[data-theme] .thread-pane {
+  background: linear-gradient(180deg, var(--surface-strong), var(--surface)) !important;
+}
+
+html[data-theme] .conversation-pane,
+html[data-theme] .conversation-pane.is-empty {
+  background:
+    radial-gradient(circle at top left, rgba(232, 80, 2, 0.06), transparent 22%),
+    linear-gradient(180deg, var(--surface-soft), var(--page-bg)) !important;
+}
+
+html[data-theme] .conversation-empty-card,
+html[data-theme] .messages-empty-card,
+html[data-theme] .thread-empty-card {
+  background:
+    radial-gradient(circle at top left, rgba(232, 80, 2, 0.10), transparent 34%),
+    var(--surface) !important;
+}
+
+html[data-theme] .panel,
+html[data-theme] .hero-card,
+html[data-theme] .stat-card,
+html[data-theme] .theme-option,
+html[data-theme] .result-card,
+html[data-theme] .status-item,
+html[data-theme] .logo-card,
+html[data-theme] .doc-item,
+html[data-theme] .user-card,
+html[data-theme] .conversation-header,
+html[data-theme] .conversation-search,
+html[data-theme] .composer,
+html[data-theme] .menu-popover,
+html[data-theme] .info-drawer,
+html[data-theme] .new-chat-dialog,
+html[data-theme] .attachment-modal-dialog,
+html[data-theme] .toast {
+  border: 1px solid var(--border-subtle) !important;
+}
+
+
+html[data-theme] .online-dot,
+html[data-theme] .status-dot,
+html[data-theme] .dot {
+  background: var(--branding-orange) !important;
+  box-shadow: 0 0 0 4px rgba(232, 80, 2, 0.10);
+}
+
+html[data-theme] .brand-logo,
+html[data-theme] .auth-logo,
+html[data-theme] .hero-logo,
+html[data-theme] .brand-banner,
+html[data-theme] .logo-card img,
+html[data-theme] .splash .logo {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  object-fit: contain;
+}
+
+/* --- Splash logo improvements --- */
+html[data-theme] .splash .logo {
+  width: min(360px, 72vw);
+  max-width: 360px;
+  height: auto;
+  display: block;
+}
+
+/* --- Logo shell background (used on splash) --- */
+html[data-theme] .logo-shell {
+  background: var(--logo-shell-bg);
+}
+
+html[data-theme] .auth-logo {
+  height: auto;
+  width: auto;
+  max-height: 260px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  object-fit: contain;
+  display: block;
+}
+
+html[data-theme] .brand-logo {
+  width: 30px;
+  height: 30px;
+}
+
+html[data-theme] .user-avatar,
+html[data-theme] .avatar,
+html[data-theme] .avatar-large,
+html[data-theme] .thread-avatar {
+  background:
+    linear-gradient(180deg, var(--surface-hover), var(--surface-soft)) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+html[data-theme] .user-avatar {
+  width: 28px;
+  height: 28px;
+}
+
+html[data-theme] .avatar-large,
+html[data-theme] .thread-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+html[data-theme] .sidebar-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+html[data-theme] .auth-card {
+  overflow: hidden;
+}
+
+html[data-theme] .auth-brand {
+  justify-content: center;
+}
+
+html[data-theme] .splash {
+  padding: 24px;
+  border-radius: 24px;
+}
+
+/* Keep the dark themes visually consistent with the brand mark. */
+html[data-theme="enterprise-dark"] .sidebar,
+html[data-theme="midnight-slate"] .sidebar {
+  background: #0f1117 !important;
+}
+
+/* ===== Auth & Splash are always dark ===== */
+
+.auth-shell {
+    background: #000 !important;
+}
+
+.splash,
+.auth-card,
+.auth-notice {
+    background: #0f1117 !important;
+    color: #f3f4f6 !important;
+    border-color: rgba(255,255,255,.08) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45) !important;
+}
+
+.auth-tab {
+    background: #171a22 !important;
+    color: #a1a1aa !important;
+}
+
+.auth-tab.active {
+    background: rgba(232,80,2,.18) !important;
+    color: #fff !important;
+}
+
+.field input {
+    background: #171a22 !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+.field span,
+.eyebrow,
+.status {
+    color: #a1a1aa !important;
+}
+
+/* ===== Splash always dark ===== */
+
+html[data-theme] .splash {
+    background: #0f1117 !important;
+}
+
+html[data-theme] body:has(.splash) {
+    background: #0f1117 !important;
+}
+
+html[data-theme="claude-light"] .message-row.other .message-bubble {
+    background: #f8f4ee;
+    border: 1px solid #ddd3c5;
+    color: var(--text-primary);
+}

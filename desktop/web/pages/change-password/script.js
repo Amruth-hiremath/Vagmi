@@ -75,13 +75,7 @@ form.addEventListener(
       const user =
         getUser();
 
-      if (user) {
-
-        user.must_change_password =
-          false;
-
-        saveUser(user);
-      }
+      
 
       message.textContent =
         "Password changed successfully";

@@ -6,9 +6,7 @@ from app.core.config import BASE_DIR
 class EmbeddingService:
 
     def __init__(self):
-        model_path = BASE_DIR / "offline_models" / "all-MiniLM-L6-v2"
-        
-        self.model = SentenceTransformer(str(model_path))
+        self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def embed_texts(
         self,

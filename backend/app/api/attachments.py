@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import uuid
+import mimetypes
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -186,8 +187,11 @@ def download_attachment(
         f"Attachment downloaded: "
         f"{attachment.original_filename}"
     )
+    file_path = Path(attachment.file_path)
+    media_type, _ = mimetypes.guess_type(str(file_path))
 
     return FileResponse(
-        path=attachment.file_path,
-        filename=attachment.original_filename
+        path=str(file_path),
+        filename=attachment.original_filename or file_path.name,
+        media_type=media_type or "application/octet-stream"
     )

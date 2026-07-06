@@ -6,13 +6,19 @@ import {
   sendImage,
   sendVoice,
   markConversationRead,
-  startConversation
+  startConversation,
+  clearConversation,
+  deleteMessage
 } from "../../services/dm.js";
 
 import { searchUsers } from "../../services/users.js";
 import { apiRequest } from "../../services/api.js";
+import { getUser } from "../../services/auth.js";
 
-const state = {
+document.addEventListener("DOMContentLoaded", () => {
+  const currentUser = getUser();
+  
+  const state = {
   activeThreadId: null,
   threadFilter: "all",
   chatSearch: "",
@@ -32,10 +38,51 @@ let newChatSearchTimer = null;
 let loadSequence = 0;
 let attachmentPreview = null;
 
+let scrollRaf1 = null;
+let scrollRaf2 = null;
+let scrollTimeout = null;
+let messagesObserver = null;
+
+function scrollMessagesToBottom() {
+  if (!messagesScroll) return;
+  if (scrollRaf1) cancelAnimationFrame(scrollRaf1);
+  if (scrollRaf2) cancelAnimationFrame(scrollRaf2);
+  if (scrollTimeout) window.clearTimeout(scrollTimeout);
+
+  const jump = () => {
+    messagesScroll.scrollTop = messagesScroll.scrollHeight;
+  };
+
+  scrollRaf1 = requestAnimationFrame(() => {
+    scrollRaf2 = requestAnimationFrame(jump);
+  });
+
+  scrollTimeout = window.setTimeout(jump, 60);
+}
+
+
 const threadList = document.getElementById("thread-list");
 const chatSearch = document.getElementById("chat-search");
 const filterButtons = Array.from(document.querySelectorAll(".filter-btn"));
 const messagesScroll = document.getElementById("messages-scroll");
+
+if (messagesScroll && "MutationObserver" in window) {
+  messagesObserver = new MutationObserver(() => {
+    if (state.activeThreadId !== null) {
+      scrollMessagesToBottom();
+    }
+  });
+  messagesObserver.observe(messagesScroll, {
+    childList: true,
+    subtree: true
+  });
+}
+
+window.addEventListener("resize", () => {
+  if (state.activeThreadId !== null) {
+    scrollMessagesToBottom();
+  }
+});
 const dayChip = document.getElementById("day-chip");
 const conversationPane = document.getElementById("conversation-pane");
 const conversationContent = document.getElementById("conversation-content");
@@ -53,6 +100,7 @@ const searchToggle = document.getElementById("search-toggle");
 const closeSearch = document.getElementById("close-search");
 const menuToggle = document.getElementById("menu-toggle");
 const menuPopover = document.getElementById("menu-popover");
+const menuItems = document.querySelectorAll(".menu-item");
 const infoDrawer = document.getElementById("info-drawer");
 const closeInfo = document.getElementById("close-info");
 const attachBtn = document.getElementById("attach-btn");
@@ -75,16 +123,6 @@ const attachmentModalTitle = document.getElementById("attachment-modal-title");
 const attachmentModalBody = document.getElementById("attachment-modal-body");
 const attachmentModalOpen = document.getElementById("attachment-modal-open");
 const attachmentModalDownload = document.getElementById("attachment-modal-download");
-
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem("vagmi_user") || "null");
-  } catch {
-    return null;
-  }
-}
-
-const currentUser = getCurrentUser();
 
 const iconMap = {
   search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"></circle><line x1="20" y1="20" x2="16.5" y2="16.5"></line></svg>`,
@@ -139,6 +177,58 @@ function closeAttachmentModal() {
   if (attachmentModalTitle) attachmentModalTitle.textContent = "Preview";
 }
 
+let imgViewerZoom = 1;
+
+function openImageViewer(src, filename) {
+  const modal = document.getElementById("image-viewer-modal");
+  const img   = document.getElementById("img-viewer-el");
+  if (!modal || !img) return;
+  imgViewerZoom = 1;
+  img.src = src;
+  img.alt = filename || "image";
+  img.style.transform = "scale(1)";
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeImageViewer() {
+  const modal = document.getElementById("image-viewer-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.getElementById("img-viewer-el").src = "";
+}
+
+document.getElementById("img-viewer-close")?.addEventListener("click", closeImageViewer);
+
+document.getElementById("image-viewer-modal")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeImageViewer(); // click backdrop to close
+});
+
+document.getElementById("img-zoom-in")?.addEventListener("click", () => {
+  imgViewerZoom = Math.min(imgViewerZoom + 0.25, 4);
+  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
+});
+
+document.getElementById("img-zoom-out")?.addEventListener("click", () => {
+  imgViewerZoom = Math.max(imgViewerZoom - 0.25, 0.25);
+  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
+});
+
+document.getElementById("img-download")?.addEventListener("click", () => {
+  const img = document.getElementById("img-viewer-el");
+  if (!img?.src) return;
+  const link = document.createElement("a");
+  link.href = img.src;
+  link.download = img.alt || "image";
+  link.click();
+});
+
+// Escape key closes viewer
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeImageViewer();
+});
+
 function openAttachmentModal() {
   if (!attachmentModal) return;
   attachmentModal.classList.remove("hidden");
@@ -154,8 +244,11 @@ function buildAttachmentUrl(thread, message) {
   if (message.attachmentId) {
     return `/attachments/${message.attachmentId}`;
   }
-  if (thread.kind === "dm" && message.attachmentPath) {
-    return `/dm/${thread.id}/messages/${message.id}/attachment`;
+  if (message.attachmentPath) {
+    if (thread.kind === "dm") {
+      return `/dm/${thread.id}/messages/${message.id}/attachment`;
+    }
+    return `/rooms/${thread.id}/messages/${message.id}/attachment`;
   }
   return "";
 }
@@ -531,13 +624,52 @@ function renderThreads() {
   });
 }
 
-threadList.addEventListener("click", (event) => {
-  const btn = event.target.closest(".thread-item");
-  if (!btn) return;
-  const threadId = Number(btn.dataset.threadId);
-  if (!Number.isFinite(threadId)) return;
-  openThread(threadId);
-});
+
+async function loadInlineImages() {
+
+  const images = document.querySelectorAll(".chat-image-preview");
+
+  for (const img of images) {
+
+    const threadId = Number(img.dataset.threadId);
+    const messageId = Number(img.dataset.messageId);
+
+
+    const thread = state.threads.find((t) => t.id === threadId);
+
+    if (!thread) {
+
+      continue;
+    }
+
+    const message = thread.messages.find((m) => m.id === messageId);
+
+    if (!message) {
+
+      continue;
+    }
+
+    try {
+
+      const { blob } = await fetchAttachmentBlob(thread, message);
+
+
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      img.src = blobUrl;
+
+      img.onclick = () => {
+      openImageViewer(blobUrl, message.originalFilename);
+      };
+
+    } catch (err) {
+
+      console.error(" Image load failed:", err);
+
+    }
+  }
+}
 
 function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
@@ -550,6 +682,20 @@ function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+
+          ${
+            message.sender === "self"
+              ? `
+              <button
+                class="delete-message-btn"
+                data-message-id="${message.id}"
+                title="Delete message"
+              >
+                ×
+              </button>
+              `
+              : ""
+          }
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
@@ -566,6 +712,20 @@ function messageHTML(thread, message) {
       return `
         <div class="message-row ${sideClass}">
           <div class="message-bubble">
+
+            ${
+              message.sender === "self"
+                ? `
+                <button
+                  class="delete-message-btn"
+                  data-message-id="${message.id}"
+                  title="Delete message"
+                >
+                  ×
+                </button>
+                `
+                : ""
+            }
 
             ${
               senderLine
@@ -598,18 +758,75 @@ function messageHTML(thread, message) {
     }
 
 
-  if (message.type === "IMAGE" || message.type === "FILE") {
-    return `
-      <div class="message-row ${sideClass}">
-        <div class="message-bubble">
-          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          ${buildAttachmentCard(thread, message)}
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
-        </div>
-      </div>
-    `;
-  }
+  if (message.type === "IMAGE") {
+  const imageUrl = buildAttachmentUrl(thread, message);
+  
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
 
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        
+        <img
+    class="chat-image-preview"
+    data-thread-id="${thread.id}"
+    data-message-id="${message.id}"
+    alt="${escapeHTML(message.originalFilename || "Image")}"
+    style="
+        max-width:240px;
+        max-height:240px;
+        width:auto;
+        height:auto;
+        border-radius:10px;
+        cursor:pointer;
+        display:block;
+        object-fit:cover;
+    "
+/>
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
+
+if (message.type === "FILE") {
+  return `
+    <div class="message-row ${sideClass}">
+      <div class="message-bubble">
+
+        ${
+          message.sender === "self"
+            ? `
+            <button
+              class="delete-message-btn"
+              data-message-id="${message.id}"
+              title="Delete message"
+            >
+              ×
+            </button>
+            `
+            : ""
+        }
+        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+        ${buildAttachmentCard(thread, message)}
+        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+      </div>
+    </div>
+  `;
+}
   return "";
 }
 
@@ -666,10 +883,11 @@ function renderMessages(thread) {
   dayChip.textContent = "Today";
   messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
 
-  requestAnimationFrame(() => {
-    messagesScroll.scrollTop = messagesScroll.scrollHeight;
-  });
+  loadInlineImages();
+
+  scrollMessagesToBottom();
 }
+
 
 function updateConversationMeta(thread) {
   if (!thread) return;
@@ -711,7 +929,9 @@ async function loadMessages(conversationId, loadToken = 0) {
 
     thread.messages = (messages || []).map((message) => {
       const senderName = message.sender_username || "Unknown";
+
       const isSelf = senderName === (currentUser?.username || "");
+      
       return {
         id: message.id,
         sender: isSelf ? "self" : "other",
@@ -729,6 +949,7 @@ async function loadMessages(conversationId, loadToken = 0) {
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
     renderMessages(thread);
+    requestAnimationFrame(() => scrollMessagesToBottom());
   } catch (error) {
     console.error("Failed loading messages", error);
   }
@@ -802,6 +1023,7 @@ async function handleSend() {
 
     await loadMessages(thread.id);
     renderThreads();
+    requestAnimationFrame(() => scrollMessagesToBottom());
   } catch (error) {
     console.error("Message send failed", error);
     setComposerText(text);
@@ -827,6 +1049,7 @@ function handleAttachment(file, forceType = null) {
         thread.lastMessageType = "IMAGE";
         thread.lastMessageTime = formatTime(new Date());
         renderThreads();
+        requestAnimationFrame(() => scrollMessagesToBottom());
       })
       .catch((error) => {
         console.error("Image send failed", error);
@@ -923,27 +1146,27 @@ inputField.addEventListener("keydown", (event) => {
   }
 });
 
-sendBtn.addEventListener("click", handleSend);
-backBtn.addEventListener("click", closeConversationAndShowEmptyState);
+sendBtn?.addEventListener("click", handleSend);
+backBtn?.addEventListener("click", closeConversationAndShowEmptyState);
 
 threadNewChatBtn?.addEventListener("click", () => requestNewChat());
 
-attachBtn.addEventListener("click", () => fileInput.click());
-imageBtn.addEventListener("click", () => imageInput.click());
+attachBtn?.addEventListener("click", () => fileInput?.click());
+imageBtn?.addEventListener("click", () => imageInput?.click());
 
-fileInput.addEventListener("change", () => {
+fileInput?.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (file) handleAttachment(file, "FILE");
   fileInput.value = "";
 });
 
-imageInput.addEventListener("change", () => {
+imageInput?.addEventListener("change", () => {
   const file = imageInput.files?.[0];
   if (file) handleAttachment(file, "IMAGE");
   imageInput.value = "";
 });
 
-micBtn.addEventListener(
+micBtn?.addEventListener(
   "click",
   async () => {
 
@@ -1016,9 +1239,8 @@ micBtn.addEventListener(
                 file
               );
 
-              await loadMessages(
-                thread.id
-              );
+              await loadMessages(thread.id);
+              requestAnimationFrame(() => scrollMessagesToBottom());
 
             } catch (error) {
 
@@ -1046,7 +1268,7 @@ micBtn.addEventListener(
   }
 );
 
-chatSearch.addEventListener("input", currentSearchUpdate);
+chatSearch?.addEventListener("input", currentSearchUpdate);
 
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -1057,12 +1279,13 @@ filterButtons.forEach((button) => {
   });
 });
 
-searchToggle.addEventListener("click", () => {
+searchToggle?.addEventListener("click", (event) => {
+  event.stopPropagation();
   conversationSearchRow.classList.remove("hidden");
   conversationSearch.focus();
 });
 
-closeSearch.addEventListener("click", () => {
+closeSearch?.addEventListener("click", () => {
   conversationSearchRow.classList.add("hidden");
   state.convoSearch = "";
   conversationSearch.value = "";
@@ -1070,23 +1293,35 @@ closeSearch.addEventListener("click", () => {
   if (thread) renderMessages(thread);
 });
 
-conversationSearch.addEventListener("input", () => {
+conversationSearch?.addEventListener("input", () => {
   state.convoSearch = conversationSearch.value;
   const thread = activeThread();
   if (thread) renderMessages(thread);
 });
 
-menuToggle.addEventListener("click", (event) => {
+menuToggle?.addEventListener("click", (event) => {
   event.stopPropagation();
   state.menuOpen = !state.menuOpen;
   menuPopover.classList.toggle("hidden", !state.menuOpen);
 });
 
-document.addEventListener("click", () => {
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  if (
+    target.closest(".menu-wrap") ||
+    target.closest("#search-toggle") ||
+    target.closest(".conversation-search") ||
+    target.closest("#info-drawer") ||
+    target.closest("#new-chat-modal") ||
+    target.closest("#attachment-modal") ||
+    target.closest(".menu-popover") 
+  ) {
+    return;
+  }
   closeOverlays();
 });
 
-menuPopover.addEventListener("click", (event) => {
+menuPopover?.addEventListener("click", async (event)=> {
   event.stopPropagation();
   const btn = event.target.closest(".menu-item");
   if (!btn) return;
@@ -1100,15 +1335,39 @@ menuPopover.addEventListener("click", (event) => {
   }
 
   if (action === "clear") {
+
     const thread = activeThread();
+
     if (!thread) return;
-    thread.messages = [];
-    thread.lastMessage = "";
-    thread.lastMessageType = "TEXT";
-    thread.lastMessageTime = "";
-    updateConversationMeta(thread);
-    renderThreads();
-    renderMessages(thread);
+
+    const confirmed = confirm(
+      "Clear this conversation? This only removes it from your view."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+
+      await clearConversation(thread.id);
+
+      const id = thread.id;
+
+      await loadConversations({
+        preserveSelection: false
+      });
+
+      await openThread(id);
+
+    } catch (error) {
+
+      alert(
+        error.message ||
+        "Failed to clear conversation."
+      );
+
+    }
   }
 
   if (action === "info") {
@@ -1138,7 +1397,54 @@ newChatResults?.addEventListener("click", (event) => {
   startChatWithUser(username);
 });
 
-messagesScroll.addEventListener("click", (event) => {
+messagesScroll.addEventListener("click", async (event) => {
+  const deleteBtn = event.target.closest(".delete-message-btn");
+
+  if (deleteBtn) {
+
+    const messageId = Number(deleteBtn.dataset.messageId);
+
+    if (
+      !confirm(
+        "Delete this message?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+
+      await deleteMessage(messageId);
+
+      const thread = activeThread();
+
+      if (!thread) return;
+
+      await loadMessages(thread.id);
+
+      await loadConversations({
+        preserveSelection: true
+      });
+
+    } catch (error) {
+
+      alert(
+        error.message ||
+        "Failed to delete message."
+      );
+
+    }
+
+    return;
+  }
+  const imgEl = event.target.closest(".chat-image-preview");
+  if (imgEl) {
+  openImageViewer(
+    imgEl.src,
+    imgEl.dataset.messageId
+  );
+    return;
+  }
   const actionBtn = event.target.closest("[data-attachment-action]");
   const card = event.target.closest(".attachment-card.clickable");
   if (!actionBtn && !card) return;
@@ -1175,6 +1481,16 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+
+if (messagesScroll && !messagesObserver && "MutationObserver" in window) {
+  messagesObserver = new MutationObserver(() => {
+    if (state.activeThreadId !== null) {
+      scrollMessagesToBottom();
+    }
+  });
+  messagesObserver.observe(messagesScroll, { childList: true, subtree: true });
+}
+
 async function initialize() {
   try {
     const savedThreadId = getSavedActiveThreadId();
@@ -1187,6 +1503,7 @@ async function initialize() {
       state.activeThreadId = null;
       saveActiveThreadId(null);
       showConversationEmptyState();
+      scrollMessagesToBottom();
     }
   } catch (error) {
     console.error("Conversation load failed", error);
@@ -1197,3 +1514,4 @@ async function initialize() {
 }
 
 initialize();
+});

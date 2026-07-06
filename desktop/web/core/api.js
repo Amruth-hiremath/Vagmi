@@ -1,5 +1,14 @@
 const API_BASE_URL = "/api";
 
+class ApiError extends Error {
+  constructor(message, status = 0, payload = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 function getToken() {
   return localStorage.getItem("vagmi_token");
 }
@@ -11,6 +20,12 @@ function clearSession() {
 
 function getAuthPageUrl() {
   return "/pages/auth/index.html";
+}
+
+function shouldAttachJsonHeader(body, headers) {
+  if (!body) return false;
+  if (body instanceof FormData) return false;
+  return !Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
 }
 
 async function readErrorMessage(response) {
@@ -34,48 +49,52 @@ async function readErrorMessage(response) {
 
 async function apiRequest(endpoint, options = {}) {
   const token = getToken();
-  const headers = {
-    ...(options.headers || {})
-  };
+  const {
+    skipAuthRedirect = false,
+    headers: inputHeaders = {},
+    body,
+    ...rest
+  } = options;
+
+  const headers = { ...inputHeaders };
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  if (
-    options.body &&
-    !(options.body instanceof FormData) &&
-    !headers["Content-Type"] &&
-    !headers["content-type"]
-  ) {
+  if (shouldAttachJsonHeader(body, headers)) {
     headers["Content-Type"] = "application/json";
   }
 
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers
+      ...rest,
+      headers,
+      body
     });
-  } catch {
-    throw new Error(
-      "Unable to reach the backend. Make sure FastAPI is running."
+  } catch (error) {
+    throw new ApiError(
+      "Unable to reach the backend. Make sure FastAPI is running.",
+      0,
+      { cause: error }
     );
   }
 
-  if (response.status === 401 && !options.skipAuthRedirect) {
+  if (response.status === 401 && !skipAuthRedirect) {
     clearSession();
     window.location.replace(getAuthPageUrl());
-    throw new Error("Session expired");
+    throw new ApiError("Session expired", 401);
   }
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw new ApiError(await readErrorMessage(response), response.status);
   }
 
   return response;
 }
 
 window.VagmiAPI = {
-  apiRequest
+  apiRequest,
+  ApiError
 };

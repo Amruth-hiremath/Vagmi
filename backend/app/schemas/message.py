@@ -14,6 +14,7 @@ class MessageResponse(BaseModel):
     sender_username: str
     message_text: str
     message_type: str
+    attachment_id: int | None = None
     attachment_path: str | None = None
     original_filename: str | None = None
     created_at: datetime

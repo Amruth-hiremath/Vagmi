@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi import Depends
+from fastapi.responses import FileResponse
+import mimetypes
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,7 @@ from app.core.security import get_current_user
 
 from app.models.user import User
 from app.models.message import Message
+from app.models.attachment import Attachment
 
 from app.schemas.message import (
     MessageCreate,
@@ -213,11 +216,16 @@ def get_messages(
     result = []
 
     for message in messages:
-
         sender = (
             db.query(User)
+            .filter(User.id == message.sender_id)
+            .first()
+        )
+
+        attachment = (
+            db.query(Attachment)
             .filter(
-                User.id == message.sender_id
+                Attachment.message_id == message.id
             )
             .first()
         )
@@ -227,9 +235,10 @@ def get_messages(
                 "id": message.id,
                 "room_id": message.room_id,
                 "sender_id": message.sender_id,
-                "sender_username": sender.username,
+                "sender_username": sender.username if sender else "Unknown",
                 "message_text": message.message_text,
                 "message_type": message.message_type,
+                "attachment_id": attachment.id if attachment else None,
                 "attachment_path": message.attachment_path,
                 "original_filename": message.original_filename,
                 "created_at": message.created_at
@@ -237,6 +246,52 @@ def get_messages(
         )
 
     return result
+
+@router.get(
+    "/{room_id}/messages/{message_id}/attachment"
+)
+def download_room_message_attachment(
+    room_id: int,
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_room_membership(
+        room_id,
+        current_user.id,
+        db
+    )
+
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == message_id,
+            Message.room_id == room_id
+        )
+        .first()
+    )
+
+    if not message or not message.attachment_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Attachment not found"
+        )
+
+    file_path = Path(message.attachment_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="File not found"
+        )
+
+    media_type, _ = mimetypes.guess_type(str(file_path))
+
+    return FileResponse(
+        path=str(file_path),
+        filename=message.original_filename or file_path.name,
+        media_type=media_type or "application/octet-stream"
+    )
 
 @router.delete(
     "/message/{message_id}"
@@ -266,11 +321,23 @@ def delete_message(
             detail="You can only delete your own messages"
         )
 
-    if message.attachment_path:
-        file_path = Path(
-            message.attachment_path
+    attachments = (
+        db.query(Attachment)
+        .filter(
+            Attachment.message_id == message.id
         )
+        .all()
+    )
 
+    for attachment in attachments:
+        try:
+            Path(attachment.file_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+        db.delete(attachment)
+
+    if message.attachment_path:
+        file_path = Path(message.attachment_path)
         if file_path.exists():
             file_path.unlink()
 

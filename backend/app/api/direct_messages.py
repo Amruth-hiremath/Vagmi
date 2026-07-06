@@ -5,13 +5,10 @@ from fastapi import UploadFile
 from fastapi import File
 from fastapi.responses import FileResponse
 from pathlib import Path
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-
-from pathlib import Path
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -69,6 +66,12 @@ def start_conversation(
         raise HTTPException(
             status_code=400,
             detail="Cannot chat with yourself"
+        )
+
+    if not other_user.is_approved:
+        raise HTTPException(
+            status_code=403,
+            detail="User is awaiting administrator approval."
         )
 
     conversation = get_or_create_conversation(
@@ -312,11 +315,25 @@ def get_messages(
             detail="Access denied"
         )
 
-    messages = (
+    query = (
         db.query(DirectMessage)
         .filter(
             DirectMessage.conversation_id == conversation_id
         )
+    )
+
+    if current_user.id == conversation.user1_id:
+        cleared_at = conversation.user1_cleared_at
+    else:
+        cleared_at = conversation.user2_cleared_at
+
+    if cleared_at:
+        query = query.filter(
+            DirectMessage.created_at > cleared_at
+        )
+
+    messages = (
+        query
         .order_by(
             DirectMessage.created_at
         )
@@ -340,7 +357,7 @@ def get_messages(
                 "id": message.id,
                 "conversation_id": message.conversation_id,
                 "sender_id": message.sender_id,
-                "sender_username": sender.username,
+                "sender_username": sender.username if sender else "Unknown",
                 "message_text": message.message_text,
                 "message_type": message.message_type,
                 "attachment_path": message.attachment_path,
@@ -417,9 +434,12 @@ def download_message_attachment(
             detail="File not found"
         )
 
+    media_type, _ = __import__("mimetypes").guess_type(str(file_path))
+
     return FileResponse(
         path=str(file_path),
-        filename=message.original_filename or file_path.name
+        filename=message.original_filename or file_path.name,
+        media_type=media_type or "application/octet-stream"
     )
 
 @router.get(
@@ -467,9 +487,13 @@ def get_voice_message(
             detail="Access denied"
         )
 
+    file_path = Path(message.attachment_path)
+    media_type, _ = __import__("mimetypes").guess_type(str(file_path))
+
     return FileResponse(
-        path=message.attachment_path,
-        filename=message.original_filename
+        path=str(file_path),
+        filename=message.original_filename or file_path.name,
+        media_type=media_type or "application/octet-stream"
     )
 
 @router.post(
@@ -570,4 +594,49 @@ def delete_direct_message(
 
     return {
         "status": "deleted"
+    }
+
+@router.post(
+    "/{conversation_id}/clear"
+)
+def clear_conversation(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == conversation_id
+        )
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    if not verify_conversation_member(
+        conversation,
+        current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if current_user.id == conversation.user1_id:
+        conversation.user1_cleared_at = now
+    else:
+        conversation.user2_cleared_at = now
+
+    db.commit()
+    db.refresh(conversation)
+
+    return {
+        "message": "Conversation cleared successfully."
     }

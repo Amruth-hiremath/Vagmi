@@ -107,17 +107,31 @@ def get_user_conversations(
             .first()
         )
 
-        last_message = (
+        query = (
             db.query(DirectMessage)
             .filter(
                 DirectMessage.conversation_id == conversation.id
             )
+        )
+
+        if user_id == conversation.user1_id:
+            cleared_at = conversation.user1_cleared_at
+        else:
+            cleared_at = conversation.user2_cleared_at
+
+        if cleared_at:
+            query = query.filter(
+                DirectMessage.created_at > cleared_at
+            )
+
+        last_message = (
+            query
             .order_by(
                 DirectMessage.created_at.desc()
             )
             .first()
         )
-        unread_count = (
+        unread_query = (
             db.query(DirectMessage)
             .filter(
                 DirectMessage.conversation_id == conversation.id
@@ -128,38 +142,54 @@ def get_user_conversations(
             .filter(
                 DirectMessage.seen_at.is_(None)
             )
-            .count()
         )
+
+        if cleared_at:
+            unread_query = unread_query.filter(
+                DirectMessage.created_at > cleared_at
+            )
+
+        unread_count = unread_query.count()
 
         result.append(
             {
                 "conversation_id": conversation.id,
-                "username": other_user.username,
+                "username": other_user.username if other_user else "Unknown",
                 "last_message": (
                     "Image"
                     if last_message and last_message.message_type == "IMAGE"
                     else(
-                        last_message.message_text
-                        if last_message
-                        else None
+                        "Voice message"
+                        if last_message and last_message.message_type == "VOICE"
+                        else(
+                            last_message.message_text
+                            if last_message
+                            else None
+                        )
                     )
                 ),
                 "last_message_sender": (
                     db.query(User)
-                    .filter(
-                        User.id == last_message.sender_id
-                    )
+                    .filter(User.id == last_message.sender_id)
                     .first()
                     .username
-                    if last_message
-                    else None
+                    if last_message and db.query(User).filter(User.id == last_message.sender_id).first()
+                    else ("Unknown" if last_message else None)
                 ),
                 "last_message_time": (
                     last_message.created_at
                     if last_message
                     else None
                 ),
+
+                "last_message_type": (
+                    last_message.message_type
+                    if last_message
+                    else "TEXT"
+                ),
+
                 "unread_count": unread_count
+
             }
         )
 

@@ -31,19 +31,7 @@ def register(
     user_data: UserRegister,
     db: Session = Depends(get_db)
 ):
-    existing_user_count = (
-        db.query(User)
-        .count()
-    )
-
-    if existing_user_count > 0:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "User registration is disabled. "
-                "Contact an administrator."
-            )
-        )
+    
 
     validate_username(
         user_data.username
@@ -67,30 +55,41 @@ def register(
             detail="Username already exists"
         )
 
+    admin_exists = (
+        db.query(User)
+        .filter(User.is_admin.is_(True))
+        .first()
+    )
+
     user = User(
         username=user_data.username,
         password_hash=hash_password(
             user_data.password
         ),
-        is_admin=True
+        is_admin=admin_exists is None,
+        is_approved=admin_exists is None
     )
 
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    logger.info(
-        f"Initial admin created: "
-        f"{user.username}"
-    )
+    
 
-    create_user_workspace(
-        user.id
-    )
+    if user.is_admin:
+        logger.info(f"Administrator account created: {user.username}")
+        return {
+            "message": "Administrator account created successfully."
+        }
+
+    logger.info(f"User registered: {user.username}")
 
     return {
         "message":
-            "Administrator account created successfully"
+            (
+                "Registration submitted. "
+                "Await administrator approval."
+            )
     }
     
 
@@ -134,6 +133,16 @@ def login(
             status_code=401,
             detail="Invalid credentials"
         )
+    if not user.is_approved:
+        logger.warning(
+            f"Login attempt by unapproved user: "
+            f"{user.username}"
+        )
+
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is awaiting administrator approval."
+        )
 
     token = create_access_token(
         {
@@ -176,7 +185,7 @@ def change_password(
         password_data.new_password
     )
 
-    current_user.must_change_password = False
+    
 
     db.commit()
 

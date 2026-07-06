@@ -33,3 +33,16 @@ class DirectConversation(Base):
         DateTime,
         default=lambda: datetime.now(timezone.utc)
     )
+
+    user1_cleared_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    user2_cleared_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+
+    

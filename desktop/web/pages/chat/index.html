@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vāgmi - Chat</title>
-  <link rel="icon" type="image/png" href="../../assets/favicon.png" />
+  <link rel="icon" type="image/png" href="../../assets/logo_dark.png" />
+  <script src="../../core/theme.js"></script>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="../../theme.css" />
 </head>
 <body>
   <div class="page chat-page">
@@ -170,5 +172,14 @@
   <input type="file" id="image-input" hidden accept="image/*" />
   <script src="../../core/api.js"></script>
   <script type="module" src="./script.js"></script>
+  <div id="image-viewer-modal" class="hidden" aria-hidden="true" style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;flex-direction:column;">
+  <div style="position:absolute;top:16px;right:16px;display:flex;gap:12px;z-index:10;">
+    <button id="img-zoom-in"  title="Zoom in"   style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;">+</button>
+    <button id="img-zoom-out" title="Zoom out"  style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;">−</button>
+    <button id="img-download" title="Download"  style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;">↓</button>
+    <button id="img-viewer-close" title="Close" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;">✕</button>
+  </div>
+  <img id="img-viewer-el" src="" alt="" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;transition:transform 0.2s;transform-origin:center;" />
+</div>
 </body>
 </html>

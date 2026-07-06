@@ -5,11 +5,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-
-from app.core.security import (
-    get_current_admin,
-    hash_password
-)
+from app.core.security import get_current_user
+from app.core.security import get_current_admin
 
 from app.core.validators import (
     validate_username,
@@ -21,7 +18,8 @@ from app.models.user import User
 from app.schemas.auth import UserRegister
 
 from app.services.storage_service import (
-    create_user_workspace
+    create_user_workspace,
+    delete_user_workspace
 )
 
 
@@ -30,56 +28,155 @@ router = APIRouter(
     tags=["Admin"]
 )
 
+def verify_admin(
+    current_user: User
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access required."
+        )
 
-@router.post("/users")
-def create_user(
-    user_data: UserRegister,
-    current_admin: User = Depends(
-        get_current_admin
-    ),
+@router.get(
+    "/pending-users"
+)
+def get_pending_users(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    validate_username(
-        user_data.username
+    verify_admin(current_user)
+
+    users = (
+        db.query(User)
+        .filter(User.is_approved.is_(False))
+        .order_by(User.created_at.asc())
+        .all()
     )
 
-    validate_password(
-        user_data.password
-    )
+    return [
+        {
+            "id": user.id,
+            "username": user.username
+        }
+        for user in users
+    ]
+@router.post(
+    "/users/{user_id}/approve"
+)
+def approve_user(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_admin(current_user)
 
-    existing_user = (
+    user = (
         db.query(User)
         .filter(
-            User.username ==
-            user_data.username
+            User.id == user_id
         )
         .first()
     )
 
-    if existing_user:
+    if not user:
         raise HTTPException(
-            status_code=400,
-            detail="Username already exists"
+            status_code=404,
+            detail="User not found"
         )
 
-    user = User(
-        username=user_data.username,
-        password_hash=hash_password(
-            user_data.password
-        ),
-        is_admin=False,
-        must_change_password=True
-    )
+    if user.is_admin:
+        raise HTTPException(
+            status_code=400,
+            detail="Administrator account cannot be approved."
+        )
 
-    db.add(user)
+    if user.is_approved:
+        raise HTTPException(
+            status_code=400,
+            detail="User is already approved."
+        )
+    
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot approve your own account."
+        )
+
+    user.is_approved = True
+
     db.commit()
-    db.refresh(user)
+    create_user_workspace(user.id)
 
-    create_user_workspace(
-        user.id
+    return {
+        "message": f"{user.username} approved successfully."
+    }
+@router.delete(
+    "/users/{user_id}"
+)
+def reject_user(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_admin(current_user)
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id
+        )
+        .first()
     )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    if user.is_admin:
+        raise HTTPException(
+            status_code=400,
+            detail="Administrator account cannot be deleted."
+        )
+    
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account."
+        )
+
+    delete_user_workspace(user.id)
+
+    db.delete(user)
+    db.commit()
 
     return {
         "message":
-            "User created successfully"
+            f"{user.username} rejected successfully."
     }
+@router.get(
+    "/users"
+)
+def get_all_users(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_admin(current_user)
+
+    users = (
+        db.query(User)
+        .order_by(User.username)
+        .all()
+    )
+
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "is_approved": user.is_approved,
+            "created_at": user.created_at
+        }
+        for user in users
+    ]

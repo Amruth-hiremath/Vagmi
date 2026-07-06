@@ -1,6 +1,13 @@
-import { getToken, clearSession, getAuthPageUrl } from "./auth.js";
-
 const API_URL = "/api";
+
+export class ApiError extends Error {
+  constructor(message, status = 0, payload = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
 
 function shouldAttachJsonHeader(body, headers) {
   if (!body) return false;
@@ -9,8 +16,9 @@ function shouldAttachJsonHeader(body, headers) {
 }
 
 function handleUnauthorized() {
-  clearSession();
-  window.location.replace(getAuthPageUrl());
+  localStorage.removeItem("vagmi_token");
+  localStorage.removeItem("vagmi_user");
+  window.location.replace("/pages/auth/index.html");
 }
 
 async function readErrorMessage(response) {
@@ -33,7 +41,7 @@ async function readErrorMessage(response) {
 }
 
 export async function apiRequest(endpoint, options = {}) {
-  const token = getToken();
+  const token = localStorage.getItem("vagmi_token");
   const {
     skipAuthRedirect = false,
     headers: inputHeaders = {},
@@ -58,19 +66,22 @@ export async function apiRequest(endpoint, options = {}) {
       headers,
       body
     });
-  } catch {
-    throw new Error(
-      "Unable to reach the backend. Make sure FastAPI is running."
+  } catch (error) {
+    throw new ApiError(
+      "Unable to reach the backend. Make sure FastAPI is running.",
+      0,
+      { cause: error }
     );
   }
 
   if (response.status === 401 && !skipAuthRedirect) {
     handleUnauthorized();
-    throw new Error("Session expired");
+    throw new ApiError("Session expired", 401);
   }
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    const message = await readErrorMessage(response);
+    throw new ApiError(message, response.status);
   }
 
   return response;

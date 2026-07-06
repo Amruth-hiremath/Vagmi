@@ -97,6 +97,12 @@ def get_current_user(
             detail="User not found"
         )
 
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is awaiting administrator approval."
+        )
+
     return user
 
 def get_current_admin(

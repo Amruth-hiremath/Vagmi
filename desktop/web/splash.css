@@ -1,110 +1,96 @@
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-body{
-    width:100vw;
-    height:100vh;
+body {
+    width: 100vw;
+    height: 100vh;
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    overflow:hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 
     background: #0f1117;
 
-    font-family:Inter,sans-serif;
+    font-family: Inter, sans-serif;
 
-    opacity:1;
-    transition:opacity .35s ease;
+    opacity: 1;
+    transition: opacity .35s ease;
 }
 
-body.fade-out{
-    opacity:0;
+body.fade-out {
+    opacity: 0;
 }
 
-.splash{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:24px;
+.splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 24px;
+    background: #0f1117;
 }
 
-.logo{
-    width:150px;
-    animation:logoFloat 4s ease-in-out infinite;
+.logo {
+    width: min(320px, 62vw);
+    max-width: 320px;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    animation: logoFloat 4s ease-in-out infinite;
 }
 
-@keyframes logoFloat{
+@keyframes logoFloat {
 
-    0%,100%{
+    0%,
+    100% {
         transform:
             translateY(0);
     }
 
-    50%{
+    50% {
         transform:
             translateY(-5px);
     }
 
 }
 
-.name{
-    font-size:72px;
-    font-weight:300;
-    color:#FAFAFA;
 
-    letter-spacing:-0.05em;
+.status {
+    margin-top: 10px;
 
-    text-shadow:
-        0 0 30px rgba(255,255,255,.05);
+    color: var(--text-muted, #6F7178);
+
+    font-size: 15px;
+
+    letter-spacing: .05em;
 }
 
-.subtitle{
-    color:#8A8A94;
+.status::after {
+    content: "";
 
-    font-size:14px;
-
-    letter-spacing:.35em;
-
-    text-transform:uppercase;
+    animation: dots 1.5s infinite;
 }
 
-.status{
-    margin-top:10px;
+@keyframes dots {
 
-    color:#6F7178;
-
-    font-size:15px;
-
-    letter-spacing:.05em;
-}
-
-.status::after{
-    content:"";
-
-    animation:dots 1.5s infinite;
-}
-
-@keyframes dots{
-
-    0%{
-        content:"";
+    0% {
+        content: "";
     }
 
-    33%{
-        content:".";
+    33% {
+        content: ".";
     }
 
-    66%{
-        content:"..";
+    66% {
+        content: "..";
     }
 
-    100%{
-        content:"...";
+    100% {
+        content: "...";
     }
 
 }

@@ -28,7 +28,8 @@ def search_users(
     users_query = (
         db.query(User)
         .filter(
-            User.id != current_user.id
+            User.id != current_user.id,
+            User.is_approved.is_(True)
         )
     )
 
