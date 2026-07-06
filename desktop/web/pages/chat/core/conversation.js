@@ -147,6 +147,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     
     // Fetch messages to calculate last message locally (like rooms)
     let messages = [];
+    let last = null;
     let lastMessage = "";
     let lastMessageType = "TEXT";
     let lastMessageTime = "";
@@ -161,7 +162,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     }
 
     if (Array.isArray(messages) && messages.length > 0) {
-      const last = messages[messages.length - 1];
+      last = messages[messages.length - 1];
       const kind = String(last.message_type || last.messageType || "TEXT").toUpperCase();
       const lastTimestamp = last.createdAt || last.created_at || last.timestamp || last.sentAt || "";
       lastMessageType = kind;
@@ -176,7 +177,11 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       }
       lastMessageTime = formatTime(lastTimestamp);
       lastMessageTimestamp = lastTimestamp;
+
     }
+    const hasNewMessage =
+      previous &&
+      (conversation.unread_count || 0) > (previous.unread || 0);
 
     return {
       id: Number(conversation.conversation_id),
@@ -195,6 +200,9 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       lastMessageTime,
       members: previous?.members || [conversation.username],
       messages: Array.isArray(previous?.messages) ? previous.messages : [],
+      is_online: conversation.is_online,
+      last_seen: conversation.last_seen,
+      hasNewMessage
     };
   }));
 
@@ -202,10 +210,11 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     const roomKey = makeThreadKey("room", room.id);
     const previous = previousThreadMap.get(roomKey);
     let messages = [];
+    let last = null;
     let lastMessage = "";
     let lastMessageType = "TEXT";
-    let lastMessageTime = "";
     let unread = Number(room.unread_count ?? 0) || 0;
+    let lastMessageTime = "";
     let lastMessageTimestamp = "";
 
     try {
@@ -217,7 +226,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     }
 
     if (Array.isArray(messages) && messages.length > 0) {
-      const last = messages[messages.length - 1];
+      last = messages[messages.length - 1];
       const kind = String(last.message_type || last.messageType || "TEXT").toUpperCase();
       const lastTimestamp = last.createdAt || last.created_at || last.timestamp || last.sentAt || "";
       lastMessageType = kind;
@@ -252,6 +261,9 @@ export async function loadConversations({ preserveSelection = true } = {}) {
         }
       }
     }
+    const hasNewMessage =
+      previous &&
+      unread > (previous.unread || 0);
 
     if (activeKey === roomKey) {
       unread = 0;
@@ -273,9 +285,26 @@ export async function loadConversations({ preserveSelection = true } = {}) {
       lastMessageTime,
       lastMessageTimestamp,
       members: Array.isArray(previous?.members) ? previous.members : [],
-      messages: Array.isArray(previous?.messages) ? previous.messages : []
+      messages: Array.isArray(previous?.messages) ? previous.messages : [],
+      hasNewMessage
     };
   }));
+
+  for (const thread of [...dmThreads, ...roomThreads]) {
+
+    if (
+      thread.hasNewMessage &&
+      Notification.permission === "granted" &&
+      document.hidden
+    ) {
+
+      new Notification(thread.title, {
+        body: thread.lastMessage || "New message"
+      });
+
+    }
+
+  }
 
   state.threads = [...dmThreads, ...roomThreads];
   state.threads.sort((a, b) => {

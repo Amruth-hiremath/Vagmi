@@ -881,6 +881,21 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     menuPopover?.classList.toggle("hidden", !state.menuOpen);
   });
 
+  let notificationPermissionRequested = false;
+
+  function requestNotificationPermission() {
+    console.log("Checking notification permission:", Notification.permission);
+    if (!notificationPermissionRequested && "Notification" in window && Notification.permission === "default") {
+      console.log("Requesting notification permission...");
+      Notification.requestPermission().then(permission => {
+        console.log("Notification permission:", permission);
+        notificationPermissionRequested = true;
+      });
+    }
+  }
+
+  document.addEventListener("click", requestNotificationPermission, { once: true });
+
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (
@@ -909,7 +924,8 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest("#room-member-picker") ||
       target.closest("#room-member-results") ||
       target.closest(".message-menu") ||
-      target.closest(".message-menu-btn")
+      target.closest(".message-menu-btn") ||
+      target.closest(".message-menu-item")
     ) {
       return;
     }
@@ -1204,16 +1220,19 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     if (!thread) return;
 
     const menuBtn = event.target.closest(".message-menu-btn");
+    console.log("Menu button click:", menuBtn, "Target:", event.target);
 
     if (menuBtn) {
       event.stopPropagation();
 
-      const messageId = Number(menuBtn.dataset.messageId);
-      const message = thread.messages.find((m) => Number(m.id) === messageId);
-      if (!message) return;
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
 
-      closeMessageMenu();
-      openMessageMenu(menuBtn, message, thread);
+      const menu = document.querySelector(`[data-message-menu="${menuBtn.dataset.messageId}"]`);
+      console.log("Menu element:", menu, "Message ID:", menuBtn.dataset.messageId);
+      menu?.classList.toggle("hidden");
+
       return;
     }
 
@@ -1228,7 +1247,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
       await navigator.clipboard.writeText(message.text);
 
-      closeMessageMenu();
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
 
       return;
     }
@@ -1293,7 +1314,10 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     if (deleteAllBtn) {
 
       if (!confirm("Delete this message for everyone?")) return;
-      closeMessageMenu();
+
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
 
       const messageId = Number(deleteAllBtn.dataset.messageId);
 
@@ -1354,7 +1378,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
     const actionBtn = event.target.closest("[data-attachment-action]");
     const card = event.target.closest(".attachment-card.clickable");
-    console.log("Attachment click detection:", { actionBtn, card, target: event.target });
+    console.log("Attachment click detection:", { actionBtn, card, target: event.target, actionBtnDataset: actionBtn?.dataset });
     if (!actionBtn && !card) return;
 
     event.stopPropagation();
@@ -1386,10 +1410,10 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     console.log("Message found:", message);
 
     const action = actionBtn?.dataset.attachmentAction || "view";
-    console.log("Attachment action clicked:", action);
+    console.log("Attachment action clicked:", action, "actionBtn:", actionBtn);
     if (action === "download") {
       console.log("Calling downloadAttachment for:", message);
-      downloadAttachment(attachmentThread, message);
+      await downloadAttachment(attachmentThread, message);
     } else {
       console.log("Calling openAttachmentViewer for:", message);
       openAttachmentViewer(attachmentThread, message);
@@ -1585,9 +1609,7 @@ function startConversationPolling() {
 
   refreshTimer = setInterval(async () => {
 
-    if (document.hidden) {
-      return;
-    }
+    
 
     try {
 

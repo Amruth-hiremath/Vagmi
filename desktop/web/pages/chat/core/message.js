@@ -1,6 +1,6 @@
 // desktop/web/pages/chat/core/message.js
 
-import { escapeHTML, formatTime } from "./utils.js";
+import { escapeHTML, formatTime, formatDate, getDateKey } from "./utils.js";
 import { iconMap } from "./icons.js";
 import { buildAttachmentUrl, buildAttachmentCard } from "./attachment.js";
 
@@ -146,6 +146,9 @@ function messageMenuButtonHTML(message) {
     >
       ⋮
     </button>
+    <div class="message-menu hidden" data-message-menu="${message.id}">
+      ${messageMenuContentHTML(message)}
+    </div>
   `;
 }
 
@@ -289,11 +292,28 @@ export function renderMessages(thread) {
   }
 
   if (dayChip) {
-    dayChip.hidden = false;
-    dayChip.textContent = "Today";
+    dayChip.hidden = true;
   }
+  
   if (messagesScroll) {
-    messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
+    // Group messages by date and insert date chips
+    let html = "";
+    let lastDateKey = "";
+    
+    for (const message of filtered) {
+      const currentDateKey = getDateKey(message);
+      
+      if (currentDateKey !== lastDateKey) {
+        const timestamp = message?.createdAt || message?.created_at || message?.timestamp || message?.sentAt;
+        const dateLabel = formatDate(timestamp) || "";
+        html += `<div class="day-chip">${dateLabel}</div>`;
+        lastDateKey = currentDateKey;
+      }
+      
+      html += messageHTML(thread, message);
+    }
+    
+    messagesScroll.innerHTML = html;
   }
 
   loadInlineImages();

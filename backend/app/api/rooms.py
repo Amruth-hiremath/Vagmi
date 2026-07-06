@@ -136,6 +136,12 @@ def list_rooms(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    current_user.last_seen = datetime.now(timezone.utc)
+
+    db.commit()
+
+    db.refresh(current_user)
+
     room_ids = (
         db.query(RoomMember.room_id)
         .filter(

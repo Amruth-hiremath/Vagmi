@@ -1,6 +1,6 @@
 // desktop/web/pages/chat/core/ui.js
 
-import { escapeHTML } from "./utils.js";
+import { escapeHTML, formatDate, formatTime } from "./utils.js";
 import { iconMap } from "./icons.js";
 import { initialsFor } from "../../../services/avatar.js";
 
@@ -199,9 +199,38 @@ export function updateConversationMeta(thread) {
 
   if (conversationTitle) conversationTitle.textContent = thread.title || "Conversation";
   if (conversationStatus) {
-    conversationStatus.textContent = thread.kind === "room"
-      ? `Room · ${thread.members?.length || 1} members`
-      : (thread.status || "Direct Message");
+    if (thread.kind === "room") {
+
+      conversationStatus.textContent =
+        `Room · ${thread.members?.length || 1} members`;
+
+    } else {
+
+      if (thread.is_online) {
+
+        conversationStatus.textContent = "🟢 Online";
+
+      } else if (thread.last_seen) {
+
+        const lastSeen = new Date(thread.last_seen);
+        const dateLabel = formatDate(thread.last_seen);
+        const timeLabel = formatTime(thread.last_seen);
+
+        if (dateLabel === "Today") {
+          conversationStatus.textContent = `Last seen today at ${timeLabel}`;
+        } else if (dateLabel === "Yesterday") {
+          conversationStatus.textContent = `Last seen yesterday at ${timeLabel}`;
+        } else {
+          conversationStatus.textContent = `Last seen ${dateLabel} at ${timeLabel}`;
+        }
+
+      } else {
+
+        conversationStatus.textContent = "Offline";
+
+      }
+
+    }
   }
 
   // Reset avatar then show initials; swap to pfp for DMs where available.

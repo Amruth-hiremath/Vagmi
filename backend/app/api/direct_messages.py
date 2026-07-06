@@ -94,6 +94,12 @@ def get_conversations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    current_user.last_seen = datetime.now(timezone.utc)
+
+    db.commit()
+
+    db.refresh(current_user)
+    
     return get_user_conversations(
         db=db,
         user_id=current_user.id
@@ -139,6 +145,7 @@ def send_message(
         sender_id=current_user.id,
         message_text=message_data.message_text
     )
+    
 
     return {
         "id": message.id,

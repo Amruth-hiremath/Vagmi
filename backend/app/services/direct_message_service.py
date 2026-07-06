@@ -6,7 +6,7 @@ from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
 from app.models.deleted_direct_message import DeletedDirectMessage
-
+from datetime import timedelta
 
 def get_or_create_conversation(
     db: Session,
@@ -170,6 +170,18 @@ def get_user_conversations(
 
         unread_count = unread_query.count()
 
+        is_online = False
+
+        if other_user and other_user.last_seen:
+            last_seen = other_user.last_seen
+
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+
+            is_online = (
+                datetime.now(timezone.utc) - last_seen
+            ) < timedelta(seconds=10)
+
         result.append(
             {
                 "conversation_id": conversation.id,
@@ -208,7 +220,9 @@ def get_user_conversations(
                     else "TEXT"
                 ),
 
-                "unread_count": unread_count
+                "unread_count": unread_count,
+                "is_online": is_online,
+                "last_seen": other_user.last_seen if other_user else None,
 
             }
         )

@@ -803,13 +803,11 @@ button {
 }
 
 .day-chip {
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   z-index: 2;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 28px;
   padding: 0 12px;
   border-radius: 999px;
@@ -817,6 +815,7 @@ button {
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 12px;
+  margin: 8px auto;
 }
 
 .messages-scroll {

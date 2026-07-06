@@ -491,3 +491,50 @@ html[data-theme="claude-light"] .splash .logo {
 html[data-theme="claude-light"] .splash {
   padding: 28px !important;
 }
+
+/* =========================================================
+   Room Member Search
+========================================================= */
+
+#room-member-search {
+  background: var(--input-bg)!important;
+  border: 1px solid var(--input-border)!important;
+  color: var(--text-primary)!important;
+}
+
+/* If it is an input field, you might also want to style the placeholder */
+#room-member-search::placeholder {
+  color: var(--placeholder)!important;
+}
+
+/* Optional: Add hover/focus states using your existing variables */
+#room-member-search:hover {
+  background: var(--input-bg-hover)!important;
+}
+
+#room-member-search:focus {
+  outline: 1px solid var(--input-border-strong)!important;
+}
+
+
+
+#room-name-input {
+  background: var(--input-bg)!important;
+  border: 1px solid var(--input-border)!important;
+  color: var(--text-primary)!important;
+}
+
+/* If it is an input field, you might also want to style the placeholder */
+#room-name-input::placeholder {
+  color: var(--placeholder)!important;
+}
+
+/* Optional: Add hover/focus states using your existing variables */
+#room-name-input:hover {
+  background: var(--input-bg-hover)!important;
+}
+
+#room-name-input:focus {
+  outline: 1px solid var(--input-border-strong)!important;
+}
+
