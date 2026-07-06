@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="desktop/web/assets/logo_dark_full.png" width="140" alt="Vagmi Logo">
+  <img src="desktop/web/assets/logo_dark.png" width="140" alt="Vagmi Logo">
 </p>
+
+<h1 align="center">Vāgmi</h1>
 
 <p align="center">
   <strong>Offline Multi-Agent Intelligence Platform</strong><br>
@@ -16,8 +18,6 @@
 </p>
 
 ---
-
-<h1 align="center">Vāgmi</h1>
 
 **Offline Multi-Agent Intelligence Platform for Secure Work Environments**
 
