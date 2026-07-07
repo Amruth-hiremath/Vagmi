@@ -1,6 +1,6 @@
 // desktop/web/pages/chat/core/attachment.js
 
-import { escapeHTML } from "./utils.js";
+import { escapeHTML, formatFileSize } from "./utils.js";
 import { iconMap } from "./icons.js";
 import { apiRequest } from "../../../services/api.js";
 import { getDesktopBridge } from "../../../services/desktop.js";
@@ -200,6 +200,8 @@ export function buildAttachmentCard(thread, message) {
   const icon = message.type === "IMAGE" ? iconMap.imageSmall : iconMap.file;
   const attachmentUrl = buildAttachmentUrl(thread, message);
   const hasRemoteAttachment = Boolean(attachmentUrl);
+  const fileSize = message.fileSize ? formatFileSize(message.fileSize) : "";
+  const subtitle = fileSize ? `${meta} • ${fileSize}` : meta;
 
   return `
     <div
@@ -216,7 +218,7 @@ export function buildAttachmentCard(thread, message) {
       <div class="attachment-card-icon">${icon}</div>
       <div class="attachment-card-main">
         <div class="attachment-card-title">${name}</div>
-        <div class="attachment-card-subtitle">${meta}</div>
+        <div class="attachment-card-subtitle">${subtitle}</div>
       </div>
       <div class="attachment-card-actions">
         ${
@@ -308,11 +310,18 @@ export async function openAttachmentViewer(thread, message) {
 }
 
 export async function downloadAttachment(thread, message) {
+  const showDownloadProgress = window.showDownloadProgress;
+  const hideDownloadProgress = window.hideDownloadProgress;
+
+  if (showDownloadProgress) showDownloadProgress();
+
   try {
     const { blob, filename } = await fetchAttachmentBlob(thread, message);
     await saveBlobToDownloads(blob, filename || "attachment");
   } catch (error) {
     console.error("Attachment download failed", error);
     alert(error?.message || "Failed to download the attachment.");
+  } finally {
+    if (hideDownloadProgress) hideDownloadProgress();
   }
 }

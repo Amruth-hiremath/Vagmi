@@ -1,7 +1,7 @@
 from pathlib import Path
 import mimetypes
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ ATTACHMENT_SIZE_LIMIT = 50 * 1024 * 1024
 def upload_attachment(
     room_id: int,
     file: UploadFile = File(...),
+    caption: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -33,7 +34,7 @@ def upload_attachment(
     room_attachment_dir = (
         USERS_DIR / f"user_{current_user.id}" / "room_attachments" / f"room_{room_id}"
     )
-    file_path, original_name = save_upload_file(
+    file_path, original_name, file_size = save_upload_file(
         file=file,
         destination_dir=room_attachment_dir,
         max_size=ATTACHMENT_SIZE_LIMIT,
@@ -45,6 +46,7 @@ def upload_attachment(
         sender_id=current_user.id,
         message_text=original_name,
         message_type="FILE",
+        caption=caption,
     )
 
     attachment = create_attachment(
@@ -53,6 +55,7 @@ def upload_attachment(
         owner_id=current_user.id,
         original_filename=original_name,
         file_path=str(file_path),
+        file_size=file_size,
     )
 
     # Keep the message row and attachment row in sync so both the

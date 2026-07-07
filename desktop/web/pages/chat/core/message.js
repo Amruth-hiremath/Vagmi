@@ -1,6 +1,6 @@
 // desktop/web/pages/chat/core/message.js
 
-import { escapeHTML, formatTime, formatDate, getDateKey } from "./utils.js";
+import { escapeHTML, formatTime, formatDate, getDateKey, formatFileSize } from "./utils.js";
 import { iconMap } from "./icons.js";
 import { buildAttachmentUrl, buildAttachmentCard } from "./attachment.js";
 
@@ -37,22 +37,25 @@ export function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+          ${messageMenuButtonHTML(message)}
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
-        ${messageMenuButtonHTML(message)}
       </div>
     `;
   }
 
     if (message.type === "VOICE") {
-
-      const audioUrl =message.attachmentUrl || buildAttachmentUrl(thread, message);
+      const audioUrl = message.attachmentUrl || buildAttachmentUrl(thread, message);
+      const subtitleParts = [];
+      if (message.fileSize) subtitleParts.push(formatFileSize(message.fileSize));
+      if (message.time) subtitleParts.push(message.time);
 
       return `
         <div class="message-row ${sideClass}">
-          <div class="message-bubble">
+          <div class="message-bubble voice-message-bubble">
+            ${messageMenuButtonHTML(message)}
 
             ${
               senderLine
@@ -61,6 +64,15 @@ export function messageHTML(thread, message) {
             }
 
             <div class="voice-card">
+              <div class="voice-card-top">
+                <div class="voice-card-icon" aria-hidden="true">
+                  <span class="icon" data-icon="mic"></span>
+                </div>
+                <div class="voice-card-copy">
+                  <div class="voice-card-title">Voice message</div>
+                  <div class="voice-card-subtitle">${escapeHTML(subtitleParts.join(" • "))}</div>
+                </div>
+              </div>
 
               <audio
                 controls
@@ -72,7 +84,6 @@ export function messageHTML(thread, message) {
                   type="audio/wav"
                 >
               </audio>
-
             </div>
 
             <div class="message-time mono">
@@ -80,7 +91,6 @@ export function messageHTML(thread, message) {
             </div>
 
           </div>
-          ${messageMenuButtonHTML(message)}
         </div>
       `;
     }
@@ -88,12 +98,14 @@ export function messageHTML(thread, message) {
 
   if (message.type === "IMAGE") {
   const imageUrl = buildAttachmentUrl(thread, message);
-  
+  const caption = message.caption ? escapeHTML(message.caption) : "";
+
   return `
     <div class="message-row ${sideClass}">
       <div class="message-bubble">
+        ${messageMenuButtonHTML(message)}
         ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-        
+
         <img
     class="chat-image-preview"
     data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
@@ -112,22 +124,24 @@ export function messageHTML(thread, message) {
         object-fit:cover;
     "
 />
+        ${caption ? `<div class="message-caption">${caption}</div>` : ""}
         <div class="message-time mono">${escapeHTML(message.time || "")}</div>
       </div>
-      ${messageMenuButtonHTML(message)}
     </div>
   `;
   }
 
   if (message.type === "FILE") {
+    const caption = message.caption ? escapeHTML(message.caption) : "";
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+          ${messageMenuButtonHTML(message)}
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           ${buildAttachmentCard(thread, message)}
+          ${caption ? `<div class="message-caption">${caption}</div>` : ""}
           <div class="message-time mono">${escapeHTML(message.time || "")}</div>
         </div>
-        ${messageMenuButtonHTML(message)}
       </div>
     `;
   }
@@ -146,9 +160,6 @@ function messageMenuButtonHTML(message) {
     >
       ⋮
     </button>
-    <div class="message-menu hidden" data-message-menu="${message.id}">
-      ${messageMenuContentHTML(message)}
-    </div>
   `;
 }
 
@@ -406,6 +417,8 @@ export async function loadMessages(conversationId, loadToken = 0) {
           attachmentPath: message.attachment_path || "",
           attachmentId: message.attachment_id || null,
           fileMeta: attachmentName,
+          fileSize: message.file_size || null,
+          caption: message.caption || "",
           createdAt: message.created_at,
           time: formatTime(message.created_at)
       };
@@ -487,7 +500,7 @@ export function setComposerText(inputField, text) {
   }
 }
 
-export async function handleAttachment(file, forceType = null) {
+export async function handleAttachment(file, forceType = null, caption = null) {
   const state = window.chatState;
   const sendImage = window.sendImage;
   const sendRoomImage = window.sendRoomImage;
@@ -506,11 +519,11 @@ export async function handleAttachment(file, forceType = null) {
     if (type === "IMAGE") {
       const uploader = thread.type === "room" ? sendRoomImage : sendImage;
       if (typeof uploader !== "function") throw new Error("Image upload is not available.");
-      await uploader(thread.id, file);
+      await uploader(thread.id, file, caption);
     } else {
       const uploader = thread.type === "room" ? uploadRoomAttachment : uploadDmAttachment;
       if (typeof uploader !== "function") throw new Error("Attachment upload is not available.");
-      await uploader(thread.id, file);
+      await uploader(thread.id, file, caption);
     }
 
     await loadMessages(thread.key);

@@ -16,6 +16,25 @@ export function activeThread(state) {
   return state.threads.find((thread) => thread.key === state.activeThreadKey) || null;
 }
 
+function broadcastUnreadCount(threads) {
+  const totalUnread = Array.isArray(threads)
+    ? threads.reduce((total, thread) => total + (Number(thread?.unread) || 0), 0)
+    : 0;
+
+  const payload = {
+    type: "chat-unread-count",
+    count: totalUnread
+  };
+
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(payload, window.location.origin);
+    }
+  } catch (error) {
+    console.warn("Failed to broadcast unread count:", error);
+  }
+}
+
 export async function openThread(threadRef, { remember = true, markAsRead = true } = {}) {
   const state = window.chatState;
 
@@ -54,6 +73,7 @@ export async function openThread(threadRef, { remember = true, markAsRead = true
   updateConversationMeta(thread);
   updateInfoDrawer(thread);
   renderThreads(state);
+  broadcastUnreadCount(state.threads);
 
   window.loadSequence += 1;
   const currentSequence = window.loadSequence;
@@ -93,6 +113,7 @@ export async function openThread(threadRef, { remember = true, markAsRead = true
       updateConversationMeta(thread);
       updateInfoDrawer(thread);
       renderThreads(state);
+      broadcastUnreadCount(state.threads);
     } catch (error) {
       console.error("Failed loading room members", error);
     }
@@ -103,6 +124,7 @@ export async function openThread(threadRef, { remember = true, markAsRead = true
         await markConversationRead(thread.id);
         thread.unread = 0;
         renderThreads(state);
+        broadcastUnreadCount(state.threads);
       }
     } catch (error) {
       console.error("Failed marking conversation as read", error);
@@ -347,6 +369,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
   })();
 
   renderThreads(state);
+  broadcastUnreadCount(state.threads);
 
   if (activeKey && state.threads.some((thread) => thread.key === activeKey)) {
     if (activeThreadChanged) {

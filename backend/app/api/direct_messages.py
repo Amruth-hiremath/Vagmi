@@ -3,6 +3,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
+from fastapi import Form
 from fastapi.responses import FileResponse
 from pathlib import Path
 from datetime import datetime, timezone
@@ -26,6 +27,8 @@ from app.schemas.direct_message import (
 )
 from app.schemas.conversation import ConversationListResponse
 
+from app.services.attachment_service import create_attachment
+from app.models.attachment import Attachment
 from app.services.direct_message_service import (
     get_or_create_conversation,
     verify_conversation_member,
@@ -168,6 +171,7 @@ def send_message(
 def send_image_dm(
     conversation_id: int,
     file: UploadFile = File(...),
+    caption: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -206,12 +210,23 @@ def send_image_dm(
         message_type="IMAGE",
         attachment_path=image_path,
         original_filename=original_name,
+        caption=caption,
         delivered_at=datetime.now(timezone.utc)
     )
 
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    image_file_size = Path(image_path).stat().st_size if Path(image_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(image_path),
+        file_size=image_file_size,
+    )
 
     return {
         "id": message.id,
@@ -222,6 +237,8 @@ def send_image_dm(
         "message_type": "IMAGE",
         "attachment_path": image_path,
         "original_filename": original_name,
+        "file_size": image_file_size,
+        "caption": message.caption,
         "created_at": message.created_at,
         "delivered_at": message.delivered_at,
         "seen_at": message.seen_at,
@@ -238,6 +255,7 @@ def send_image_dm(
 def send_attachment_dm(
     conversation_id: int,
     file: UploadFile = File(...),
+    caption: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -260,7 +278,7 @@ def send_attachment_dm(
         f"conversation_{conversation_id}"
     )
 
-    file_path, original_name = save_upload_file(
+    file_path, original_name, file_size = save_upload_file(
         file=file,
         destination_dir=attachment_dir,
     )
@@ -272,12 +290,22 @@ def send_attachment_dm(
         message_type="FILE",
         attachment_path=file_path,
         original_filename=original_name,
+        caption=caption,
         delivered_at=datetime.now(timezone.utc)
     )
 
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(file_path),
+        file_size=file_size,
+    )
 
     return {
         "id": message.id,
@@ -288,6 +316,8 @@ def send_attachment_dm(
         "message_type": "FILE",
         "attachment_path": file_path,
         "original_filename": original_name,
+        "file_size": file_size,
+        "caption": message.caption,
         "created_at": message.created_at,
         "delivered_at": message.delivered_at,
         "seen_at": message.seen_at,
@@ -345,6 +375,16 @@ def send_voice_dm(
     db.commit()
     db.refresh(message)
 
+    voice_file_size = Path(voice_path).stat().st_size if Path(voice_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(voice_path),
+        file_size=voice_file_size,
+    )
+
     return {
         "id": message.id,
         "conversation_id": message.conversation_id,
@@ -354,6 +394,7 @@ def send_voice_dm(
         "message_type": "VOICE",
         "attachment_path": voice_path,
         "original_filename": original_name,
+        "file_size": voice_file_size,
         "created_at": message.created_at,
         "delivered_at": message.delivered_at,
         "seen_at": message.seen_at
@@ -444,6 +485,18 @@ def get_messages(
             .first()
         )
 
+        attachment = (
+            db.query(Attachment)
+            .filter(
+                Attachment.message_id == message.id
+            )
+            .first()
+        )
+
+        attachment_path = message.attachment_path or (attachment.file_path if attachment else None)
+        original_filename = message.original_filename or (attachment.original_filename if attachment else None)
+        file_size = attachment.file_size if attachment else None
+
         result.append(
             {
                 "id": message.id,
@@ -452,9 +505,11 @@ def get_messages(
                 "sender_username": sender.username if sender else "Unknown",
                 "message_text": message.message_text,
                 "message_type": message.message_type,
-                "attachment_path": message.attachment_path,
-                "original_filename": message.original_filename,
-                "created_at": message.created_at,   
+                "attachment_path": attachment_path,
+                "original_filename": original_filename,
+                "file_size": file_size,
+                "caption": message.caption,
+                "created_at": message.created_at,
                 "delivered_at": message.delivered_at,
                 "seen_at": message.seen_at,
             }

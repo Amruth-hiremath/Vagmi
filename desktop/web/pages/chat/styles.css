@@ -103,9 +103,26 @@ button {
 }
 
 .icon-btn.recording {
+  position: relative;
   background: rgba(232, 80, 2, 0.18);
   color: var(--branding-orange);
-  border-color: rgba(232, 80, 2, 0.4);
+  border-color: rgba(232, 80, 2, 0.42);
+  box-shadow: 0 0 0 4px rgba(232, 80, 2, 0.10);
+  animation: micPulse 1.4s ease-in-out infinite;
+}
+
+.icon-btn.recording .icon {
+  animation: micBounce 1s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes micBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
 }
 
 .chat-page {
@@ -342,6 +359,7 @@ button {
 
 .avatar-decorated {
   /* Marker class to avoid re-decorating the same element */
+  position: relative;
 }
 
 .thread-meta {
@@ -457,12 +475,62 @@ button {
 }
 
 .voice-card {
-  min-width: 220px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.voice-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.voice-card-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(232, 80, 2, 0.16);
+  border: 1px solid rgba(232, 80, 2, 0.24);
+  color: var(--branding-orange);
+}
+
+.voice-card-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.voice-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.voice-card-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .voice-player {
   width: 100%;
   height: 40px;
+  border-radius: 999px;
+  overflow: hidden;
+  accent-color: var(--branding-orange);
+}
+
+.voice-message-bubble {
+  padding-bottom: 12px;
 }
 
 .thread-empty-btn,
@@ -507,7 +575,7 @@ button {
 .conversation-empty-state {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   display: grid;
   place-items: center;
   padding: 28px;
@@ -661,6 +729,7 @@ button {
   border-radius: 10px;
   background: var(--surface);
   border: 1px solid var(--border-subtle);
+  min-width: 180px;
 }
 
 .message-menu-item {
@@ -672,6 +741,7 @@ button {
   background: transparent;
   cursor: pointer;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .message-menu-item:hover {
@@ -679,7 +749,7 @@ button {
 }
 
 .message-menu-item.danger {
-  color: var(--text-primary)
+  color: #ff6b6b;
 }
 
 .message-menu-item.danger:hover {
@@ -692,39 +762,54 @@ button {
 
 .message-menu-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 10px;
+  right: 10px;
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 4px;
-  color: var(--text-secondary);
+  background: var(--overlay-button-bg);
+  border: 1px solid var(--overlay-button-border);
+  border-radius: 999px;
+  color: var(--overlay-button-text);
   font-size: 16px;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease;
-  z-index: 10;
+  visibility: hidden;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    visibility 0s linear 0.18s;
+  z-index: 12;
 }
 
-.message-row:hover .message-menu-btn {
+.message-bubble:hover .message-menu-btn,
+.message-bubble:focus-within .message-menu-btn,
+.message-row:hover .message-menu-btn,
+.message-row:focus-within .message-menu-btn {
   opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .message-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
   color: var(--text-primary);
 }
 
 .message-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  z-index: 100;
+  display: none;
 }
 
 .message-menu-overlay {
@@ -734,14 +819,15 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
+  background: transparent;
 }
 
 .message-menu-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--message-menu-backdrop);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
 .message-menu-surface {
@@ -752,8 +838,10 @@ button {
   padding: 8px;
   border-radius: 16px;
   border: 1px solid var(--border-subtle);
-  background: rgba(16, 16, 16, 0.98);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   overflow: hidden;
 }
 
@@ -762,7 +850,7 @@ button {
   position: absolute;
   inset: 0;
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent);
   pointer-events: none;
 }
 
@@ -851,7 +939,7 @@ button {
 .message-bubble {
   max-width: min(68%, 640px);
   min-width: 120px;
-  padding: 10px 12px 10px;
+  padding: 10px 42px 10px 12px;
   border-radius: 18px;
   border: 1px solid var(--border-subtle);
   background: rgba(18, 18, 18, 0.96);
@@ -865,6 +953,10 @@ button {
 
 .message-row.other .message-bubble {
   background: rgba(255, 255, 255, 0.025);
+}
+
+.message-bubble.voice-message-bubble {
+  padding-right: 42px;
 }
 
 .delete-message-btn {
@@ -925,7 +1017,15 @@ button {
   margin-top: 8px;
   text-align: right;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
+}
+
+.message-caption {
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .attachment-card,
@@ -1352,7 +1452,222 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 0 20px 20px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.caption-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+}
+
+.caption-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.caption-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(500px, calc(100% - 40px));
+  max-height: 90vh;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-strong);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.caption-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.caption-modal-title {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.caption-modal-body {
+  padding: 20px;
+  overflow: auto;
+}
+
+.caption-modal-body .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.caption-modal-body .field > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.caption-modal-body textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.caption-modal-body textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.caption-modal-body textarea:focus {
+  border-color: var(--input-border-strong);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.caption-char-count {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.caption-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.upload-progress {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.upload-progress-bar {
+  width: 200px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.upload-progress-fill.buffering {
+  animation: buffer-animation 1.5s infinite linear;
+  background: linear-gradient(
+    90deg,
+    var(--accent-primary) 0%,
+    var(--accent-primary) 50%,
+    var(--accent-soft) 50%,
+    var(--accent-soft) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes buffer-animation {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.upload-progress-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.download-progress {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.download-progress-bar {
+  width: 200px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.download-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.download-progress-fill.buffering {
+  animation: buffer-animation 1.5s infinite linear;
+  background: linear-gradient(
+    90deg,
+    var(--accent-primary) 0%,
+    var(--accent-primary) 50%,
+    var(--accent-soft) 50%,
+    var(--accent-soft) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.download-progress-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .attachment-card {

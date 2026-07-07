@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi import Depends
 from fastapi.responses import FileResponse
 import mimetypes
@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.message import Message
 from app.models.attachment import Attachment
 from app.models.deleted_room_message import DeletedRoomMessage
+from app.models.room_member import RoomMember
 
 from app.schemas.message import (
     MessageCreate,
@@ -26,6 +27,7 @@ from app.core.validators import (
     validate_message
 )
 from app.services.message_service import create_message
+from app.services.attachment_service import create_attachment
 
 from app.services.room_service import (
     verify_room_membership
@@ -82,6 +84,7 @@ def send_message(
         "message_type": message.message_type,
         "attachment_path": message.attachment_path,
         "original_filename": message.original_filename,
+        "caption": message.caption,
         "created_at": message.created_at
     }
 
@@ -97,6 +100,7 @@ def send_message(
 def send_image_message(
     room_id: int,
     file: UploadFile = File(...),
+    caption: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -126,12 +130,23 @@ def send_image_message(
         message_text="",
         message_type="IMAGE",
         attachment_path=image_path,
-        original_filename=original_name
+        original_filename=original_name,
+        caption=caption
     )
 
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    image_file_size = Path(image_path).stat().st_size if Path(image_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(image_path),
+        file_size=image_file_size,
+    )
 
     return {
         "id": message.id,
@@ -142,6 +157,8 @@ def send_image_message(
         "message_type": "IMAGE",
         "attachment_path": image_path,
         "original_filename": original_name,
+        "file_size": image_file_size,
+        "caption": message.caption,
         "created_at": message.created_at
     }
 
@@ -183,6 +200,16 @@ def send_voice_message(
     db.commit()
     db.refresh(message)
 
+    voice_file_size = Path(voice_path).stat().st_size if Path(voice_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(voice_path),
+        file_size=voice_file_size,
+    )
+
     return {
         "id": message.id,
         "room_id": message.room_id,
@@ -192,6 +219,7 @@ def send_voice_message(
         "message_type": "VOICE",
         "attachment_path": voice_path,
         "original_filename": original_name,
+        "file_size": voice_file_size,
         "created_at": message.created_at
     }
 
@@ -274,6 +302,17 @@ def get_messages(
         .all()
     ]
 
+    room_member = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == current_user.id
+        )
+        .first()
+    )
+
+    cleared_at = room_member.cleared_at if room_member else None
+
     messages = (
         db.query(Message)
         .filter(
@@ -284,6 +323,11 @@ def get_messages(
     if hidden_message_ids:
         messages = messages.filter(
             ~Message.id.in_(hidden_message_ids)
+        )
+
+    if cleared_at:
+        messages = messages.filter(
+            Message.created_at > cleared_at
         )
 
     messages = messages.order_by(
@@ -309,6 +353,7 @@ def get_messages(
 
         attachment_path = message.attachment_path or (attachment.file_path if attachment else None)
         original_filename = message.original_filename or (attachment.original_filename if attachment else None)
+        file_size = attachment.file_size if attachment else None
 
         result.append(
             {
@@ -321,6 +366,8 @@ def get_messages(
                 "attachment_id": attachment.id if attachment else None,
                 "attachment_path": attachment_path,
                 "original_filename": original_filename,
+                "file_size": file_size,
+                "caption": message.caption,
                 "created_at": message.created_at
             }
         )
@@ -500,4 +547,42 @@ def delete_message_for_me(
 
     return {
         "status": "deleted"
+    }
+
+@router.post(
+    "/{room_id}/clear"
+)
+def clear_room_conversation(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_room_membership(
+        room_id,
+        current_user.id,
+        db
+    )
+
+    room_member = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not room_member:
+        raise HTTPException(
+            status_code=404,
+            detail="Room member not found"
+        )
+
+    now = datetime.now(timezone.utc)
+    room_member.cleared_at = now
+    db.commit()
+    db.refresh(room_member)
+
+    return {
+        "message": "Conversation cleared successfully."
     }

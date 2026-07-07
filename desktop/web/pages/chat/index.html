@@ -285,6 +285,45 @@
     </div>
   </div>
 
+  <div class="caption-modal hidden" id="caption-modal" aria-hidden="true">
+    <div class="caption-modal-backdrop" id="caption-modal-backdrop"></div>
+    <div class="caption-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="caption-modal-title">
+      <div class="caption-modal-header">
+        <div>
+          <div class="section-kicker mono">Add Caption</div>
+          <div class="caption-modal-title" id="caption-modal-title">Add a caption to your attachment</div>
+        </div>
+        <button class="text-btn" id="caption-modal-cancel" type="button">Cancel</button>
+      </div>
+
+      <div class="caption-modal-body">
+        <label class="field">
+          <span>Caption (optional)</span>
+          <textarea id="caption-input" placeholder="Add a caption..." rows="3" maxlength="1000"></textarea>
+          <div class="caption-char-count"><span id="caption-char-count">0</span>/1000</div>
+        </label>
+      </div>
+
+      <div class="caption-modal-actions">
+        <button class="primary-btn" id="caption-modal-send" type="button">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-progress hidden" id="upload-progress" aria-hidden="true">
+    <div class="upload-progress-bar">
+      <div class="upload-progress-fill" id="upload-progress-fill"></div>
+    </div>
+    <div class="upload-progress-text" id="upload-progress-text">Uploading...</div>
+  </div>
+
+  <div class="download-progress hidden" id="download-progress" aria-hidden="true">
+    <div class="download-progress-bar">
+      <div class="download-progress-fill" id="download-progress-fill"></div>
+    </div>
+    <div class="download-progress-text" id="download-progress-text">Downloading...</div>
+  </div>
+
 
   <input type="file" id="file-input" hidden />
   <input type="file" id="image-input" hidden accept="image/*" />

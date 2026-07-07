@@ -36,9 +36,12 @@ export async function sendMessage(conversationId, messageText) {
   );
 }
 
-export async function sendImage(conversationId, file) {
+export async function sendImage(conversationId, file, caption = null) {
   const formData = new FormData();
   formData.append("file", file);
+  if (caption) {
+    formData.append("caption", caption);
+  }
   return parseJson(
     await apiRequest(`/dm/${conversationId}/image`, {
       method: "POST",

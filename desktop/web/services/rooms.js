@@ -115,9 +115,12 @@ export async function deleteRoom(roomId) {
     )
   );
 }
-export async function sendRoomImage(roomId, file) {
+export async function sendRoomImage(roomId, file, caption = null) {
   const formData = new FormData();
   formData.append("file", file);
+  if (caption) {
+    formData.append("caption", caption);
+  }
 
   return parseJson(
     await apiRequest(`/rooms/${roomId}/image`, {
@@ -161,6 +164,17 @@ export async function deleteRoomMessageForMe(messageId) {
     `/rooms/messages/${messageId}/me`,
     {
       method: "DELETE"
+    }
+  );
+
+  return response.json();
+}
+
+export async function clearRoomConversation(roomId) {
+  const response = await apiRequest(
+    `/rooms/${roomId}/clear`,
+    {
+      method: "POST"
     }
   );
 

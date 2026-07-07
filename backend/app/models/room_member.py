@@ -39,3 +39,8 @@ class RoomMember(Base):
         DateTime,
         nullable=True
     )
+
+    cleared_at = Column(
+        DateTime,
+        nullable=True
+    )

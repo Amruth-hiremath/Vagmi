@@ -26,14 +26,16 @@ def save_upload_file(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    if file_path.stat().st_size > max_size:
+    file_size = file_path.stat().st_size
+
+    if file_size > max_size:
         try:
             file_path.unlink(missing_ok=True)
         except Exception:
             pass
         raise HTTPException(status_code=400, detail="File too large")
 
-    return str(file_path), original_name
+    return str(file_path), original_name, file_size
 
 
 def create_attachment(
@@ -41,13 +43,15 @@ def create_attachment(
     message_id: int,
     owner_id: int,
     original_filename: str,
-    file_path: str
+    file_path: str,
+    file_size: int = None
 ):
     attachment = Attachment(
         message_id=message_id,
         owner_id=owner_id,
         original_filename=original_filename,
-        file_path=file_path
+        file_path=file_path,
+        file_size=file_size
     )
 
     db.add(attachment)

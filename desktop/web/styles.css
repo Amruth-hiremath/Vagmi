@@ -125,6 +125,7 @@ body.sidebar-collapsed .toggle-label {
 }
 
 .nav-item {
+  position: relative;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -162,6 +163,22 @@ body.sidebar-collapsed .toggle-label {
 
 .nav-item.active svg {
   opacity: 1;
+}
+
+.nav-notification-dot {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--branding-orange);
+  box-shadow: 0 0 0 3px rgba(232, 80, 2, 0.18);
+  pointer-events: none;
+}
+
+body.sidebar-collapsed .nav-notification-dot {
+  right: 12px;
 }
 
 /* --- Bottom: Footer & Toggle --- */

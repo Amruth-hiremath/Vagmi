@@ -8,6 +8,8 @@ import {
 } from "./services/auth.js";
 
 import { apiRequest } from "./services/api.js";
+import { getConversations } from "./services/dm.js";
+import { getRooms } from "./services/rooms.js";
 import {
   initialsFor,
   loadMyAvatarObjectUrl
@@ -33,6 +35,10 @@ const logoutBtn = document.getElementById("logout-btn");
 const userAvatar = document.querySelector(".user-avatar");
 const sidebarAvatarImage = document.getElementById("sidebar-user-avatar-image");
 const sidebarAvatarInitials = document.getElementById("sidebar-user-initials");
+const chatNavItem = document.querySelector('.nav-item[data-page="chat"]');
+const chatNavDot = document.getElementById("chat-nav-dot");
+let chatBadgeRefreshInFlight = false;
+let chatBadgeRefreshTimer = null;
 
 function setSidebarCollapsed(collapsed) {
   document.body.classList.toggle("sidebar-collapsed", collapsed);
@@ -81,6 +87,41 @@ async function refreshSidebarAvatar() {
     sidebarAvatarImage.src = url;
     sidebarAvatarImage.classList.remove("hidden");
     if (sidebarAvatarInitials) sidebarAvatarInitials.classList.add("hidden");
+  }
+}
+
+function setChatNotificationDot(visible) {
+  if (chatNavDot) {
+    chatNavDot.classList.toggle("hidden", !visible);
+  }
+
+  if (chatNavItem) {
+    chatNavItem.dataset.hasUnread = visible ? "1" : "0";
+  }
+}
+
+async function refreshChatNotificationDot() {
+  if (chatBadgeRefreshInFlight) return;
+  chatBadgeRefreshInFlight = true;
+
+  try {
+    const [conversations, rooms] = await Promise.all([
+      typeof getConversations === "function" ? getConversations() : Promise.resolve([]),
+      typeof getRooms === "function" ? getRooms() : Promise.resolve([])
+    ]);
+
+    const dmUnread = Array.isArray(conversations)
+      ? conversations.reduce((total, conversation) => total + (Number(conversation?.unread_count) || 0), 0)
+      : 0;
+    const roomUnread = Array.isArray(rooms)
+      ? rooms.reduce((total, room) => total + (Number(room?.unread_count) || 0), 0)
+      : 0;
+
+    setChatNotificationDot((dmUnread + roomUnread) > 0);
+  } catch (error) {
+    console.warn("Failed to refresh chat notification badge:", error);
+  } finally {
+    chatBadgeRefreshInFlight = false;
   }
 }
 
@@ -163,8 +204,13 @@ function wireNavigation() {
     if (data.type === "avatar-updated") {
       refreshSidebarAvatar();
     }
+
+    if (data.type === "chat-unread-count") {
+      setChatNotificationDot(Number(data.count) > 0);
+    }
   });
 }
+
 
 async function bootstrap() {
     const me = getUser();
@@ -188,6 +234,18 @@ async function bootstrap() {
         adminNavItem.classList.add("hidden");
       }
     }
+
+    await refreshChatNotificationDot();
+    if (!chatBadgeRefreshTimer) {
+      chatBadgeRefreshTimer = window.setInterval(refreshChatNotificationDot, 60000);
+    }
+
+    window.addEventListener("focus", refreshChatNotificationDot);
+    window.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        refreshChatNotificationDot();
+      }
+    });
 
     const savedPage =
         localStorage.getItem(

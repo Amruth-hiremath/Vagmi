@@ -17,7 +17,8 @@ import {
   sendRoomImage,
   sendRoomVoice,
   deleteRoomMessage,
-  markRoomRead
+  markRoomRead,
+  clearRoomConversation
 } from "../../services/rooms.js";
 
 import {
@@ -531,6 +532,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const messageMenuSurface = document.getElementById("message-menu-surface");
   const roomCreateDialog = document.querySelector(".room-create-dialog");
 
+  const captionModal = document.getElementById("caption-modal");
+  const captionModalBackdrop = document.getElementById("caption-modal-backdrop");
+  const captionModalCancel = document.getElementById("caption-modal-cancel");
+  const captionModalSend = document.getElementById("caption-modal-send");
+  const captionInput = document.getElementById("caption-input");
+  const captionCharCount = document.getElementById("caption-char-count");
+
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+
   // Drawer admin section elements
   const roomAdminSection = document.getElementById("room-admin-section");
   const roomNameDisplay = document.getElementById("room-name-display");
@@ -654,15 +670,18 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     const menuWidth = menuRect.width || 260;
     const menuHeight = menuRect.height || 180;
     const maxLeft = window.innerWidth - menuWidth - viewportPadding;
-    let left = rect.right - menuWidth;
-    left = Math.min(Math.max(viewportPadding, left), maxLeft);
+    const preferLeft = rect.right - menuWidth;
+    const left = Math.min(Math.max(viewportPadding, preferLeft), maxLeft);
 
-    let top = rect.bottom + gap;
-    const belowOverflow = top + menuHeight > window.innerHeight - viewportPadding;
-    if (belowOverflow) {
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+    let top;
+    if (spaceBelow >= menuHeight + gap || spaceBelow >= spaceAbove) {
+      top = rect.bottom + gap;
+    } else {
       top = rect.top - gap - menuHeight;
     }
-    top = Math.max(viewportPadding, top);
+    top = Math.min(Math.max(viewportPadding, top), window.innerHeight - menuHeight - viewportPadding);
 
     surfaceEl.style.left = `${left}px`;
     surfaceEl.style.top = `${top}px`;
@@ -794,13 +813,13 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
   fileInput?.addEventListener("change", () => {
     const file = fileInput.files?.[0];
-    if (file) handleAttachment(file, "FILE");
+    if (file) openCaptionModal(file, "FILE");
     fileInput.value = "";
   });
 
   imageInput?.addEventListener("change", () => {
     const file = imageInput.files?.[0];
-    if (file) handleAttachment(file, "IMAGE");
+    if (file) openCaptionModal(file, "IMAGE");
     imageInput.value = "";
   });
 
@@ -959,12 +978,12 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest(".menu-popover") ||
       target.closest("#room-member-picker") ||
       target.closest("#room-member-results") ||
-      target.closest(".message-menu") ||
       target.closest(".message-menu-btn") ||
       target.closest(".message-menu-item")
     ) {
       return;
     }
+    // Close any open message menu overlay when clicking outside.
     clearRoomMemberSearchResults();
     closeAllOverlays();
   });
@@ -989,7 +1008,11 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       if (!confirmed) return;
 
       try {
-        await clearConversation(thread.id);
+        if (thread.kind === "room") {
+          await clearRoomConversation(thread.id);
+        } else {
+          await clearConversation(thread.id);
+        }
         const id = thread.id;
         await refreshConversations({ preserveSelection: false });
         await openThread(id, { remember: true });
@@ -1260,15 +1283,10 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
     if (menuBtn) {
       event.stopPropagation();
-
-      document.querySelectorAll(".message-menu").forEach(menu => {
-        menu.classList.add("hidden");
-      });
-
-      const menu = document.querySelector(`[data-message-menu="${menuBtn.dataset.messageId}"]`);
-      console.log("Menu element:", menu, "Message ID:", menuBtn.dataset.messageId);
-      menu?.classList.toggle("hidden");
-
+      const messageId = Number(menuBtn.dataset.messageId);
+      const message = thread.messages.find((m) => Number(m.id) === messageId);
+      if (!message) return;
+      openMessageMenu(menuBtn, message, thread);
       return;
     }
 
@@ -1462,7 +1480,28 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
   attachmentModalBackdrop?.addEventListener("click", () => closeAttachmentModal());
   attachmentModalClose?.addEventListener("click", () => closeAttachmentModal());
 
+  captionModalBackdrop?.addEventListener("click", closeCaptionModal);
+  captionModalCancel?.addEventListener("click", closeCaptionModal);
+
+  captionInput?.addEventListener("input", () => {
+    const length = captionInput.value.length;
+    if (captionCharCount) {
+      captionCharCount.textContent = length;
+    }
+  });
+
+  captionModalSend?.addEventListener("click", async () => {
+    const caption = captionInput?.value?.trim() || "";
+    await sendPendingAttachment(caption);
+    closeCaptionModal();
+  });
+
   messageMenuBackdrop?.addEventListener("click", () => closeMessageMenu());
+  messageMenuOverlay?.addEventListener("click", (event) => {
+    if (event.target === messageMenuOverlay) {
+      closeMessageMenu();
+    }
+  });
   messageMenuSurface?.addEventListener("click", (event) => {
     event.stopPropagation();
   });
@@ -1638,6 +1677,124 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 });
 
 let refreshTimer = null;
+let pendingAttachmentFile = null;
+let pendingAttachmentType = null;
+
+function openCaptionModal(file, type) {
+  pendingAttachmentFile = file;
+  pendingAttachmentType = type;
+  const captionInput = document.getElementById("caption-input");
+  const captionCharCount = document.getElementById("caption-char-count");
+  const captionModal = document.getElementById("caption-modal");
+  if (captionInput) {
+    captionInput.value = "";
+    if (captionCharCount) {
+      captionCharCount.textContent = "0";
+    }
+  }
+  captionModal?.classList.remove("hidden");
+  captionModal?.setAttribute("aria-hidden", "false");
+  captionInput?.focus();
+}
+
+function closeCaptionModal() {
+  const captionModal = document.getElementById("caption-modal");
+  captionModal?.classList.add("hidden");
+  captionModal?.setAttribute("aria-hidden", "true");
+  pendingAttachmentFile = null;
+  pendingAttachmentType = null;
+}
+
+async function sendPendingAttachment(caption) {
+  if (!pendingAttachmentFile) return;
+
+  const file = pendingAttachmentFile;
+  const type = pendingAttachmentType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
+
+  showUploadProgress();
+
+  try {
+    await handleAttachment(file, type, caption);
+  } catch (error) {
+    console.error("Attachment send failed", error);
+    alert(error?.message || "Failed to send attachment.");
+  } finally {
+    hideUploadProgress();
+  }
+}
+
+function showUploadProgress() {
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+  uploadProgress?.classList.remove("hidden");
+  uploadProgress?.setAttribute("aria-hidden", "false");
+  if (uploadProgressFill) {
+    uploadProgressFill.style.width = "0%";
+    uploadProgressFill.classList.add("buffering");
+  }
+  if (uploadProgressText) {
+    uploadProgressText.textContent = "Uploading...";
+  }
+}
+
+function hideUploadProgress() {
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+  uploadProgress?.classList.add("hidden");
+  uploadProgress?.setAttribute("aria-hidden", "true");
+  if (uploadProgressFill) {
+    uploadProgressFill.style.width = "100%";
+    uploadProgressFill.classList.remove("buffering");
+  }
+  if (uploadProgressText) {
+    uploadProgressText.textContent = "Complete";
+  }
+  setTimeout(() => {
+    if (uploadProgressFill) {
+      uploadProgressFill.style.width = "0%";
+    }
+  }, 500);
+}
+
+function showDownloadProgress() {
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+  downloadProgress?.classList.remove("hidden");
+  downloadProgress?.setAttribute("aria-hidden", "false");
+  if (downloadProgressFill) {
+    downloadProgressFill.style.width = "0%";
+    downloadProgressFill.classList.add("buffering");
+  }
+  if (downloadProgressText) {
+    downloadProgressText.textContent = "Downloading...";
+  }
+}
+
+function hideDownloadProgress() {
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+  downloadProgress?.classList.add("hidden");
+  downloadProgress?.setAttribute("aria-hidden", "true");
+  if (downloadProgressFill) {
+    downloadProgressFill.style.width = "100%";
+    downloadProgressFill.classList.remove("buffering");
+  }
+  if (downloadProgressText) {
+    downloadProgressText.textContent = "Complete";
+  }
+  setTimeout(() => {
+    if (downloadProgressFill) {
+      downloadProgressFill.style.width = "0%";
+    }
+  }, 500);
+}
+
+window.showDownloadProgress = showDownloadProgress;
+window.hideDownloadProgress = hideDownloadProgress;
 
 function startConversationPolling() {
 

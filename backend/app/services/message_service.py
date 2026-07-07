@@ -8,13 +8,15 @@ def create_message(
     room_id: int,
     sender_id: int,
     message_text: str,
-    message_type: str = "TEXT"
+    message_type: str = "TEXT",
+    caption: str = None
 ):
     message = Message(
         room_id=room_id,
         sender_id=sender_id,
         message_text=message_text,
-        message_type=message_type
+        message_type=message_type,
+        caption=caption
     )
 
     db.add(message)

@@ -62,6 +62,7 @@ html[data-theme] {
   --shadow-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 
   --modal-overlay: rgba(0, 0, 0, 0.92);
+  --message-menu-backdrop: rgba(255, 255, 255, 0.04);
   --overlay-button-bg: rgba(255, 255, 255, 0.12);
   --overlay-button-border: rgba(255, 255, 255, 0.14);
   --overlay-button-text: #ffffff;
@@ -120,6 +121,7 @@ html[data-theme="claude-light"] {
   --shadow-inset: inset 0 0 0 1px rgba(124, 92, 59, 0.04);
 
   --modal-overlay: rgba(17, 24, 39, 0.88);
+  --message-menu-backdrop: rgba(255, 255, 255, 0.18);
   --overlay-button-bg: rgba(255, 255, 255, 0.18);
   --overlay-button-border: rgba(255, 255, 255, 0.20);
   --overlay-button-text: #ffffff;
@@ -309,6 +311,12 @@ html[data-theme] .toast {
   border: 1px solid var(--border-subtle) !important;
 }
 
+
+html[data-theme] .user-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 
 html[data-theme] .online-dot,
 html[data-theme] .status-dot,

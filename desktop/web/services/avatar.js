@@ -42,26 +42,33 @@ export async function loadAvatarObjectUrl(userId) {
   const key = `${userId}:${cacheToken}`;
 
   const cached = urlCache.get(key);
-  if (cached) return cached;
+  if (cached !== undefined) return cached === null ? "" : cached;
 
   try {
     const response = await apiRequest(profileImageUrl(userId));
-    if (!response.ok) return "";
+    if (!response.ok) {
+      urlCache.set(key, null);
+      return "";
+    }
     const blob = await response.blob();
-    if (!blob || blob.size === 0) return "";
+    if (!blob || blob.size === 0) {
+      urlCache.set(key, null);
+      return "";
+    }
     const objectUrl = URL.createObjectURL(blob);
 
     // Revoke previous tokens for this user, keep the cache bounded.
     for (const [k] of urlCache) {
       if (k !== key && k.startsWith(`${userId}:`)) {
         const stale = urlCache.get(k);
-        if (stale) URL.revokeObjectURL(stale);
+        if (stale && stale !== null) URL.revokeObjectURL(stale);
         urlCache.delete(k);
       }
     }
     urlCache.set(key, objectUrl);
     return objectUrl;
   } catch {
+    urlCache.set(key, null);
     return "";
   }
 }
