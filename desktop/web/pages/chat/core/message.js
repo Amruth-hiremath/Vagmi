@@ -15,7 +15,7 @@ import {
 import {
   activeThread
 } from "./conversation.js";
-
+import { apiRequest } from "../../../services/api.js";
 
 
 
@@ -48,7 +48,7 @@ export function messageHTML(thread, message) {
 
     if (message.type === "VOICE") {
 
-      const audioUrl = buildAttachmentUrl(thread, message) || `/api/dm/voice/${message.id}`;
+      const audioUrl =message.attachmentUrl || buildAttachmentUrl(thread, message);
 
       return `
         <div class="message-row ${sideClass}">
@@ -69,7 +69,7 @@ export function messageHTML(thread, message) {
               >
                 <source
                   src="${audioUrl}"
-                  type="audio/webm"
+                  type="audio/wav"
                 >
               </audio>
 
@@ -322,6 +322,37 @@ export function renderMessages(thread) {
   scrollMessagesToBottom();
 }
 
+
+async function loadVoiceBlobUrl(thread, message) {
+
+  const endpoint =
+    thread.type === "room"
+      ? `/rooms/voice/${message.id}`
+      : `/dm/voice/${message.id}`;
+
+  try {
+
+    const response = await apiRequest(endpoint);
+
+    const blob = await response.blob();
+
+    return URL.createObjectURL(blob);
+
+  } catch (error) {
+
+    console.error(
+      "Failed loading voice",
+      message.id,
+      error
+    );
+
+    return "";
+
+  }
+
+}
+
+
 export async function loadMessages(conversationId, loadToken = 0) {
   const state = window.chatState;
   const getMessages = window.getMessages;
@@ -352,7 +383,7 @@ export async function loadMessages(conversationId, loadToken = 0) {
       return;
     }
 
-    thread.messages = (messages || []).map((message) => {
+    thread.messages = await Promise.all((messages || []).map(async (message) => {
       const senderName = message.sender_username || "Unknown";
       const isSelf = senderName === (currentUser?.username || "");
 
@@ -364,21 +395,32 @@ export async function loadMessages(conversationId, loadToken = 0) {
           : "") ||
         "";
 
-      return {
-        id: message.id,
-        sender: isSelf ? "self" : "other",
-        senderName,
-        senderId: message.sender_id,
-        type: (message.message_type || "TEXT").toUpperCase(),
-        text: message.message_text || "",
-        originalFilename: attachmentName,
-        attachmentPath: message.attachment_path || "",
-        attachmentId: message.attachment_id || null,
-        fileMeta: attachmentName,
-        createdAt: message.created_at,
-        time: formatTime(message.created_at)
+      const mapped = {
+          id: message.id,
+          sender: isSelf ? "self" : "other",
+          senderName,
+          senderId: message.sender_id,
+          type: (message.message_type || "TEXT").toUpperCase(),
+          text: message.message_text || "",
+          originalFilename: attachmentName,
+          attachmentPath: message.attachment_path || "",
+          attachmentId: message.attachment_id || null,
+          fileMeta: attachmentName,
+          createdAt: message.created_at,
+          time: formatTime(message.created_at)
       };
-    });
+      if (mapped.type === "VOICE") {
+
+          mapped.attachmentUrl =
+              await loadVoiceBlobUrl(
+                  thread,
+                  mapped
+              );
+
+      }
+      return mapped;
+    })
+    );
 
     updateConversationMeta(thread);
     updateInfoDrawer(thread);

@@ -195,6 +195,58 @@ def send_voice_message(
         "created_at": message.created_at
     }
 
+@router.get(
+    "/voice/{message_id}"
+)
+def get_room_voice_message(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == message_id
+        )
+        .first()
+    )
+
+    if not message:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    if message.message_type != "VOICE":
+        raise HTTPException(
+            status_code=400,
+            detail="Not a voice message"
+        )
+
+    verify_room_membership(
+        message.room_id,
+        current_user.id,
+        db
+    )
+
+    file_path = Path(message.attachment_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Voice file not found"
+        )
+
+    media_type, _ = mimetypes.guess_type(
+        str(file_path)
+    )
+
+    return FileResponse(
+        path=str(file_path),
+        filename=message.original_filename or file_path.name,
+        media_type=media_type or "application/octet-stream"
+    )
+
 
 @router.get(
     "/{room_id}/messages",

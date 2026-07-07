@@ -3,7 +3,7 @@
 import { escapeHTML } from "./utils.js";
 import { iconMap } from "./icons.js";
 import { apiRequest } from "../../../services/api.js";
-
+import { getDesktopBridge } from "../../../services/desktop.js";
 let attachmentPreview = null;
 
 export function clearAttachmentPreview() {
@@ -49,47 +49,31 @@ async function blobToDataUrl(blob) {
 
 export async function saveBlobToDownloads(blob, filename) {
   const safeName = filename || "attachment";
-  console.log("saveBlobToDownloads called with filename:", safeName, "blob size:", blob?.size);
 
-  const bridge = window.pywebview?.api?.save_chat_download;
-  console.log("Pywebview bridge available:", typeof bridge === "function");
-  if (typeof bridge === "function") {
+  const bridge = getDesktopBridge();
+
+  if (bridge?.save_chat_download) {
     try {
       const dataUrl = await blobToDataUrl(blob);
-      console.log("Data URL created, length:", dataUrl?.length);
-      const savedPath = await bridge(dataUrl, safeName);
+
+      const savedPath = await bridge.save_chat_download(
+        dataUrl,
+        safeName
+      );
+
+      if (savedPath === "") {
+        return;
+      }
+
       console.log("File saved to:", savedPath);
-      if (savedPath === "") return;
       return;
+
     } catch (error) {
-      console.error("Pywebview save failed:", error);
+      console.error("PyWebView save failed:", error);
     }
   }
 
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
-      const options = { suggestedName: safeName };
-      if (blob?.type) {
-        const extension = safeName.includes(".") ? `.${safeName.split('.').pop()}` : "";
-        options.types = [
-          {
-            description: "Attachment",
-            accept: {
-              [blob.type]: extension ? [extension] : []
-            }
-          }
-        ];
-      }
-      const handle = await window.showSaveFilePicker(options);
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return;
-    } catch (error) {
-      console.error("Native save picker failed:", error);
-      if (error?.name === "AbortError") return;
-    }
-  }
+  // Browser fallback continues below...
 
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -161,19 +145,36 @@ export function attachmentDownloadName(message) {
 
 export function buildAttachmentUrl(thread, message) {
   if (!thread || !message) return "";
-  if (message.attachmentUrl) return message.attachmentUrl;
+
+  if (message.attachmentUrl) {
+    return message.attachmentUrl;
+  }
+
+  // Voice messages use a dedicated endpoint
+  if (message.type === "VOICE") {
+    if (thread.kind === "dm" || thread.type === "dm") {
+      return `/api/dm/voice/${message.id}`;
+    }
+
+    return `/api/rooms/voice/${message.id}`;
+  }
+
   if (message.attachmentId) {
     return `/attachments/${message.attachmentId}`;
   }
+
   if (message.attachmentPath) {
     if (thread.kind === "dm" || thread.type === "dm") {
       return `/dm/${thread.id}/messages/${message.id}/attachment`;
     }
+
     return `/rooms/${thread.id}/messages/${message.id}/attachment`;
   }
+
   if (thread.kind === "dm" || thread.type === "dm") {
     return `/dm/${thread.id}/messages/${message.id}/attachment`;
   }
+
   return `/rooms/${thread.id}/messages/${message.id}/attachment`;
 }
 

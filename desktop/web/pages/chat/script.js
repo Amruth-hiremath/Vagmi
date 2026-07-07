@@ -1,5 +1,7 @@
 // desktop/web/pages/chat/script.js
-
+console.log("window.pywebview =", window.pywebview);
+console.log("parent.pywebview =", window.parent.pywebview);
+console.log("top.pywebview =", window.top.pywebview);
 import { getConversations, getMessages, sendMessage, sendImage, sendVoice, markConversationRead, clearConversation, deleteMessage } from "../../services/dm.js";
 import { apiRequest } from "../../services/api.js";
 import { getUser } from "../../services/auth.js";
@@ -17,6 +19,11 @@ import {
   deleteRoomMessage,
   markRoomRead
 } from "../../services/rooms.js";
+
+import {
+  getDesktopBridge,
+  dataUrlToFile
+} from "../../services/desktop.js";
 
 import { escapeHTML, formatTime, formatFileSize } from "./core/utils.js";
 import { saveActiveThreadKey, getSavedActiveThreadKey, makeThreadKey } from "./core/state.js";
@@ -798,50 +805,93 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
   });
 
   micBtn?.addEventListener("click", async () => {
+    console.log("Mic button clicked");
+
     const thread = activeThread(state);
-    if (!thread) return;
+
+    if (!thread) {
+      return;
+    }
+
+    const bridge = getDesktopBridge();
+    console.log("Bridge:", bridge);
+
+    if (!bridge) {
+      console.error("Desktop bridge unavailable");
+      return;
+    }
 
     try {
+
       if (!isRecording) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recordedChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
 
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) recordedChunks.push(event.data);
-        };
+        console.log("Calling start_voice_recording");
+        await bridge.start_voice_recording();
+        console.log("Recording started");
 
-        mediaRecorder.start();
         isRecording = true;
+
         micBtn.classList.add("recording");
+
         return;
+
       }
 
-      mediaRecorder.onstop = async () => {
-        try {
-          const blob = new Blob(recordedChunks, { type: "audio/webm" });
-          const file = new File([blob], `voice-${Date.now()}.webm`, { type: "audio/webm" });
-          if (thread.type === "room") {
-            await sendRoomVoice(thread.id, file);
-          } else {
-            await sendVoice(thread.id, file);
-          }
-          await loadMessages(thread.key);
-          requestAnimationScroll();
-        } catch (error) {
-          console.error("Voice upload failed", error);
-        } finally {
-          mediaRecorder?.stream?.getTracks().forEach((track) => track.stop());
-          mediaRecorder = null;
-          isRecording = false;
-          micBtn.classList.remove("recording");
-        }
-      };
+      const dataUrl =
+        await bridge.stop_voice_recording();
+      
+      console.log("stop_voice_recording returned:", dataUrl);
+      isRecording = false;
 
-      mediaRecorder.stop();
+      micBtn.classList.remove("recording");
+
+      if (!dataUrl) {
+        throw new Error(
+          "No audio recorded."
+        );
+      }
+
+      const file =
+        await dataUrlToFile(
+          dataUrl,
+          `voice-${Date.now()}.wav`
+        );
+        console.log("Created file:", file);
+      if (thread.type === "room") {
+
+        await sendRoomVoice(
+          thread.id,
+          file
+        );
+
+      } else {
+
+        await sendVoice(
+          thread.id,
+          file
+        );
+        console.log("Uploading voice...");
+
+      }
+
+      await loadMessages(
+        thread.key
+      );
+
+      requestAnimationScroll();
+
     } catch (error) {
-      console.error("Voice recording failed", error);
-    }
+
+      console.error(
+        "Voice recording failed",
+        error
+      );
+      isRecording = false;
+
+      micBtn.classList.remove("recording");
+
+    } 
+
   });
 
   chatSearch?.addEventListener("input", () => currentSearchUpdate());
@@ -881,20 +931,6 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
     menuPopover?.classList.toggle("hidden", !state.menuOpen);
   });
 
-  let notificationPermissionRequested = false;
-
-  function requestNotificationPermission() {
-    console.log("Checking notification permission:", Notification.permission);
-    if (!notificationPermissionRequested && "Notification" in window && Notification.permission === "default") {
-      console.log("Requesting notification permission...");
-      Notification.requestPermission().then(permission => {
-        console.log("Notification permission:", permission);
-        notificationPermissionRequested = true;
-      });
-    }
-  }
-
-  document.addEventListener("click", requestNotificationPermission, { once: true });
 
   document.addEventListener("click", (event) => {
     const target = event.target;
@@ -1585,7 +1621,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
         scrollMessagesToBottom();
       }
       
-      startConversationPolling();
+      // startConversationPolling();
 
     } catch (error) {
       console.error("Conversation load failed", error);
@@ -1595,6 +1631,8 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       showConversationEmptyState(state);
     }
   }
+
+  
 
   initialize();
 });

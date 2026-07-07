@@ -11,7 +11,7 @@ import {
 } from "./ui.js";
 import { formatTime } from "./utils.js";
 import { closeAttachmentModal } from "./attachment.js";
-
+import { getDesktopBridge } from "../../../services/desktop.js";
 export function activeThread(state) {
   return state.threads.find((thread) => thread.key === state.activeThreadKey) || null;
 }
@@ -290,17 +290,31 @@ export async function loadConversations({ preserveSelection = true } = {}) {
     };
   }));
 
+  const bridge = getDesktopBridge();
+
   for (const thread of [...dmThreads, ...roomThreads]) {
 
     if (
       thread.hasNewMessage &&
-      Notification.permission === "granted" &&
-      document.hidden
+      document.hidden &&
+      bridge?.show_notification
     ) {
 
-      new Notification(thread.title, {
-        body: thread.lastMessage || "New message"
-      });
+      try {
+
+        await bridge.show_notification(
+          thread.title,
+          thread.lastMessage || "New message"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Failed to show desktop notification:",
+          error
+        );
+
+      }
 
     }
 

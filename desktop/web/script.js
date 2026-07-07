@@ -1,3 +1,4 @@
+// desktop/web/script.js
 import {
   isAuthenticated,
   getUser,

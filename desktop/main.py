@@ -11,13 +11,16 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
-
+from notifypy import Notify
 import webview
 import mimetypes
+import subprocess
+import platform
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("application/javascript", ".mjs")
 
+from audio.recorder import VoiceRecorder
 
 BACKEND_BASE_URL = "http://127.0.0.1:8000"
 
@@ -70,19 +73,24 @@ def _save_dialog(filename: str) -> str | None:
 
     return str(result)
 
+voice_recorder = VoiceRecorder()
 
 class DesktopBridge:
     def save_chat_download(self, data_url: str, filename: str) -> str:
+        print("Bridge called")
         match = re.match(r"^data:.*?;base64,(.*)$", data_url, flags=re.DOTALL)
         if not match:
             raise ValueError("Invalid download payload")
 
         payload = base64.b64decode(match.group(1))
         safe_name = Path(filename or "attachment").name
+        print("Decoded")
 
         chosen_path = _save_dialog(safe_name)
         if not chosen_path:
             return ""
+        
+        print("Chosen:", chosen_path)
 
         target_path = Path(chosen_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,8 +106,56 @@ class DesktopBridge:
                     break
                 counter += 1
 
+        print("Writing file")
         target_path.write_bytes(payload)
+        print("Finished")
         return str(target_path)
+    def show_notification(
+        self,
+        title: str,
+        message: str
+    ):
+        notification = Notify()
+
+        notification.application_name = "Vāgmi"
+        notification.icon = str(
+            Path(__file__).resolve().parent
+            / "web"
+            / "assets"
+            / "logo_dark.png"
+        )
+
+        notification.title = title
+        notification.message = message
+
+        notification.send()
+
+        system = platform.system()
+
+        try:
+            if system == "Darwin":
+                subprocess.Popen([
+                    "afplay",
+                    "/System/Library/Sounds/Glass.aiff"
+                ])
+
+            elif system == "Windows":
+                import winsound
+                winsound.MessageBeep(winsound.MB_ICONINFORMATION)
+
+        except Exception:
+            pass
+
+    def start_voice_recording(self):
+
+        voice_recorder.start()
+
+    def stop_voice_recording(self):
+
+        return voice_recorder.stop()
+
+       
+    
 
 
 class VagmiRequestHandler(SimpleHTTPRequestHandler):
