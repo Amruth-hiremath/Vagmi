@@ -296,7 +296,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
 
     if (
       thread.hasNewMessage &&
-      document.hidden &&
+      !document.hasFocus() &&
       bridge?.show_notification
     ) {
 

@@ -1621,7 +1621,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
         scrollMessagesToBottom();
       }
       
-      // startConversationPolling();
+      startConversationPolling();
 
     } catch (error) {
       console.error("Conversation load failed", error);

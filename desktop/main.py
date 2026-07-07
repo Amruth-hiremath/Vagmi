@@ -16,6 +16,7 @@ import webview
 import mimetypes
 import subprocess
 import platform
+import webbrowser
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("application/javascript", ".mjs")
@@ -461,10 +462,15 @@ def main() -> None:
 
     thread.start()
 
+    url = f"http://{HOST}:{server_port}/splash.html"
+
+    # Opens your default browser
+    webbrowser.open_new_tab(url)
+
     try:
         window = webview.create_window(
             title="Vāgmi - Secure Workspace",
-            url=f"http://{HOST}:{server_port}/splash.html",
+            url=url,
             width=1600,
             height=1000,
             min_size=(1280, 840),
