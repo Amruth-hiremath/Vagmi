@@ -208,7 +208,7 @@ export function updateConversationMeta(thread) {
 
       if (thread.is_online) {
 
-        conversationStatus.textContent = " Online";
+        conversationStatus.textContent = "🟢 Online";
 
       } else if (thread.last_seen) {
 

@@ -8,19 +8,17 @@ import {
 } from "./services/auth.js";
 
 import { apiRequest } from "./services/api.js";
-import { getConversations } from "./services/dm.js";
-import { getRooms } from "./services/rooms.js";
 import {
   initialsFor,
   loadMyAvatarObjectUrl
 } from "./services/avatar.js";
 
 const PAGE_MAP = {
-  home: "./pages/home/index.html",
-  intelligence: "./pages/intelligence/index.html",
-  chat: "./pages/chat/index.html",
-  settings: "./pages/settings/index.html",
-  admin: "./pages/admin/index.html"
+  home: "/pages/home/index.html",
+  intelligence: "/pages/intelligence/index.html",
+  chat: "/pages/chat/index.html",
+  settings: "/pages/settings/index.html",
+  admin: "/pages/admin/index.html"
 };
 
 const DEFAULT_PAGE = "home";
@@ -35,10 +33,6 @@ const logoutBtn = document.getElementById("logout-btn");
 const userAvatar = document.querySelector(".user-avatar");
 const sidebarAvatarImage = document.getElementById("sidebar-user-avatar-image");
 const sidebarAvatarInitials = document.getElementById("sidebar-user-initials");
-const chatNavItem = document.querySelector('.nav-item[data-page="chat"]');
-const chatNavDot = document.getElementById("chat-nav-dot");
-let chatBadgeRefreshInFlight = false;
-let chatBadgeRefreshTimer = null;
 
 function setSidebarCollapsed(collapsed) {
   document.body.classList.toggle("sidebar-collapsed", collapsed);
@@ -52,11 +46,7 @@ function setActivePage(page) {
     item.classList.toggle("active", item.dataset.page === page);
   });
 
-  const targetUrl = new URL(PAGE_MAP[page], window.location.href).href;
-  if (pageFrame.src !== targetUrl) {
-    pageFrame.src = targetUrl;
-  }
-
+  pageFrame.src = PAGE_MAP[page];
   localStorage.setItem(activePageKey, page);
 }
 
@@ -87,41 +77,6 @@ async function refreshSidebarAvatar() {
     sidebarAvatarImage.src = url;
     sidebarAvatarImage.classList.remove("hidden");
     if (sidebarAvatarInitials) sidebarAvatarInitials.classList.add("hidden");
-  }
-}
-
-function setChatNotificationDot(visible) {
-  if (chatNavDot) {
-    chatNavDot.classList.toggle("hidden", !visible);
-  }
-
-  if (chatNavItem) {
-    chatNavItem.dataset.hasUnread = visible ? "1" : "0";
-  }
-}
-
-async function refreshChatNotificationDot() {
-  if (chatBadgeRefreshInFlight) return;
-  chatBadgeRefreshInFlight = true;
-
-  try {
-    const [conversations, rooms] = await Promise.all([
-      typeof getConversations === "function" ? getConversations() : Promise.resolve([]),
-      typeof getRooms === "function" ? getRooms() : Promise.resolve([])
-    ]);
-
-    const dmUnread = Array.isArray(conversations)
-      ? conversations.reduce((total, conversation) => total + (Number(conversation?.unread_count) || 0), 0)
-      : 0;
-    const roomUnread = Array.isArray(rooms)
-      ? rooms.reduce((total, room) => total + (Number(room?.unread_count) || 0), 0)
-      : 0;
-
-    setChatNotificationDot((dmUnread + roomUnread) > 0);
-  } catch (error) {
-    console.warn("Failed to refresh chat notification badge:", error);
-  } finally {
-    chatBadgeRefreshInFlight = false;
   }
 }
 
@@ -204,16 +159,12 @@ function wireNavigation() {
     if (data.type === "avatar-updated") {
       refreshSidebarAvatar();
     }
-
-    if (data.type === "chat-unread-count") {
-      setChatNotificationDot(Number(data.count) > 0);
-    }
   });
 }
 
 
 async function bootstrap() {
-    const me = getUser();
+     const me = await validateSession();
     if (!me)
         return;
 
@@ -227,36 +178,34 @@ async function bootstrap() {
     updateUserBadge(me);
 
     const adminNavItem = document.getElementById("admin-nav-item");
-    if (adminNavItem) {
-      if (me?.is_admin) {
-        adminNavItem.classList.remove("hidden");
-      } else {
-        adminNavItem.classList.add("hidden");
-      }
+    if (me?.is_admin || me?.role === "owner" || me?.role === "admin") {
+    adminNavItem.classList.remove("hidden");
+    } else {
+    adminNavItem.classList.add("hidden");
     }
 
-    await refreshChatNotificationDot();
-    if (!chatBadgeRefreshTimer) {
-      chatBadgeRefreshTimer = window.setInterval(refreshChatNotificationDot, 60000);
-    }
+    const savedPage = localStorage.getItem(activePageKey);
 
-    window.addEventListener("focus", refreshChatNotificationDot);
-    window.addEventListener("visibilitychange", () => {
-      if (!document.hidden) {
-        refreshChatNotificationDot();
-      }
-    });
+const isAdminUser = me?.role === "owner" || me?.role === "admin" || me?.is_admin;
 
-    const savedPage =
-        localStorage.getItem(
-            activePageKey
-        );
+const pageToLoad = (savedPage === "admin" && !isAdminUser)
+    ? DEFAULT_PAGE
+    : (PAGE_MAP[savedPage] ? savedPage : DEFAULT_PAGE);
 
-    setActivePage(
-        PAGE_MAP[savedPage]
-            ? savedPage
-            : DEFAULT_PAGE
-    );
+setActivePage(pageToLoad);
+    requestAnimationFrame(() => {
+
+    document.body.style.willChange = "transform";
+    document.body.style.transform = "translateZ(0)";
+
+    requestAnimationFrame(() => {
+
+    document.body.style.transform = "";
+    document.body.style.willChange = "auto";
+
+  });
+
+});
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

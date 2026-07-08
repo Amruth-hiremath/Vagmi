@@ -16,7 +16,6 @@ class VoiceRecorder:
         self._channels = 1
 
         self._frames = []
-
         self._stream = None
 
         self._lock = threading.Lock()
@@ -35,7 +34,8 @@ class VoiceRecorder:
                 if status:
                     print(status)
 
-                self._frames.append(indata.copy())
+                with self._lock:
+                    self._frames.append(indata.copy())
 
             self._stream = sd.InputStream(
                 samplerate=self._samplerate,
@@ -43,41 +43,51 @@ class VoiceRecorder:
                 callback=callback
             )
 
-            self._stream.start()    
+            self._stream.start()
 
     def stop(self):
 
         with self._lock:
 
-            if self._stream is None:
+            stream = self._stream
+
+            if stream is None:
                 return None
 
-            self._stream.stop()
-            self._stream.close()
             self._stream = None
 
-            if not self._frames:
+        # Stop and close the stream outside the lock
+        stream.stop()
+        stream.close()
+
+        # Safely copy the recorded frames
+        with self._lock:
+
+            if len(self._frames) == 0:
                 return None
 
-            audio = np.concatenate(
-                self._frames,
-                axis=0
-            )
+            frames = self._frames[:]
+            self._frames = []
 
-            buffer = io.BytesIO()
+        audio = np.concatenate(
+            frames,
+            axis=0
+        )
 
-            sf.write(
-                buffer,
-                audio,
-                self._samplerate,
-                format="WAV"
-            )
+        buffer = io.BytesIO()
 
-            data = base64.b64encode(
-                buffer.getvalue()
-            ).decode()
+        sf.write(
+            buffer,
+            audio,
+            self._samplerate,
+            format="WAV"
+        )
 
-            return (
-                "data:audio/wav;base64,"
-                + data
-            )        
+        data = base64.b64encode(
+            buffer.getvalue()
+        ).decode("utf-8")
+
+        return (
+            "data:audio/wav;base64,"
+            + data
+        )
