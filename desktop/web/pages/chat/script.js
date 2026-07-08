@@ -825,6 +825,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
   micBtn?.addEventListener("click", async () => {
     console.log("Mic button clicked");
+    console.log("isRecording =", isRecording);
 
     const thread = activeThread(state);
 

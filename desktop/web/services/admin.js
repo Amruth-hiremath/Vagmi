@@ -29,9 +29,7 @@ export async function getUsers() {
   );
 }
 
-export async function approveUser(
-  userId
-) {
+export async function approveUser(userId) {
   return parseJson(
     await apiRequest(
       `/admin/users/${userId}/approve`,
@@ -42,14 +40,45 @@ export async function approveUser(
   );
 }
 
-export async function rejectUser(
-  userId
-) {
+export async function rejectUser(userId) {
   return parseJson(
     await apiRequest(
       `/admin/users/${userId}`,
       {
         method: "DELETE"
+      }
+    )
+  );
+}
+
+export async function makeAdmin(userId) {
+  return parseJson(
+    await apiRequest(
+      `/admin/users/${userId}/make-admin`,
+      {
+        method: "POST"
+      }
+    )
+  );
+}
+
+export async function removeAdmin(userId) {
+  return parseJson(
+    await apiRequest(
+      `/admin/users/${userId}/remove-admin`,
+      {
+        method: "POST"
+      }
+    )
+  );
+}
+
+export async function transferOwnership(userId) {
+  return parseJson(
+    await apiRequest(
+      `/admin/users/${userId}/transfer-ownership`,
+      {
+        method: "POST"
       }
     )
   );

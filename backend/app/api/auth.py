@@ -1,23 +1,31 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import UserRegister
-from app.schemas.auth import UserLogin
-from app.schemas.auth import TokenResponse
+
 from app.schemas.auth import (
+    UserRegister,
+    UserLogin,
+    TokenResponse,
     UserResponse,
     ChangePasswordRequest,
     MessageResponse
 )
-from app.core.security import get_current_user
-from app.core.security import hash_password
-from app.core.security import verify_password
-from app.core.security import create_access_token
+from app.core.security import (
+    get_current_user,
+    hash_password,
+    verify_password,
+    create_access_token
+)
+
 from app.services.storage_service import create_user_workspace
-from app.core.validators import (validate_username, validate_password)
+
+from app.core.validators import (
+    validate_username,
+    validate_password
+)
+
 from app.core.logging_config import logger
 
 router = APIRouter(
@@ -25,27 +33,20 @@ router = APIRouter(
     tags=["Authentication"]
 )
 
-# endpoint for registering a new user using username and password
+# ------------------------------------------------------------------
+# Register
+# ------------------------------------------------------------------
 @router.post("/register")
 def register(
     user_data: UserRegister,
     db: Session = Depends(get_db)
 ):
-    
-
-    validate_username(
-        user_data.username
-    )
-
-    validate_password(
-        user_data.password
-    )
+    validate_username(user_data.username)
+    validate_password(user_data.password)
 
     existing_user = (
         db.query(User)
-        .filter(
-            User.username == user_data.username
-        )
+        .filter(User.username == user_data.username)
         .first()
     )
 
@@ -55,45 +56,52 @@ def register(
             detail="Username already exists"
         )
 
-    admin_exists = (
-        db.query(User)
-        .filter(User.is_admin.is_(True))
-        .first()
-    )
+    # First registered user becomes Owner
+    user_count = db.query(User).count()
+    is_first_user = user_count == 0
 
     user = User(
         username=user_data.username,
-        password_hash=hash_password(
-            user_data.password
-        ),
-        is_admin=admin_exists is None,
-        is_approved=admin_exists is None
+        password_hash=hash_password(user_data.password),
+
+        role="owner" if is_first_user else "user",
+
+        # Temporary backward compatibility
+        is_admin=is_first_user,
+
+        # Owner is auto approved
+        is_approved=is_first_user
     )
 
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    
+    # Create workspace immediately for Owner
+    if user.role == "owner":
+        create_user_workspace(user.id)
 
-    if user.is_admin:
-        logger.info(f"Administrator account created: {user.username}")
+        logger.info(
+            f"Owner account created: {user.username}"
+        )
+
         return {
-            "message": "Administrator account created successfully."
+            "message": "Owner account created successfully."
         }
 
-    logger.info(f"User registered: {user.username}")
+    logger.info(
+        f"User registered: {user.username}"
+    )
 
     return {
-        "message":
-            (
-                "Registration submitted. "
-                "Await administrator approval."
-            )
+        "message": (
+            "Registration submitted. "
+            "Await administrator approval."
+        )
     }
-    
-
-# endpoint for logging in an user and returning the access token
+# ------------------------------------------------------------------
+# Login
+# ------------------------------------------------------------------
 @router.post(
     "/login",
     response_model=TokenResponse
@@ -115,6 +123,7 @@ def login(
             f"Failed login attempt for username: "
             f"{user_data.username}"
         )
+
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
@@ -128,11 +137,12 @@ def login(
             f"Failed login attempt for username: "
             f"{user_data.username}"
         )
-        
+
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
         )
+
     if not user.is_approved:
         logger.warning(
             f"Login attempt by unapproved user: "
@@ -159,6 +169,9 @@ def login(
         "token_type": "bearer"
     }
 
+# ------------------------------------------------------------------
+# Change Password
+# ------------------------------------------------------------------
 @router.post(
     "/change-password",
     response_model=MessageResponse
@@ -185,8 +198,6 @@ def change_password(
         password_data.new_password
     )
 
-    
-
     db.commit()
 
     logger.info(
@@ -195,11 +206,11 @@ def change_password(
     )
 
     return {
-        "message":
-            "Password changed successfully"
+        "message": "Password changed successfully"
     }
-
-# endpoint for getting the current logged in user information using the access token
+# ------------------------------------------------------------------
+# Current User
+# ------------------------------------------------------------------
 @router.get(
     "/me",
     response_model=UserResponse
