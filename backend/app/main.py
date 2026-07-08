@@ -28,6 +28,7 @@ from app.api.retrieval import router as retrieval_router
 from app.api.users import router as users_router
 from app.api.direct_messages import router as dm_router
 from app.api.admin import router as admin_router
+from app.api.notifications import router as notifications_router
 
 
 def _ensure_user_profile_image_column() -> None:
@@ -102,6 +103,7 @@ app.include_router(retrieval_router)
 app.include_router(users_router)
 app.include_router(dm_router)
 app.include_router(admin_router)
+app.include_router(notifications_router)
 # define root and health endpoints
 @app.get("/")
 def root():

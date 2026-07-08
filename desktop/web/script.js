@@ -33,6 +33,10 @@ const logoutBtn = document.getElementById("logout-btn");
 const userAvatar = document.querySelector(".user-avatar");
 const sidebarAvatarImage = document.getElementById("sidebar-user-avatar-image");
 const sidebarAvatarInitials = document.getElementById("sidebar-user-initials");
+const chatNavDot = document.getElementById("chat-nav-dot");
+
+const chatUnreadCacheKey = "vagmi-chat-unread-count";
+let chatUnreadRefreshTimer = null;
 
 function setSidebarCollapsed(collapsed) {
   document.body.classList.toggle("sidebar-collapsed", collapsed);
@@ -48,6 +52,37 @@ function setActivePage(page) {
 
   pageFrame.src = PAGE_MAP[page];
   localStorage.setItem(activePageKey, page);
+}
+
+function setChatNotificationDot(count) {
+  const unreadCount = Number(count) || 0;
+
+  if (chatNavDot) {
+    chatNavDot.classList.toggle("hidden", unreadCount <= 0);
+    chatNavDot.title = unreadCount > 0 ? `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}` : "Chat";
+    chatNavDot.setAttribute("aria-label", unreadCount > 0 ? `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}` : "No unread chat messages");
+  }
+
+  localStorage.setItem(chatUnreadCacheKey, String(Math.max(0, unreadCount)));
+}
+
+async function refreshChatNotificationDot({ useCacheFallback = true } = {}) {
+  try {
+    const response = await apiRequest("/notifications/chat-unread", { skipAuthRedirect: true });
+    const payload = await response.json();
+    const unreadCount = Number(payload?.count) || 0;
+
+    setChatNotificationDot(unreadCount);
+    return unreadCount;
+  } catch (error) {
+    if (!useCacheFallback) {
+      throw error;
+    }
+
+    const cached = Number(localStorage.getItem(chatUnreadCacheKey) || 0) || 0;
+    setChatNotificationDot(cached);
+    return cached;
+  }
 }
 
 function updateUserBadge(user) {
@@ -159,53 +194,77 @@ function wireNavigation() {
     if (data.type === "avatar-updated") {
       refreshSidebarAvatar();
     }
+
+    if (data.type === "chat-unread-count") {
+      setChatNotificationDot(data.count);
+    }
   });
 }
 
 
 async function bootstrap() {
-     const me = await validateSession();
-    if (!me)
-        return;
+  const me = await validateSession();
+  if (!me) return;
 
-    const savedCollapsed =
-        localStorage.getItem(
-            sidebarStateKey
-        ) === "1";
+  const savedCollapsed = localStorage.getItem(sidebarStateKey) === "1";
 
-    setSidebarCollapsed(savedCollapsed);
-    wireNavigation();
-    updateUserBadge(me);
+  setSidebarCollapsed(savedCollapsed);
+  wireNavigation();
+  updateUserBadge(me);
 
-    const adminNavItem = document.getElementById("admin-nav-item");
+  const adminNavItem = document.getElementById("admin-nav-item");
+  if (adminNavItem) {
     if (me?.is_admin || me?.role === "owner" || me?.role === "admin") {
-    adminNavItem.classList.remove("hidden");
+      adminNavItem.classList.remove("hidden");
     } else {
-    adminNavItem.classList.add("hidden");
+      adminNavItem.classList.add("hidden");
     }
+  }
 
-    const savedPage = localStorage.getItem(activePageKey);
-
-const isAdminUser = me?.role === "owner" || me?.role === "admin" || me?.is_admin;
-
-const pageToLoad = (savedPage === "admin" && !isAdminUser)
+  const savedPage = localStorage.getItem(activePageKey);
+  const isAdminUser = me?.role === "owner" || me?.role === "admin" || me?.is_admin;
+  const pageToLoad = (savedPage === "admin" && !isAdminUser)
     ? DEFAULT_PAGE
     : (PAGE_MAP[savedPage] ? savedPage : DEFAULT_PAGE);
 
-setActivePage(pageToLoad);
-    requestAnimationFrame(() => {
+  setActivePage(pageToLoad);
 
+  setChatNotificationDot(Number(localStorage.getItem(chatUnreadCacheKey) || 0) || 0);
+  await refreshChatNotificationDot({ useCacheFallback: true });
+
+  if (chatUnreadRefreshTimer) {
+    clearInterval(chatUnreadRefreshTimer);
+  }
+  chatUnreadRefreshTimer = window.setInterval(() => {
+    refreshChatNotificationDot({ useCacheFallback: true }).catch(() => {});
+  }, 30000);
+
+  window.addEventListener("focus", () => {
+    refreshChatNotificationDot({ useCacheFallback: true }).catch(() => {});
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      refreshChatNotificationDot({ useCacheFallback: true }).catch(() => {});
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (chatUnreadRefreshTimer) {
+      clearInterval(chatUnreadRefreshTimer);
+      chatUnreadRefreshTimer = null;
+    }
+  });
+
+  requestAnimationFrame(() => {
     document.body.style.willChange = "transform";
     document.body.style.transform = "translateZ(0)";
 
     requestAnimationFrame(() => {
-
-    document.body.style.transform = "";
-    document.body.style.willChange = "auto";
-
+      document.body.style.transform = "";
+      document.body.style.willChange = "auto";
+    });
   });
-
-});
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

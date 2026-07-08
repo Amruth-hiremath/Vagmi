@@ -40,6 +40,14 @@ router = APIRouter(
 )
 
 
+def _normalize_datetime(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 def _require_room_admin(room: Room, current_user: User):
     if room.created_by != current_user.id:
         raise HTTPException(
@@ -113,7 +121,16 @@ def _room_unread_count(db: Session, room: Room, current_user_id: int) -> int:
     if membership is None:
         return 0
 
-    last_seen_at = membership.last_read_at or membership.joined_at or room.created_at
+    checkpoints = [
+        membership.cleared_at,
+        membership.last_read_at,
+        membership.joined_at,
+        room.created_at,
+    ]
+    last_seen_at = max(
+        (_normalize_datetime(value) for value in checkpoints if value is not None),
+        default=None
+    )
     if last_seen_at is None:
         return 0
 
