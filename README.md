@@ -1,4 +1,23 @@
-# Vāgmi
+<p align="center">
+  <img src="desktop/web/assets/logo_dark.png" width="140" alt="Vagmi Logo">
+</p>
+
+<h1 align="center">Vāgmi</h1>
+
+<p align="center">
+  <strong>Offline Multi-Agent Intelligence Platform</strong><br>
+  <em>Built for Secure & Air-Gapped Work Environments</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Offline%20First-F97316?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Air--Gapped-1D4ED8?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Hybrid%20RAG-8B5CF6?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Multi--Agent-4F46E5?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Secure%20Collaboration-059669?style=for-the-badge">
+</p>
+
+---
 
 **Offline Multi-Agent Intelligence Platform for Secure Work Environments**
 

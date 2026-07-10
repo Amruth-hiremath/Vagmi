@@ -1,4 +1,16 @@
+from app.services.bm25_service import BM25Service
+from app.services.retrieval_service import RetrievalService
+
+
 class HybridRetrievalService:
+
+    def __init__(
+        self,
+        bm25_service: BM25Service = None,
+        retrieval_service: RetrievalService = None
+    ):
+        self.bm25_service = bm25_service
+        self.retrieval_service = retrieval_service
 
     def normalize_scores(
         self,
@@ -24,12 +36,35 @@ class HybridRetrievalService:
                 {
                     **result,
                     "score":
-                        result["score"]
-                        / max_score
+                        result["score"] / max_score
                 }
             )
 
         return normalized
+
+    def deduplicate_results(
+        self,
+        results
+    ):
+
+        seen = set()
+
+        unique = []
+
+        for result in results:
+
+            key = (
+                result["document_id"],
+                result["chunk_text"].strip()
+            )
+
+            if key not in seen:
+
+                seen.add(key)
+
+                unique.append(result)
+
+        return unique
 
     def combine_results(
         self,
@@ -85,16 +120,21 @@ class HybridRetrievalService:
                     0.6 * result["score"]
                 )
 
-        return sorted(
+        results = sorted(
             merged.values(),
             key=lambda x: x["score"],
             reverse=True
+        )
+
+        return self.deduplicate_results(
+            results
         )
 
     def rerank_results(
         self,
         results
     ):
+
         return sorted(
             results,
             key=lambda x: x["score"],
@@ -107,6 +147,40 @@ class HybridRetrievalService:
         user_id: int,
         top_k: int = 5
     ):
-        raise NotImplementedError(
-            "Will be implemented after integration"
+
+        if (
+            self.bm25_service is None
+            or self.retrieval_service is None
+        ):
+            raise ValueError(
+                "HybridRetrievalService requires "
+                "bm25_service and retrieval_service "
+                "for search()"
+            )
+
+        bm25_results = (
+            self.bm25_service.search(
+                user_id=user_id,
+                query=query,
+                top_k=top_k
+            )
         )
+
+        vector_results = (
+            self.retrieval_service.search(
+                query=query,
+                user_id=user_id,
+                top_k=top_k
+            )
+        )
+
+        combined = (
+            self.combine_results(
+                bm25_results,
+                vector_results
+            )
+        )
+
+        return self.rerank_results(
+            combined
+        )[:top_k]
