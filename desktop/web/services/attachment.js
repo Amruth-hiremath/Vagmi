@@ -8,9 +8,12 @@ async function parseJson(response) {
   return data;
 }
 
-export async function uploadAttachment(roomId, file) {
+export async function uploadRoomAttachment(roomId, file, caption = null) {
   const formData = new FormData();
   formData.append("file", file);
+  if (caption) {
+    formData.append("caption", caption);
+  }
   return parseJson(
     await apiRequest(`/rooms/${roomId}/attachments`, {
       method: "POST",
@@ -18,3 +21,19 @@ export async function uploadAttachment(roomId, file) {
     })
   );
 }
+
+export async function uploadDmAttachment(conversationId, file, caption = null) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+  return parseJson(
+    await apiRequest(`/dm/${conversationId}/attachment`, {
+      method: "POST",
+      body: formData
+    })
+  );
+}
+
+export const uploadAttachment = uploadRoomAttachment;

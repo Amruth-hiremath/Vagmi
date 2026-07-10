@@ -106,11 +106,9 @@ def get_current_user(
     return user
 
 def get_current_admin(
-    current_user: User = Depends(
-        get_current_user
-    )
+    current_user: User = Depends(get_current_user)
 ):
-    if not current_user.is_admin:
+    if current_user.role not in ("owner", "admin"):
         raise HTTPException(
             status_code=403,
             detail="Admin access required"

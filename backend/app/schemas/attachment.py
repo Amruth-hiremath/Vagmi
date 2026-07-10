@@ -8,6 +8,7 @@ class AttachmentResponse(BaseModel):
     message_id: int
     owner_id: int
     original_filename: str
+    file_size: int | None = None
     created_at: datetime
 
     class Config:

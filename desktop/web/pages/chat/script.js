@@ -1,1178 +1,843 @@
 // desktop/web/pages/chat/script.js
-import {
-  getConversations,
-  getMessages,
-  sendMessage,
-  sendImage,
-  sendVoice,
-  markConversationRead,
-  startConversation,
-  clearConversation,
-  deleteMessage
-} from "../../services/dm.js";
-
-import { searchUsers } from "../../services/users.js";
+console.log("window.pywebview =", window.pywebview);
+console.log("parent.pywebview =", window.parent.pywebview);
+console.log("top.pywebview =", window.top.pywebview);
+import { getConversations, getMessages, sendMessage, sendImage, sendVoice, markConversationRead, clearConversation, deleteMessage } from "../../services/dm.js";
 import { apiRequest } from "../../services/api.js";
 import { getUser } from "../../services/auth.js";
+import {
+  getRooms,
+  getRoomMessages,
+  getRoomMembers,
+  sendRoomMessage,
+  createRoom,
+  addRoomMember,
+  removeRoomMember,
+  updateRoom,
+  sendRoomImage,
+  sendRoomVoice,
+  deleteRoomMessage,
+  markRoomRead,
+  clearRoomConversation
+} from "../../services/rooms.js";
+
+import {
+  getDesktopBridge,
+  dataUrlToFile
+} from "../../services/desktop.js";
+
+import { escapeHTML, formatTime, formatFileSize } from "./core/utils.js";
+import { saveActiveThreadKey, getSavedActiveThreadKey, makeThreadKey } from "./core/state.js";
+import { iconMap } from "./core/icons.js";
+import {
+  clearConversationCanvas,
+  showConversationEmptyState,
+  openConversationView,
+  renderThreadEmptyState,
+  previewText,
+  iconForPreview,
+  renderThreads,
+  updateConversationMeta,
+  updateInfoDrawer,
+  closeOverlays,
+  decorateAvatars
+} from "./core/ui.js";
+import {
+  activeThread,
+  openThread,
+  closeConversationAndShowEmptyState,
+  loadConversations
+} from "./core/conversation.js";
+import {
+  messageHTML,
+  messageMenuContentHTML,
+  loadInlineImages,
+  renderMessages,
+  loadMessages,
+  handleSend,
+  setComposerText,
+  handleAttachment
+} from "./core/message.js";
+import {
+  clearAttachmentPreview,
+  closeAttachmentModal,
+  openImageViewer,
+  closeImageViewer,
+  openAttachmentModal,
+  attachmentDownloadName,
+  buildAttachmentUrl,
+  fetchAttachmentBlob,
+  buildAttachmentCard,
+  renderAttachmentModalView,
+  openAttachmentViewer,
+  downloadAttachment,
+  saveBlobToDownloads,
+  saveLoadedUrl
+} from "./core/attachment.js";
+import {
+  openNewChatModal,
+  closeNewChatModal,
+  renderNewChatState,
+  renderNewChatResults,
+  setupImageViewerEvents
+} from "./core/modal.js";
+import { currentSearchUpdate, searchRegisteredUsers, startChatWithUser } from "./core/search.js";
+import { searchUsers } from "../../services/users.js";
+import { uploadRoomAttachment, uploadDmAttachment } from "../../services/attachment.js";
+import { loadAvatarObjectUrl, loadMyAvatarObjectUrl, bumpAvatarCache as bumpGlobalAvatarCache } from "../../services/avatar.js";
+import { deleteMessageForMe } from "../../services/dm.js";
+import { deleteRoomMessageForMe } from "../../services/rooms.js";
+
 
 document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getUser();
-  
+
   const state = {
-  activeThreadId: null,
-  threadFilter: "all",
-  chatSearch: "",
-  convoSearch: "",
-  menuOpen: false,
-  infoOpen: false,
-  newChatOpen: false,
-  threads: []
-};
-
-let mediaRecorder = null;
-let recordedChunks = [];
-let isRecording = false;
-
-const ACTIVE_THREAD_KEY = "vagmi-active-chat-thread";
-let newChatSearchTimer = null;
-let loadSequence = 0;
-let attachmentPreview = null;
-
-let scrollRaf1 = null;
-let scrollRaf2 = null;
-let scrollTimeout = null;
-let messagesObserver = null;
-
-function scrollMessagesToBottom() {
-  if (!messagesScroll) return;
-  if (scrollRaf1) cancelAnimationFrame(scrollRaf1);
-  if (scrollRaf2) cancelAnimationFrame(scrollRaf2);
-  if (scrollTimeout) window.clearTimeout(scrollTimeout);
-
-  const jump = () => {
-    messagesScroll.scrollTop = messagesScroll.scrollHeight;
+    activeThreadId: null,
+    activeThreadKey: null,
+    threadFilter: "all",
+    chatSearch: "",
+    convoSearch: "",
+    menuOpen: false,
+    infoOpen: false,
+    messageMenuOpen: false,
+    messageMenuAnchor: null,
+    newChatOpen: false,
+    launcherOpen: false,
+    roomCreateOpen: false,
+    threads: [],
+    rooms: [],
+    activeRoomId: null,
+    chatMode: "direct"
   };
 
-  scrollRaf1 = requestAnimationFrame(() => {
-    scrollRaf2 = requestAnimationFrame(jump);
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let isRecording = false;
+
+  const roomMemberState = {
+    selected: [],
+    timer: null
+  };
+
+  // Predeclare room-create DOM refs so overlay helpers can safely reference them
+  // before the later DOM query block assigns the actual elements.
+  let roomCreateModal = null;
+  let roomCreateBackdrop = null;
+  let roomCreateClose = null;
+  let roomCreateCancel = null;
+  let roomCreateForm = null;
+  let roomCreateTitle = null;
+  let roomCreateSubmit = null;
+  let roomNameInput = null;
+  let roomMemberPicker = null;
+  let roomMemberSearch = null;
+  let roomMemberResults = null;
+  let roomMemberSelected = null;
+
+  function getRoomMemberKey(user) {
+    if (!user) return null;
+    return `${String(user.id)}:${String(user.username || "").toLowerCase()}`;
+  }
+
+  function clearRoomMemberSearchResults() {
+    if (roomMemberResults) {
+      roomMemberResults.innerHTML = "";
+      roomMemberResults.classList.add("hidden");
+    }
+  }
+
+  function renderSelectedRoomMembers() {
+    if (!roomMemberSelected) return;
+
+    if (roomMemberState.selected.length === 0) {
+      roomMemberSelected.innerHTML = '<div class="member-picker-empty">No members selected yet.</div>';
+      return;
+    }
+
+    roomMemberSelected.innerHTML = roomMemberState.selected.map((user) => `
+      <div class="member-chip" data-user-id="${String(user.id)}">
+        <span class="member-chip-label">${escapeHTML(user.username)}</span>
+        <button type="button" class="member-chip-remove" data-remove-user-id="${String(user.id)}" aria-label="Remove ${escapeHTML(user.username)}">×</button>
+      </div>
+    `).join("");
+  }
+
+  function setRoomMemberStatus(message, tone = "muted") {
+    if (!roomMemberResults) return;
+    roomMemberResults.innerHTML = `<div class="member-picker-state ${tone}">${escapeHTML(message)}</div>`;
+    roomMemberResults.classList.remove("hidden");
+  }
+
+  function syncRoomMemberResults(users) {
+    const list = (Array.isArray(users) ? users : [])
+      .filter((user) => user && String(user.username || "").trim())
+      .filter((user) => user.username.toLowerCase() !== currentUser.username.toLowerCase())
+      .filter((user) => !roomMemberState.selected.some((picked) => picked.id === user.id));
+
+    if (!roomMemberResults) return;
+
+    if (list.length === 0) {
+      setRoomMemberStatus(roomMemberSearch?.value?.trim() ? "No matching approved users found." : "Type to search approved users.");
+      return;
+    }
+
+    roomMemberResults.innerHTML = list.map((user) => {
+      const username = user.username || "User";
+      const initials = username
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("") || "U";
+
+      return `
+        <button type="button" class="member-result" data-member-id="${String(user.id)}" data-member-username="${escapeHTML(username)}">
+          <div class="avatar">${escapeHTML(initials)}</div>
+          <div class="member-result-copy">
+            <div class="member-result-name">${escapeHTML(username)}</div>
+            <div class="member-result-meta">Approved user</div>
+          </div>
+          <div class="member-result-action">Add</div>
+        </button>
+      `;
+    }).join("");
+    roomMemberResults.classList.remove("hidden");
+  }
+
+  async function searchRoomMembers(query) {
+    if (!roomMemberResults) return;
+    const normalized = String(query || "").trim();
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
+    }
+    roomMemberResults.classList.remove("hidden");
+    roomMemberResults.innerHTML = '<div class="member-picker-state muted">Searching approved users…</div>';
+
+    try {
+      const users = await searchUsers(normalized);
+      syncRoomMemberResults(users);
+    } catch (error) {
+      console.error("Room member search failed", error);
+      setRoomMemberStatus("Unable to load approved users right now.", "error");
+    }
+  }
+
+  function addRoomMemberSelection(user) {
+    if (!user) return;
+    const key = getRoomMemberKey(user);
+    if (!key) return;
+    if (roomMemberState.selected.some((picked) => getRoomMemberKey(picked) === key)) return;
+    if (String(user.username || "").toLowerCase() === currentUser.username.toLowerCase()) return;
+
+    roomMemberState.selected.push({ id: Number(user.id), username: user.username });
+    renderSelectedRoomMembers();
+
+    if (roomMemberSearch) {
+      roomMemberSearch.value = "";
+      roomMemberSearch.focus({ preventScroll: true });
+      roomMemberSearch.setSelectionRange(0, 0);
+    }
+
+    clearRoomMemberSearchResults();
+  }
+
+  function removeRoomMemberSelection(userId) {
+    const numericId = Number(userId);
+    roomMemberState.selected = roomMemberState.selected.filter((user) => Number(user.id) !== numericId);
+    renderSelectedRoomMembers();
+    if (roomMemberSearch?.value?.trim()) {
+      searchRoomMembers(roomMemberSearch.value);
+    } else {
+      setRoomMemberStatus("Type to search approved users.");
+    }
+  }
+
+
+  let scrollRaf1 = null;
+  let scrollRaf2 = null;
+  let scrollTimeout = null;
+  let messagesObserver = null;
+
+  function scrollMessagesToBottom() {
+    if (!messagesScroll) return;
+    if (scrollRaf1) cancelAnimationFrame(scrollRaf1);
+    if (scrollRaf2) cancelAnimationFrame(scrollRaf2);
+    if (scrollTimeout) window.clearTimeout(scrollTimeout);
+
+    const jump = () => {
+      messagesScroll.scrollTop = messagesScroll.scrollHeight;
+    };
+
+    scrollRaf1 = requestAnimationFrame(() => {
+      scrollRaf2 = requestAnimationFrame(jump);
+    });
+
+    scrollTimeout = window.setTimeout(jump, 60);
+  }
+
+  function getRoomDeleteLabel() {
+    return "Delete message";
+  }
+
+  async function refreshConversations({ preserveSelection = true } = {}) {
+    await loadConversations({ preserveSelection });
+  }
+
+  async function openLauncherModal() {
+    closeOverlays(state);
+    closeNewChatModal();
+    closeRoomCreateModal();
+    state.launcherOpen = true;
+    chatLauncherModal?.classList.remove("hidden");
+    chatLauncherModal?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeLauncherModal() {
+    state.launcherOpen = false;
+    chatLauncherModal?.classList.add("hidden");
+    chatLauncherModal?.setAttribute("aria-hidden", "true");
+  }
+
+  async function openRoomCreateModal(thread = null) {
+    closeOverlays(state);
+    closeNewChatModal();
+    closeLauncherModal();
+
+    const target = thread && thread.kind === "room" ? thread : null;
+    state.roomCreateOpen = true;
+    state.roomEditTarget = target;
+
+    roomCreateModal?.classList.remove("hidden");
+    roomCreateModal?.setAttribute("aria-hidden", "false");
+
+    if (roomCreateTitle) {
+      roomCreateTitle.textContent = target ? "Edit group info" : "Set up a group room";
+    }
+
+    if (roomCreateSubmit) {
+      roomCreateSubmit.textContent = target ? "Save changes" : "Create room";
+    }
+
+    if (target) {
+      let members = Array.isArray(target.members)
+        ? target.members
+            .filter((member) => member && Number(member.id) !== currentUser.id)
+            .map((member) => ({
+              id: Number(member.id),
+              username: String(member.username || "").trim()
+            }))
+            .filter((member) => Number.isFinite(member.id) && member.username)
+        : [];
+
+      if (members.length === 0 && typeof getRoomMembers === "function") {
+        try {
+          const fetchedMembers = await getRoomMembers(target.id);
+          members = Array.isArray(fetchedMembers)
+            ? fetchedMembers
+                .filter((member) => member && Number(member.id) !== currentUser.id)
+                .map((member) => ({
+                  id: Number(member.id),
+                  username: String(member.username || "").trim()
+                }))
+                .filter((member) => Number.isFinite(member.id) && member.username)
+            : members;
+          target.members = members;
+        } catch (error) {
+          console.warn("Unable to refresh room members before editing", error);
+        }
+      }
+
+      roomMemberState.selected = members;
+      if (roomNameInput) roomNameInput.value = String(target.title || target.name || "").trim();
+    } else {
+      roomMemberState.selected = [];
+      if (roomCreateForm) roomCreateForm.reset();
+      if (roomNameInput) roomNameInput.value = "";
+    }
+
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
+    }
+
+    renderSelectedRoomMembers();
+    clearRoomMemberSearchResults();
+
+    if (roomMemberSearch) {
+      roomMemberSearch.value = "";
+      roomMemberSearch.focus();
+      searchRoomMembers("");
+    }
+  }
+
+  function closeRoomCreateModal() {
+    state.roomCreateOpen = false;
+    state.roomEditTarget = null;
+    if (roomCreateModal) {
+      roomCreateModal.classList.add("hidden");
+      roomCreateModal.setAttribute("aria-hidden", "true");
+    }
+    roomMemberState.selected = [];
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+      roomMemberState.timer = null;
+    }
+    if (roomCreateForm) roomCreateForm.reset();
+    if (roomCreateTitle) roomCreateTitle.textContent = "Set up a group room";
+    if (roomCreateSubmit) roomCreateSubmit.textContent = "Create room";
+    renderSelectedRoomMembers();
+    clearRoomMemberSearchResults();
+    if (roomMemberSearch) roomMemberSearch.value = "";
+  }
+
+  async function submitRoomCreation(event) {
+    event.preventDefault();
+    const roomName = roomNameInput?.value?.trim();
+    if (!roomName) {
+      alert("Please enter a room name.");
+      roomNameInput?.focus();
+      return;
+    }
+
+    const selectedMembers = roomMemberState.selected
+      .map((user) => ({
+        id: Number(user.id),
+        username: String(user.username || "").trim()
+      }))
+      .filter((user) => Number.isFinite(user.id) && user.username)
+      .filter((user) => user.id !== currentUser.id);
+
+    try {
+      const target = state.roomEditTarget;
+      if (target) {
+        const nextRoom = await updateRoom(target.id, { name: roomName });
+        const currentMembers = Array.isArray(target.members) ? target.members : [];
+        const currentIds = new Set(
+          currentMembers
+            .map((member) => Number(member.id))
+            .filter((id) => Number.isFinite(id) && id !== currentUser.id)
+        );
+        const selectedIds = new Set(selectedMembers.map((member) => member.id));
+
+        for (const member of selectedMembers) {
+          if (!currentIds.has(member.id)) {
+            try {
+              await addRoomMember(target.id, { user_id: member.id });
+            } catch (error) {
+              console.warn(`Could not add ${member.username} to room`, error);
+            }
+          }
+        }
+
+        for (const member of currentMembers) {
+          const memberId = Number(member.id);
+          if (!Number.isFinite(memberId) || memberId === currentUser.id) continue;
+          if (!selectedIds.has(memberId)) {
+            try {
+              await removeRoomMember(target.id, memberId);
+            } catch (error) {
+              console.warn(`Could not remove ${member.username} from room`, error);
+            }
+          }
+        }
+
+        closeRoomCreateModal();
+        await refreshConversations({ preserveSelection: false });
+        await openThread(makeThreadKey("room", nextRoom.id), { remember: true });
+        return;
+      }
+
+      const room = await createRoom(roomName);
+      for (const member of selectedMembers) {
+        try {
+          await addRoomMember(room.id, { user_id: member.id });
+        } catch (error) {
+          console.warn(`Could not add ${member.username} to room`, error);
+        }
+      }
+
+      closeRoomCreateModal();
+      await refreshConversations({ preserveSelection: false });
+      await openThread(makeThreadKey("room", room.id), { remember: true });
+    } catch (error) {
+      alert(error?.message || "Failed to save room.");
+    }
+  }
+
+  const threadList = document.getElementById("thread-list");
+  const chatSearch = document.getElementById("chat-search");
+  const filterButtons = Array.from(document.querySelectorAll(".filter-btn"));
+  const messagesScroll = document.getElementById("messages-scroll");
+  const dayChip = document.getElementById("day-chip");
+  const conversationPane = document.getElementById("conversation-pane");
+  const conversationContent = document.getElementById("conversation-content");
+  const conversationEmptyState = document.getElementById("conversation-empty-state");
+  const conversationEmptyTitle = document.getElementById("conversation-empty-title");
+  const conversationEmptyCopy = document.getElementById("conversation-empty-copy");
+  const conversationTitle = document.getElementById("conversation-title");
+  const conversationStatus = document.getElementById("conversation-status");
+  const conversationAvatar = document.getElementById("conversation-avatar");
+  const backBtn = document.getElementById("back-btn");
+  const conversationSearchRow = document.getElementById("conversation-search-row");
+  const conversationSearch = document.getElementById("conversation-search");
+  const searchToggle = document.getElementById("search-toggle");
+  const roomAdminToggle = document.getElementById("room-admin-toggle");
+  const closeSearch = document.getElementById("close-search");
+  const menuToggle = document.getElementById("menu-toggle");
+  const menuPopover = document.getElementById("menu-popover");
+  const menuItems = document.querySelectorAll(".menu-item");
+  const infoDrawer = document.getElementById("info-drawer");
+  const closeInfo = document.getElementById("close-info");
+  const attachBtn = document.getElementById("attach-btn");
+  const imageBtn = document.getElementById("image-btn");
+  const micBtn = document.getElementById("mic-btn");
+  const sendBtn = document.getElementById("send-btn");
+  const inputField = document.getElementById("message-input");
+  const fileInput = document.getElementById("file-input");
+  const imageInput = document.getElementById("image-input");
+
+  const chatLauncherBtn = document.getElementById("chat-launcher-btn");
+  const chatLauncherModal = document.getElementById("chat-launcher-modal");
+  const chatLauncherBackdrop = document.getElementById("chat-launcher-backdrop");
+  const chatLauncherClose = document.getElementById("chat-launcher-close");
+  const launcherDmBtn = document.getElementById("launcher-dm-btn");
+  const launcherRoomBtn = document.getElementById("launcher-room-btn");
+
+  roomCreateModal = document.getElementById("room-create-modal");
+  roomCreateBackdrop = document.getElementById("room-create-backdrop");
+  roomCreateClose = document.getElementById("room-create-close");
+  roomCreateCancel = document.getElementById("room-create-cancel");
+  roomCreateForm = document.getElementById("room-create-form");
+  roomCreateTitle = document.getElementById("room-create-title");
+  roomCreateSubmit = document.getElementById("room-create-submit");
+  roomNameInput = document.getElementById("room-name-input");
+  roomMemberPicker = document.getElementById("room-member-picker");
+  roomMemberSearch = document.getElementById("room-member-search");
+  roomMemberResults = document.getElementById("room-member-results");
+  roomMemberSelected = document.getElementById("room-member-selected");
+
+  const newChatModal = document.getElementById("new-chat-modal");
+  const newChatBackdrop = document.getElementById("new-chat-backdrop");
+  const newChatClose = document.getElementById("new-chat-close");
+  const newChatSearch = document.getElementById("new-chat-search");
+  const newChatResults = document.getElementById("new-chat-results");
+
+  const attachmentModal = document.getElementById("attachment-modal");
+  const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
+  const attachmentModalClose = document.getElementById("attachment-modal-close");
+  const messageMenuOverlay = document.getElementById("message-menu-overlay");
+  const messageMenuBackdrop = document.getElementById("message-menu-backdrop");
+  const messageMenuSurface = document.getElementById("message-menu-surface");
+  const roomCreateDialog = document.querySelector(".room-create-dialog");
+
+  const captionModal = document.getElementById("caption-modal");
+  const captionModalBackdrop = document.getElementById("caption-modal-backdrop");
+  const captionModalCancel = document.getElementById("caption-modal-cancel");
+  const captionModalSend = document.getElementById("caption-modal-send");
+  const captionInput = document.getElementById("caption-input");
+  const captionCharCount = document.getElementById("caption-char-count");
+
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+
+  // Drawer admin section elements
+  const roomAdminSection = document.getElementById("room-admin-section");
+  const roomNameDisplay = document.getElementById("room-name-display");
+  const roomNameValue = document.getElementById("room-name-value");
+  const roomNameEditBtn = document.getElementById("room-name-edit-btn");
+  const roomNameEdit = document.getElementById("room-name-edit");
+  const roomNameInputInline = document.getElementById("room-name-input-inline");
+  const roomNameSaveBtn = document.getElementById("room-name-save-btn");
+  const roomNameCancelBtn = document.getElementById("room-name-cancel-btn");
+  const roomMembersList = document.getElementById("room-members-list");
+  const roomAddMemberToggle = document.getElementById("room-add-member-toggle");
+  const roomAddMemberPicker = document.getElementById("room-add-member-picker");
+  const roomAddMemberSearch = document.getElementById("room-add-member-search");
+  const roomAddMemberResults = document.getElementById("room-add-member-results");
+
+  roomCreateDialog?.addEventListener("click", (event) => {
+    event.stopPropagation();
   });
 
-  scrollTimeout = window.setTimeout(jump, 60);
-}
+  roomMemberPicker?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
 
+  document.querySelectorAll("[data-icon]").forEach((el) => {
+    const iconName = el.dataset.icon;
+    el.innerHTML = iconMap[iconName] || "";
+  });
 
-const threadList = document.getElementById("thread-list");
-const chatSearch = document.getElementById("chat-search");
-const filterButtons = Array.from(document.querySelectorAll(".filter-btn"));
-const messagesScroll = document.getElementById("messages-scroll");
+  window.loadSequence = 0;
+  window.newChatSearchTimer = null;
+  window.getConversations = getConversations;
+  window.getRooms = getRooms;
+  window.scrollMessagesToBottom = scrollMessagesToBottom;
+  window.sendMessage = sendMessage;
+  window.sendImage = sendImage;
+  window.sendVoice = sendVoice;
+  window.sendRoomMessage = sendRoomMessage;
+  window.sendRoomImage = sendRoomImage;
+  window.sendRoomVoice = sendRoomVoice;
+  window.markRoomRead = markRoomRead;
+  window.uploadRoomAttachment = uploadRoomAttachment;
+  window.uploadDmAttachment = uploadDmAttachment;
+  window.formatTime = formatTime;
+  window.formatFileSize = formatFileSize;
+  window.renderThreads = renderThreads;
+  window.renderMessages = renderMessages;
+  window.markConversationRead = markConversationRead;
+  window.loadMessages = loadMessages;
+  window.getMessages = getMessages;
+  window.getRoomMessages = getRoomMessages;
+  window.getRoomMembers = getRoomMembers;
+window.fetchAttachmentBlob = fetchAttachmentBlob;
+window.openImageViewer = openImageViewer;
+window.loadInlineImages = loadInlineImages;
+window.saveBlobToDownloads = saveBlobToDownloads;
+window.saveLoadedUrl = saveLoadedUrl;
+window.loadAvatarObjectUrl = loadAvatarObjectUrl;
+window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
+  window.currentUser = currentUser;
+  window.chatState = state;
+  window.updateConversationMeta = updateConversationMeta;
+  window.updateInfoDrawer = updateInfoDrawer;
+  window.activeThread = activeThread;
+  window.clearConversation = clearConversation;
+  window.deleteMessage = deleteMessage;
+  window.deleteRoomMessage = deleteRoomMessage;
+  window.apiRequest = apiRequest;
+  window.searchRegisteredUsers = searchRegisteredUsers;
+  window.renderNewChatState = renderNewChatState;
+  window.renderNewChatResults = renderNewChatResults;
+  window.openLauncherModal = openLauncherModal;
+  window.closeLauncherModal = closeLauncherModal;
+  window.openRoomCreateModal = openRoomCreateModal;
+  window.openRoomEditModal = openRoomCreateModal;
+  window.closeRoomCreateModal = closeRoomCreateModal;
+  window.openNewChatModal = openNewChatModal;
+  window.closeNewChatModal = closeNewChatModal;
+  window.sendAttachment = handleAttachment;
+  window.handleAttachment = handleAttachment;
+  const chatState = window.chatState;
 
-if (messagesScroll && "MutationObserver" in window) {
-  messagesObserver = new MutationObserver(() => {
-    if (state.activeThreadId !== null) {
+  if (messagesScroll && "MutationObserver" in window) {
+    messagesObserver = new MutationObserver(() => {
+      if (state.activeThreadKey !== null) {
+        scrollMessagesToBottom();
+      }
+    });
+    messagesObserver.observe(messagesScroll, { childList: true, subtree: true });
+  }
+
+  window.addEventListener("resize", () => {
+    if (state.activeThreadKey !== null) {
       scrollMessagesToBottom();
     }
   });
-  messagesObserver.observe(messagesScroll, {
-    childList: true,
-    subtree: true
-  });
-}
 
-window.addEventListener("resize", () => {
-  if (state.activeThreadId !== null) {
-    scrollMessagesToBottom();
+  function isAttachmentVisible() {
+    return attachmentModal && !attachmentModal.classList.contains("hidden");
   }
-});
-const dayChip = document.getElementById("day-chip");
-const conversationPane = document.getElementById("conversation-pane");
-const conversationContent = document.getElementById("conversation-content");
-const conversationEmptyState = document.getElementById("conversation-empty-state");
-const conversationEmptyTitle = document.getElementById("conversation-empty-title");
-const conversationEmptyCopy = document.getElementById("conversation-empty-copy");
-const threadNewChatBtn = document.getElementById("thread-new-chat-btn");
-const conversationTitle = document.getElementById("conversation-title");
-const conversationStatus = document.getElementById("conversation-status");
-const conversationAvatar = document.getElementById("conversation-avatar");
-const backBtn = document.getElementById("back-btn");
-const conversationSearchRow = document.getElementById("conversation-search-row");
-const conversationSearch = document.getElementById("conversation-search");
-const searchToggle = document.getElementById("search-toggle");
-const closeSearch = document.getElementById("close-search");
-const menuToggle = document.getElementById("menu-toggle");
-const menuPopover = document.getElementById("menu-popover");
-const menuItems = document.querySelectorAll(".menu-item");
-const infoDrawer = document.getElementById("info-drawer");
-const closeInfo = document.getElementById("close-info");
-const attachBtn = document.getElementById("attach-btn");
-const imageBtn = document.getElementById("image-btn");
-const micBtn = document.getElementById("mic-btn");
-const sendBtn = document.getElementById("send-btn");
-const inputField = document.getElementById("message-input");
-const fileInput = document.getElementById("file-input");
-const imageInput = document.getElementById("image-input");
 
-const newChatModal = document.getElementById("new-chat-modal");
-const newChatBackdrop = document.getElementById("new-chat-backdrop");
-const newChatClose = document.getElementById("new-chat-close");
-const newChatSearch = document.getElementById("new-chat-search");
-const newChatResults = document.getElementById("new-chat-results");
-const attachmentModal = document.getElementById("attachment-modal");
-const attachmentModalBackdrop = document.getElementById("attachment-modal-backdrop");
-const attachmentModalClose = document.getElementById("attachment-modal-close");
-const attachmentModalTitle = document.getElementById("attachment-modal-title");
-const attachmentModalBody = document.getElementById("attachment-modal-body");
-const attachmentModalOpen = document.getElementById("attachment-modal-open");
-const attachmentModalDownload = document.getElementById("attachment-modal-download");
-
-const iconMap = {
-  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"></circle><line x1="20" y1="20" x2="16.5" y2="16.5"></line></svg>`,
-  more: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>`,
-  attach: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.5l-8.8 8.8a5 5 0 1 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.6 9.6a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>`,
-  image: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="9" r="1.5"></circle><path d="M21 15l-5-5-8 8"></path></svg>`,
-  mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>`,
-  send: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>`,
-  file: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h5"></path></svg>`,
-  imageSmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8" cy="9" r="1.4"></circle><path d="M21 17l-5-5-5 5-3-3-5 5"></path></svg>`,
-  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"></path></svg>`,
-  compose: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 20h4l12-12a2.5 2.5 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>`
-};
-
-function escapeHTML(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function formatTime(value) {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatFileSize(bytes) {
-  const size = Number(bytes || 0);
-  if (!size) return "";
-  if (size < 1024) return `${size} B`;
-  const kb = size / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  return `${(kb / 1024).toFixed(1)} MB`;
-}
-
-function clearAttachmentPreview() {
-  if (attachmentPreview?.objectUrl) {
-    URL.revokeObjectURL(attachmentPreview.objectUrl);
+  function closeMessageMenu() {
+    if (!messageMenuOverlay || !messageMenuSurface) return;
+    messageMenuOverlay.classList.add("hidden");
+    messageMenuOverlay.setAttribute("aria-hidden", "true");
+    messageMenuSurface.innerHTML = "";
+    messageMenuSurface.style.left = "";
+    messageMenuSurface.style.top = "";
+    messageMenuSurface.style.right = "";
+    messageMenuSurface.style.bottom = "";
+    messageMenuSurface.style.visibility = "";
+    state.messageMenuOpen = false;
+    state.messageMenuAnchor = null;
   }
-  attachmentPreview = null;
-}
 
-function closeAttachmentModal() {
-  if (!attachmentModal) return;
-  clearAttachmentPreview();
-  attachmentModal.classList.add("hidden");
-  attachmentModal.setAttribute("aria-hidden", "true");
-  if (attachmentModalBody) attachmentModalBody.innerHTML = "";
-  if (attachmentModalTitle) attachmentModalTitle.textContent = "Preview";
-}
+  function positionMessageMenu(buttonEl, surfaceEl) {
+    if (!buttonEl || !surfaceEl) return;
+    const rect = buttonEl.getBoundingClientRect();
+    const viewportPadding = 12;
+    const gap = 10;
+    const menuRect = surfaceEl.getBoundingClientRect();
+    const menuWidth = menuRect.width || 260;
+    const menuHeight = menuRect.height || 180;
+    const maxLeft = window.innerWidth - menuWidth - viewportPadding;
+    const preferLeft = rect.right - menuWidth;
+    const left = Math.min(Math.max(viewportPadding, preferLeft), maxLeft);
 
-let imgViewerZoom = 1;
-
-function openImageViewer(src, filename) {
-  const modal = document.getElementById("image-viewer-modal");
-  const img   = document.getElementById("img-viewer-el");
-  if (!modal || !img) return;
-  imgViewerZoom = 1;
-  img.src = src;
-  img.alt = filename || "image";
-  img.style.transform = "scale(1)";
-  modal.classList.remove("hidden");
-  modal.setAttribute("aria-hidden", "false");
-}
-
-function closeImageViewer() {
-  const modal = document.getElementById("image-viewer-modal");
-  if (!modal) return;
-  modal.classList.add("hidden");
-  modal.setAttribute("aria-hidden", "true");
-  document.getElementById("img-viewer-el").src = "";
-}
-
-document.getElementById("img-viewer-close")?.addEventListener("click", closeImageViewer);
-
-document.getElementById("image-viewer-modal")?.addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) closeImageViewer(); // click backdrop to close
-});
-
-document.getElementById("img-zoom-in")?.addEventListener("click", () => {
-  imgViewerZoom = Math.min(imgViewerZoom + 0.25, 4);
-  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
-});
-
-document.getElementById("img-zoom-out")?.addEventListener("click", () => {
-  imgViewerZoom = Math.max(imgViewerZoom - 0.25, 0.25);
-  document.getElementById("img-viewer-el").style.transform = `scale(${imgViewerZoom})`;
-});
-
-document.getElementById("img-download")?.addEventListener("click", () => {
-  const img = document.getElementById("img-viewer-el");
-  if (!img?.src) return;
-  const link = document.createElement("a");
-  link.href = img.src;
-  link.download = img.alt || "image";
-  link.click();
-});
-
-// Escape key closes viewer
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeImageViewer();
-});
-
-function openAttachmentModal() {
-  if (!attachmentModal) return;
-  attachmentModal.classList.remove("hidden");
-  attachmentModal.setAttribute("aria-hidden", "false");
-}
-
-function attachmentDownloadName(message) {
-  return message?.originalFilename || "attachment";
-}
-
-function buildAttachmentUrl(thread, message) {
-  if (!thread || !message) return "";
-  if (message.attachmentId) {
-    return `/attachments/${message.attachmentId}`;
-  }
-  if (message.attachmentPath) {
-    if (thread.kind === "dm") {
-      return `/dm/${thread.id}/messages/${message.id}/attachment`;
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+    let top;
+    if (spaceBelow >= menuHeight + gap || spaceBelow >= spaceAbove) {
+      top = rect.bottom + gap;
+    } else {
+      top = rect.top - gap - menuHeight;
     }
-    return `/rooms/${thread.id}/messages/${message.id}/attachment`;
-  }
-  return "";
-}
+    top = Math.min(Math.max(viewportPadding, top), window.innerHeight - menuHeight - viewportPadding);
 
-async function fetchAttachmentBlob(thread, message) {
-  const url = buildAttachmentUrl(thread, message);
-  if (!url) {
-    throw new Error("Attachment is not available.");
+    surfaceEl.style.left = `${left}px`;
+    surfaceEl.style.top = `${top}px`;
   }
 
-  const response = await apiRequest(url);
-  const blob = await response.blob();
-  return {
-    blob,
-    contentType: response.headers.get("content-type") || blob.type || "application/octet-stream",
-    filename: attachmentDownloadName(message)
-  };
-}
-
-function buildAttachmentCard(thread, message) {
-  const name = escapeHTML(message.originalFilename || "Attachment");
-  const meta = message.type === "IMAGE" ? "Image attachment" : "File attachment";
-  const icon = message.type === "IMAGE" ? iconMap.imageSmall : iconMap.file;
-  const attachmentUrl = buildAttachmentUrl(thread, message);
-  const hasRemoteAttachment = Boolean(attachmentUrl);
-
-  return `
-    <div
-      class="attachment-card${hasRemoteAttachment ? " clickable" : ""}"
-      data-attachment-thread-id="${thread.id}"
-      data-attachment-message-id="${message.id}"
-      data-attachment-kind="${message.type}"
-      ${hasRemoteAttachment ? 'role="button" tabindex="0"' : ""}
-      aria-label="${hasRemoteAttachment ? `Open attachment ${name}` : `Attachment ${name}`}"
-    >
-      <div class="attachment-card-icon">${icon}</div>
-      <div class="attachment-card-main">
-        <div class="attachment-card-title">${name}</div>
-        <div class="attachment-card-subtitle">${meta}</div>
-      </div>
-      <div class="attachment-card-actions">
-        ${
-          hasRemoteAttachment
-            ? `<button class="attachment-action-btn" data-attachment-action="view" type="button">Open</button>
-               <button class="attachment-action-btn" data-attachment-action="download" type="button">Download</button>`
-            : `<span class="attachment-local-label">Stored locally</span>`
-        }
-      </div>
-    </div>
-  `;
-}
-
-function renderAttachmentModalView(thread, message, blob, contentType) {
-  const title = message.originalFilename || "Attachment";
-  const objectUrl = URL.createObjectURL(blob);
-  clearAttachmentPreview();
-  attachmentPreview = { objectUrl, filename: title, contentType };
-
-  if (attachmentModalTitle) attachmentModalTitle.textContent = title;
-
-  const isImage = contentType.startsWith("image/") || message.type === "IMAGE";
-  const isPdf = contentType.includes("pdf") || /\.pdf$/i.test(title);
-  const isText = contentType.startsWith("text/") || /\.(txt|md|json|csv|log)$/i.test(title);
-
-  if (!attachmentModalBody) return;
-
-  if (isImage) {
-    attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
-        <img class="attachment-preview-image" src="${objectUrl}" alt="${escapeHTML(title)}" />
-      </div>
-    `;
-  } else if (isPdf) {
-    attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
-        <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
-      </div>
-    `;
-  } else if (isText) {
-    attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
-        <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
-      </div>
-    `;
-  } else {
-    attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
-        <div class="attachment-preview-card">
-          <div class="avatar-large" style="margin:0 auto;">${iconMap.file}</div>
-          <div class="attachment-preview-name">${escapeHTML(title)}</div>
-          <div class="attachment-preview-copy">This file can be opened in a new tab or downloaded locally.</div>
-        </div>
-      </div>
-    `;
+  function openMessageMenu(buttonEl, message, thread) {
+    if (!messageMenuOverlay || !messageMenuSurface) return;
+    messageMenuSurface.innerHTML = messageMenuContentHTML(message);
+    messageMenuOverlay.classList.remove("hidden");
+    messageMenuOverlay.setAttribute("aria-hidden", "false");
+    state.messageMenuOpen = true;
+    state.messageMenuAnchor = {
+      buttonEl,
+      messageId: Number(message?.id),
+      threadKey: thread?.key || null
+    };
+    requestAnimationFrame(() => {
+      positionMessageMenu(buttonEl, messageMenuSurface);
+    });
   }
 
-  attachmentModalOpen.onclick = () => {
-    if (!attachmentPreview?.objectUrl) return;
-    window.open(attachmentPreview.objectUrl, "_blank", "noopener,noreferrer");
-  };
-
-  attachmentModalDownload.onclick = () => {
-    if (!attachmentPreview?.objectUrl) return;
-    const link = document.createElement("a");
-    link.href = attachmentPreview.objectUrl;
-    link.download = attachmentPreview.filename || "attachment";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-}
-
-async function openAttachmentViewer(thread, message) {
-  try {
-    const { blob, contentType, filename } = await fetchAttachmentBlob(thread, message);
-    renderAttachmentModalView(thread, { ...message, originalFilename: filename }, blob, contentType);
-    openAttachmentModal();
-  } catch (error) {
-    console.error("Attachment open failed", error);
-  }
-}
-
-async function downloadAttachment(thread, message) {
-  try {
-    const { blob, filename } = await fetchAttachmentBlob(thread, message);
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename || "attachment";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-  } catch (error) {
-    console.error("Attachment download failed", error);
-  }
-}
-
-function activeThread() {
-  return state.threads.find((thread) => thread.id === state.activeThreadId) || null;
-}
-
-function saveActiveThreadId(threadId) {
-  if (threadId === null || threadId === undefined) {
-    localStorage.removeItem(ACTIVE_THREAD_KEY);
-    return;
-  }
-  localStorage.setItem(ACTIVE_THREAD_KEY, String(threadId));
-}
-
-function getSavedActiveThreadId() {
-  const raw = localStorage.getItem(ACTIVE_THREAD_KEY);
-  if (!raw) return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function clearConversationCanvas() {
-  messagesScroll.innerHTML = "";
-  dayChip.hidden = true;
-}
-
-function showConversationEmptyState() {
-  const hasThreads = state.threads.length > 0;
-
-  state.menuOpen = false;
-  state.infoOpen = false;
-  conversationSearchRow.classList.add("hidden");
-  menuPopover.classList.add("hidden");
-  infoDrawer.classList.add("hidden");
-  closeAttachmentModal();
-  state.convoSearch = "";
-  conversationSearch.value = "";
-
-  conversationPane.classList.add("is-empty");
-  conversationEmptyState.hidden = false;
-  conversationContent.hidden = true;
-  clearConversationCanvas();
-
-  conversationEmptyTitle.textContent = hasThreads ? "No chat selected" : "No conversations yet";
-  conversationEmptyCopy.textContent = hasThreads
-    ? "Choose a conversation from the left or start a new one."
-    : "Your conversations will appear here once they are created.";
-
-}
-
-function openConversationView() {
-  conversationPane.classList.remove("is-empty");
-  conversationEmptyState.hidden = true;
-  conversationContent.hidden = false;
-  clearConversationCanvas();
-}
-
-function requestNewChat() {
-  openNewChatModal();
-}
-
-function openNewChatModal() {
-  if (!newChatModal) return;
-  state.newChatOpen = true;
-  newChatModal.classList.remove("hidden");
-  newChatSearch.value = "";
-  renderNewChatState("Search registered users to start a new chat.");
-  setTimeout(() => newChatSearch?.focus(), 0);
-  searchRegisteredUsers("");
-}
-
-function closeNewChatModal() {
-  if (!newChatModal) return;
-  state.newChatOpen = false;
-  if (newChatSearchTimer) {
-    clearTimeout(newChatSearchTimer);
-    newChatSearchTimer = null;
-  }
-  newChatModal.classList.add("hidden");
-  newChatSearch.value = "";
-  renderNewChatState("Search registered users to start a new chat.");
-}
-
-function renderNewChatState(message) {
-  if (!newChatResults) return;
-  newChatResults.innerHTML = `<div class="new-chat-empty">${escapeHTML(message)}</div>`;
-}
-
-function renderNewChatResults(users) {
-  if (!newChatResults) return;
-  const list = Array.isArray(users) ? users : [];
-  if (list.length === 0) {
-    renderNewChatState("No matching users found.");
-    return;
-  }
-
-  newChatResults.innerHTML = list.map((user) => {
-    const username = user.username || "User";
-    const initials = username
-      .split(/[^a-zA-Z0-9]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join("") || "U";
-
-    return `
-      <button type="button" class="new-chat-result" data-username="${escapeHTML(username)}">
-        <div class="avatar">${escapeHTML(initials)}</div>
-        <div>
-          <div class="result-name">${escapeHTML(username)}</div>
-          <div class="result-meta">Direct message</div>
-        </div>
-        <div class="result-action">Start</div>
-      </button>
-    `;
-  }).join("");
-}
-
-async function searchRegisteredUsers(query) {
-  if (!newChatResults) return;
-  try {
-    newChatResults.innerHTML = `<div class="new-chat-loading">Searching users...</div>`;
-    const users = await searchUsers(query ?? "");
-    renderNewChatResults(users);
-  } catch (error) {
-    console.error("User search failed", error);
-    renderNewChatState("Unable to search users right now.");
-  }
-}
-
-async function startChatWithUser(username) {
-  try {
-    const conversation = await startConversation(username);
+  function closeAllOverlays() {
+    closeOverlays(state);
     closeNewChatModal();
-    await loadConversations({ preserveSelection: false });
-    await openThread(conversation.id, { remember: true });
-  } catch (error) {
-    console.error("Failed to start conversation", error);
-    renderNewChatState(error?.message || "Failed to start conversation.");
+    closeLauncherModal();
+    closeRoomCreateModal();
+    closeMessageMenu();
   }
-}
 
-function renderThreadEmptyState(title, copy, actionLabel = "New chat", actionKind = "new-chat") {
-  threadList.innerHTML = `
-    <div class="thread-empty-state">
-      <div class="thread-empty-card">
-        <div class="thread-empty-kicker mono">Chat</div>
-        <div class="thread-empty-title">${escapeHTML(title)}</div>
-        <div class="thread-empty-copy">${escapeHTML(copy)}</div>
-        <button type="button" class="thread-empty-btn" id="thread-empty-action">${escapeHTML(actionLabel)}</button>
-      </div>
-    </div>
-  `;
+  function requestAnimationScroll() {
+    requestAnimationFrame(() => scrollMessagesToBottom());
+  }
 
-  const actionBtn = document.getElementById("thread-empty-action");
-  actionBtn?.addEventListener("click", () => {
-    if (actionKind === "clear-search") {
-      state.chatSearch = "";
-      chatSearch.value = "";
-      renderThreads();
+  threadList?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".thread-item");
+    if (!btn) return;
+    const threadKey = btn.dataset.threadKey;
+    if (!threadKey) return;
+    openThread(threadKey, { remember: true });
+  });
+
+  inputField?.addEventListener("input", function () {
+    this.style.height = "auto";
+    this.style.height = `${Math.min(this.scrollHeight, 120)}px`;
+    this.style.overflowY = this.scrollHeight > 120 ? "auto" : "hidden";
+  });
+
+  inputField?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  });
+
+  sendBtn?.addEventListener("click", handleSend);
+  backBtn?.addEventListener("click", closeConversationAndShowEmptyState);
+
+
+  chatLauncherBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openLauncherModal();
+  });
+
+  chatLauncherBackdrop?.addEventListener("click", closeLauncherModal);
+  chatLauncherClose?.addEventListener("click", closeLauncherModal);
+  launcherDmBtn?.addEventListener("click", () => {
+    closeLauncherModal();
+    openNewChatModal();
+  });
+  launcherRoomBtn?.addEventListener("click", () => {
+    openRoomCreateModal();
+  });
+
+  roomCreateBackdrop?.addEventListener("click", closeRoomCreateModal);
+  roomCreateClose?.addEventListener("click", closeRoomCreateModal);
+  roomCreateCancel?.addEventListener("click", closeRoomCreateModal);
+  roomCreateForm?.addEventListener("submit", submitRoomCreation);
+
+  roomMemberSearch?.addEventListener("input", () => {
+    if (roomMemberState.timer) {
+      clearTimeout(roomMemberState.timer);
+    }
+    roomMemberState.timer = setTimeout(() => {
+      searchRoomMembers(roomMemberSearch.value);
+    }, 220);
+  });
+
+  roomMemberSearch?.addEventListener("focus", () => {
+    if (!roomMemberResults || roomMemberResults.children.length === 0) {
+      searchRoomMembers(roomMemberSearch.value || "");
+    }
+  });
+
+  roomMemberSearch?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      clearRoomMemberSearchResults();
       return;
     }
-    requestNewChat();
-  });
-}
 
-function previewText(thread) {
-  if (thread.lastMessageType === "IMAGE") return thread.lastMessage || "Image";
-  if (thread.lastMessageType === "FILE") return thread.lastMessage || "File";
-  return thread.lastMessage || "No messages yet";
-}
-
-function iconForPreview(type) {
-  if (type === "IMAGE") return "imageSmall";
-  if (type === "FILE") return "file";
-  return null;
-}
-
-function renderThreads() {
-  const filterTerm = state.chatSearch.trim().toLowerCase();
-
-  const filteredThreads = state.threads.filter((thread) => {
-    const matchesKind = state.threadFilter === "all" || thread.kind === state.threadFilter;
-    const haystack = [
-      thread.title || "",
-      thread.lastMessage || "",
-      thread.status || "",
-      thread.kind || ""
-    ].join(" ").toLowerCase();
-    return matchesKind && haystack.includes(filterTerm);
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const first = roomMemberResults?.querySelector(".member-result");
+      if (first) first.click();
+    }
   });
 
-  if (state.threads.length === 0) {
-    renderThreadEmptyState(
-      "No conversations yet",
-      "Your conversations will appear here after they are created.",
-      "New chat",
-      "new-chat"
-    );
-    return;
-  }
-
-  if (filteredThreads.length === 0) {
-    renderThreadEmptyState(
-      "No matching conversations",
-      "Try a different search term or switch the filter.",
-      "Clear search",
-      "clear-search"
-    );
-    return;
-  }
-
-  threadList.innerHTML = "";
-
-  filteredThreads.forEach((thread) => {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "thread-item" + (thread.id === state.activeThreadId ? " active" : "");
-    item.dataset.threadId = String(thread.id);
-    item.innerHTML = `
-      <div class="avatar">${escapeHTML(thread.initials)}</div>
-      <div class="thread-meta">
-        <div class="thread-title-row">
-          <div class="thread-title">${escapeHTML(thread.title)}</div>
-          <div class="thread-time mono">${escapeHTML(thread.lastMessageTime || "")}</div>
-        </div>
-        <div class="thread-preview-row">
-          <div class="thread-preview">
-            ${iconForPreview(thread.lastMessageType) ? `<span class="preview-icon">${iconMap[iconForPreview(thread.lastMessageType)]}</span>` : ""}
-            <span>${escapeHTML(previewText(thread))}</span>
-          </div>
-          ${thread.unread ? `<span class="badge mono">${thread.unread}</span>` : ""}
-        </div>
-      </div>
-    `;
-    threadList.appendChild(item);
-  });
-}
-
-
-async function loadInlineImages() {
-
-  const images = document.querySelectorAll(".chat-image-preview");
-
-  for (const img of images) {
-
-    const threadId = Number(img.dataset.threadId);
-    const messageId = Number(img.dataset.messageId);
-
-
-    const thread = state.threads.find((t) => t.id === threadId);
-
-    if (!thread) {
-
-      continue;
-    }
-
-    const message = thread.messages.find((m) => m.id === messageId);
-
-    if (!message) {
-
-      continue;
-    }
-
-    try {
-
-      const { blob } = await fetchAttachmentBlob(thread, message);
-
-
-
-      const blobUrl = URL.createObjectURL(blob);
-
-      img.src = blobUrl;
-
-      img.onclick = () => {
-      openImageViewer(blobUrl, message.originalFilename);
-      };
-
-    } catch (err) {
-
-      console.error(" Image load failed:", err);
-
-    }
-  }
-}
-
-function messageHTML(thread, message) {
-  const sideClass = message.sender === "self" ? "self" : "other";
-  const senderLine =
-    message.sender === "other"
-      ? `<div class="message-sender">${escapeHTML(message.senderName || "Sender")}</div>`
-      : "";
-
-  if (message.type === "TEXT") {
-    return `
-      <div class="message-row ${sideClass}">
-        <div class="message-bubble">
-
-          ${
-            message.sender === "self"
-              ? `
-              <button
-                class="delete-message-btn"
-                data-message-id="${message.id}"
-                title="Delete message"
-              >
-                ×
-              </button>
-              `
-              : ""
-          }
-          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-          <div class="message-text">${escapeHTML(message.text || "")}</div>
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
-        </div>
-      </div>
-    `;
-  }
-
-    if (message.type === "VOICE") {
-
-      const audioUrl =
-        `/api/dm/voice/${message.id}`;
-
-      return `
-        <div class="message-row ${sideClass}">
-          <div class="message-bubble">
-
-            ${
-              message.sender === "self"
-                ? `
-                <button
-                  class="delete-message-btn"
-                  data-message-id="${message.id}"
-                  title="Delete message"
-                >
-                  ×
-                </button>
-                `
-                : ""
-            }
-
-            ${
-              senderLine
-                ? `<div class="message-meta">${senderLine}</div>`
-                : ""
-            }
-
-            <div class="voice-card">
-
-              <audio
-                controls
-                preload="metadata"
-                class="voice-player"
-              >
-                <source
-                  src="${audioUrl}"
-                  type="audio/webm"
-                >
-              </audio>
-
-            </div>
-
-            <div class="message-time mono">
-              ${escapeHTML(message.time)}
-            </div>
-
-          </div>
-        </div>
-      `;
-    }
-
-
-  if (message.type === "IMAGE") {
-  const imageUrl = buildAttachmentUrl(thread, message);
-  
-  return `
-    <div class="message-row ${sideClass}">
-      <div class="message-bubble">
-
-        ${
-          message.sender === "self"
-            ? `
-            <button
-              class="delete-message-btn"
-              data-message-id="${message.id}"
-              title="Delete message"
-            >
-              ×
-            </button>
-            `
-            : ""
-        }
-        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-        
-        <img
-    class="chat-image-preview"
-    data-thread-id="${thread.id}"
-    data-message-id="${message.id}"
-    alt="${escapeHTML(message.originalFilename || "Image")}"
-    style="
-        max-width:240px;
-        max-height:240px;
-        width:auto;
-        height:auto;
-        border-radius:10px;
-        cursor:pointer;
-        display:block;
-        object-fit:cover;
-    "
-/>
-        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
-      </div>
-    </div>
-  `;
-}
-
-if (message.type === "FILE") {
-  return `
-    <div class="message-row ${sideClass}">
-      <div class="message-bubble">
-
-        ${
-          message.sender === "self"
-            ? `
-            <button
-              class="delete-message-btn"
-              data-message-id="${message.id}"
-              title="Delete message"
-            >
-              ×
-            </button>
-            `
-            : ""
-        }
-        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
-        ${buildAttachmentCard(thread, message)}
-        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
-      </div>
-    </div>
-  `;
-}
-  return "";
-}
-
-function renderMessages(thread) {
-  if (!thread || state.activeThreadId !== thread.id) {
-    clearConversationCanvas();
-    return;
-  }
-
-  const messages = thread.messages.filter((msg) => msg.type !== "DAY");
-  const term = state.convoSearch.trim().toLowerCase();
-
-  const filtered = !term
-    ? messages
-    : messages.filter((msg) => {
-        const haystack = [
-          msg.senderName || "",
-          msg.text || "",
-          msg.originalFilename || "",
-          msg.fileMeta || ""
-        ].join(" ").toLowerCase();
-        return haystack.includes(term);
-      });
-
-  if (messages.length === 0) {
-    messagesScroll.innerHTML = `
-      <div class="messages-empty">
-        <div class="messages-empty-card">
-          <div class="messages-empty-kicker mono">Conversation ready</div>
-          <div class="messages-empty-title">No messages yet</div>
-          <div class="messages-empty-copy">Use the composer below to start this conversation.</div>
-        </div>
-      </div>
-    `;
-    dayChip.hidden = true;
-    return;
-  }
-
-  if (filtered.length === 0) {
-    messagesScroll.innerHTML = `
-      <div class="messages-empty">
-        <div class="messages-empty-card">
-          <div class="messages-empty-kicker mono">Search</div>
-          <div class="messages-empty-title">No messages match your search</div>
-          <div class="messages-empty-copy">Try another term or clear the search box.</div>
-        </div>
-      </div>
-    `;
-    dayChip.hidden = true;
-    return;
-  }
-
-  dayChip.hidden = false;
-  dayChip.textContent = "Today";
-  messagesScroll.innerHTML = filtered.map((message) => messageHTML(thread, message)).join("");
-
-  loadInlineImages();
-
-  scrollMessagesToBottom();
-}
-
-
-function updateConversationMeta(thread) {
-  if (!thread) return;
-  conversationTitle.textContent = thread.title || "Conversation";
-  conversationStatus.textContent = thread.status || "Direct Message";
-  conversationAvatar.textContent = thread.initials || "VA";
-  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
-  document.getElementById("info-files").textContent = String(
-    (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
-  );
-}
-
-function updateInfoDrawer(thread) {
-  if (!thread) return;
-  document.getElementById("info-participants").textContent = String(thread.members?.length || 1);
-  document.getElementById("info-type").textContent = thread.kind === "group" ? "Group" : "DM";
-  document.getElementById("info-files").textContent = String(
-    (thread.messages || []).filter((msg) => msg.type === "FILE" || msg.type === "IMAGE").length
-  );
-}
-
-function closeOverlays() {
-  menuPopover.classList.add("hidden");
-  infoDrawer.classList.add("hidden");
-  attachmentModal?.classList.add("hidden");
-  state.menuOpen = false;
-  state.infoOpen = false;
-  conversationSearchRow.classList.add("hidden");
-}
-
-async function loadMessages(conversationId, loadToken = 0) {
-  try {
-    const messages = await getMessages(conversationId);
-    if (loadToken !== 0 && loadToken !== loadSequence) return;
-
-    const thread = state.threads.find((t) => t.id === Number(conversationId));
-    if (!thread) return;
-
-    thread.messages = (messages || []).map((message) => {
-      const senderName = message.sender_username || "Unknown";
-
-      const isSelf = senderName === (currentUser?.username || "");
-      
-      return {
-        id: message.id,
-        sender: isSelf ? "self" : "other",
-        senderName,
-        type: (message.message_type || "TEXT").toUpperCase(),
-        text: message.message_text || "",
-        originalFilename: message.original_filename || "",
-        attachmentPath: message.attachment_path || "",
-        attachmentId: message.attachment_id || null,
-        fileMeta: message.original_filename || "",
-        time: formatTime(message.created_at)
-      };
-    });
-
-    updateConversationMeta(thread);
-    updateInfoDrawer(thread);
-    renderMessages(thread);
-    requestAnimationFrame(() => scrollMessagesToBottom());
-  } catch (error) {
-    console.error("Failed loading messages", error);
-  }
-}
-
-async function openThread(threadId, { remember = true } = {}) {
-  const numericId = Number(threadId);
-  if (!Number.isFinite(numericId)) return;
-
-  const thread = state.threads.find((item) => item.id === numericId);
-  if (!thread) return;
-
-  state.activeThreadId = numericId;
-  if (remember) {
-    saveActiveThreadId(numericId);
-  }
-
-  state.convoSearch = "";
-  conversationSearch.value = "";
-  closeAttachmentModal();
-  closeOverlays();
-  openConversationView();
-  updateConversationMeta(thread);
-  updateInfoDrawer(thread);
-  renderThreads();
-
-  loadSequence += 1;
-  const currentSequence = loadSequence;
-
-  await loadMessages(numericId, currentSequence);
-  if (currentSequence !== loadSequence) return;
-
-  try {
-    await markConversationRead(numericId);
-    thread.unread = 0;
-    renderThreads();
-  } catch (error) {
-    console.error("Failed marking conversation as read", error);
-  }
-}
-
-function closeConversationAndShowEmptyState() {
-  loadSequence += 1;
-  state.activeThreadId = null;
-  saveActiveThreadId(null);
-  state.convoSearch = "";
-  conversationSearch.value = "";
-  closeAttachmentModal();
-  closeOverlays();
-  renderThreads();
-  showConversationEmptyState();
-}
-
-async function handleSend() {
-  const thread = activeThread();
-  if (!thread) return;
-
-  const text = inputField.value.trim();
-  if (!text) return;
-
-  try {
-    inputField.value = "";
-    inputField.style.height = "44px";
-    inputField.style.overflowY = "hidden";
-
-    await sendMessage(thread.id, text);
-    thread.lastMessage = text;
-    thread.lastMessageType = "TEXT";
-    thread.lastMessageTime = formatTime(new Date());
-    thread.unread = 0;
-
-    await loadMessages(thread.id);
-    renderThreads();
-    requestAnimationFrame(() => scrollMessagesToBottom());
-  } catch (error) {
-    console.error("Message send failed", error);
-    setComposerText(text);
-  }
-}
-
-function setComposerText(text) {
-  inputField.value = text;
-  inputField.dispatchEvent(new Event("input"));
-}
-
-function handleAttachment(file, forceType = null) {
-  const thread = activeThread();
-  if (!thread) return;
-
-  const type = forceType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
-
-  if (type === "IMAGE") {
-    sendImage(thread.id, file)
-      .then(() => loadMessages(thread.id))
-      .then(() => {
-        thread.lastMessage = "Image";
-        thread.lastMessageType = "IMAGE";
-        thread.lastMessageTime = formatTime(new Date());
-        renderThreads();
-        requestAnimationFrame(() => scrollMessagesToBottom());
-      })
-      .catch((error) => {
-        console.error("Image send failed", error);
-      });
-    return;
-  }
-
-  // File attachments are not yet supported by the backend DM flow.
-  // We keep the composer functional without breaking the interface.
-  const time = formatTime(new Date());
-  thread.messages.push({
-    id: `local-${Date.now()}`,
-    sender: "self",
-    senderName: currentUser?.username || "You",
-    type: "FILE",
-    originalFilename: file.name,
-    fileMeta: formatFileSize(file.size),
-    time
-  });
-  thread.lastMessage = file.name;
-  thread.lastMessageType = "FILE";
-  thread.lastMessageTime = time;
-  renderMessages(thread);
-  renderThreads();
-}
-
-async function loadConversations({ preserveSelection = true } = {}) {
-  const conversations = await getConversations();
-  const preservedActiveId = preserveSelection ? state.activeThreadId : null;
-
-  state.threads = (conversations || []).map((conversation) => ({
-    id: Number(conversation.conversation_id),
-    kind: conversation.kind || "dm",
-    title: conversation.username || "Conversation",
-    initials: (conversation.username || "VA").substring(0, 2).toUpperCase(),
-    status: conversation.status || "Direct Message",
-    unread: conversation.unread_count || 0,
-    lastMessage: conversation.last_message || "",
-    lastMessageSender: conversation.last_message_sender || "",
-    lastMessageType: conversation.last_message_type || (conversation.last_message ? "TEXT" : "TEXT"),
-    lastMessageTime: formatTime(conversation.last_message_time),
-    members: [conversation.username || "User"],
-    messages: []
-  }));
-
-  renderThreads();
-
-  if (
-    preservedActiveId !== null &&
-    state.threads.some((thread) => thread.id === preservedActiveId)
-  ) {
-    await openThread(preservedActiveId, { remember: false });
-    return;
-  }
-
-  state.activeThreadId = null;
-  saveActiveThreadId(null);
-
-  if (state.threads.length === 0) {
-    showConversationEmptyState();
-  } else {
-    showConversationEmptyState();
-  }
-}
-
-function currentSearchUpdate() {
-  state.chatSearch = chatSearch.value;
-  renderThreads();
-}
-
-document.querySelectorAll("[data-icon]").forEach((el) => {
-  const iconName = el.dataset.icon;
-  el.innerHTML = iconMap[iconName] || "";
-});
-
-threadList.addEventListener("click", (event) => {
-  const btn = event.target.closest(".thread-item");
-  if (!btn) return;
-  const threadId = Number(btn.dataset.threadId);
-  if (!Number.isFinite(threadId)) return;
-  openThread(threadId);
-});
-
-inputField.addEventListener("input", function () {
-  this.style.height = "auto";
-  this.style.height = `${Math.min(this.scrollHeight, 120)}px`;
-  this.style.overflowY = this.scrollHeight > 120 ? "auto" : "hidden";
-});
-
-inputField.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
+  const handleRoomMemberChoice = (event) => {
+    const btn = event.target.closest(".member-result");
+    if (!btn) return;
     event.preventDefault();
-    handleSend();
-  }
-});
+    event.stopPropagation();
+    const id = Number(btn.dataset.memberId);
+    const username = btn.dataset.memberUsername;
+    if (!Number.isFinite(id) || !username) return;
+    addRoomMemberSelection({ id, username });
+  };
 
-sendBtn?.addEventListener("click", handleSend);
-backBtn?.addEventListener("click", closeConversationAndShowEmptyState);
+  roomMemberResults?.addEventListener("pointerdown", handleRoomMemberChoice);
+  roomMemberResults?.addEventListener("click", handleRoomMemberChoice);
 
-threadNewChatBtn?.addEventListener("click", () => requestNewChat());
+  roomMemberSelected?.addEventListener("click", (event) => {
+    const removeBtn = event.target.closest("[data-remove-user-id]");
+    if (!removeBtn) return;
+    removeRoomMemberSelection(removeBtn.dataset.removeUserId);
+  });
 
-attachBtn?.addEventListener("click", () => fileInput?.click());
-imageBtn?.addEventListener("click", () => imageInput?.click());
+  attachBtn?.addEventListener("click", () => fileInput?.click());
+  imageBtn?.addEventListener("click", () => imageInput?.click());
 
-fileInput?.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) handleAttachment(file, "FILE");
-  fileInput.value = "";
-});
+  fileInput?.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (file) openCaptionModal(file, "FILE");
+    fileInput.value = "";
+  });
 
-imageInput?.addEventListener("change", () => {
-  const file = imageInput.files?.[0];
-  if (file) handleAttachment(file, "IMAGE");
-  imageInput.value = "";
-});
+  imageInput?.addEventListener("change", () => {
+    const file = imageInput.files?.[0];
+    if (file) openCaptionModal(file, "IMAGE");
+    imageInput.value = "";
+  });
 
-micBtn?.addEventListener(
-  "click",
-  async () => {
+  micBtn?.addEventListener("click", async () => {
+    console.log("Mic button clicked");
+    console.log("isRecording =", isRecording);
 
-    const thread = activeThread();
+    const thread = activeThread(state);
 
     if (!thread) {
+      return;
+    }
+
+    const bridge = getDesktopBridge();
+    console.log("Bridge:", bridge);
+
+    if (!bridge) {
+      console.error("Desktop bridge unavailable");
       return;
     }
 
@@ -1180,83 +845,60 @@ micBtn?.addEventListener(
 
       if (!isRecording) {
 
-        const stream =
-          await navigator.mediaDevices.getUserMedia({
-            audio: true
-          });
-
-        recordedChunks = [];
-
-        mediaRecorder =
-          new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable =
-          (event) => {
-
-            if (event.data.size > 0) {
-              recordedChunks.push(
-                event.data
-              );
-            }
-          };
-
-        mediaRecorder.start();
+        console.log("Calling start_voice_recording");
+        await bridge.start_voice_recording();
+        console.log("Recording started");
 
         isRecording = true;
 
-        micBtn.classList.add(
-          "recording"
+        micBtn.classList.add("recording");
+
+        return;
+
+      }
+
+      const dataUrl =
+        await bridge.stop_voice_recording();
+      
+      console.log("stop_voice_recording returned:", dataUrl);
+      isRecording = false;
+
+      micBtn.classList.remove("recording");
+
+      if (!dataUrl) {
+        throw new Error(
+          "No audio recorded."
+        );
+      }
+
+      const file =
+        await dataUrlToFile(
+          dataUrl,
+          `voice-${Date.now()}.wav`
+        );
+        console.log("Created file:", file);
+      if (thread.type === "room") {
+
+        await sendRoomVoice(
+          thread.id,
+          file
         );
 
       } else {
 
-        mediaRecorder.stop();
-
-        mediaRecorder.onstop =
-          async () => {
-
-            try {
-
-              const blob =
-                new Blob(
-                  recordedChunks,
-                  {
-                    type: "audio/webm"
-                  }
-                );
-
-              const file =
-                new File(
-                  [blob],
-                  `voice-${Date.now()}.webm`,
-                  {
-                    type: "audio/webm"
-                  }
-                );
-
-              await sendVoice(
-                thread.id,
-                file
-              );
-
-              await loadMessages(thread.id);
-              requestAnimationFrame(() => scrollMessagesToBottom());
-
-            } catch (error) {
-
-              console.error(
-                "Voice upload failed",
-                error
-              );
-            }
-          };
-
-        isRecording = false;
-
-        micBtn.classList.remove(
-          "recording"
+        await sendVoice(
+          thread.id,
+          file
         );
+        console.log("Uploading voice...");
+
       }
+
+      await loadMessages(
+        thread.key
+      );
+
+      requestAnimationScroll();
 
     } catch (error) {
 
@@ -1264,163 +906,908 @@ micBtn?.addEventListener(
         "Voice recording failed",
         error
       );
-    }
-  }
-);
+      isRecording = false;
 
-chatSearch?.addEventListener("input", currentSearchUpdate);
+      micBtn.classList.remove("recording");
 
-filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    filterButtons.forEach((btn) => btn.classList.remove("active"));
-    button.classList.add("active");
-    state.threadFilter = button.dataset.filter;
-    renderThreads();
+    } 
+
   });
-});
 
-searchToggle?.addEventListener("click", (event) => {
-  event.stopPropagation();
-  conversationSearchRow.classList.remove("hidden");
-  conversationSearch.focus();
-});
+  chatSearch?.addEventListener("input", () => currentSearchUpdate());
 
-closeSearch?.addEventListener("click", () => {
-  conversationSearchRow.classList.add("hidden");
-  state.convoSearch = "";
-  conversationSearch.value = "";
-  const thread = activeThread();
-  if (thread) renderMessages(thread);
-});
+  filterButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      filterButtons.forEach((btn) => btn.classList.remove("active"));
+      button.classList.add("active");
+      state.threadFilter = button.dataset.filter;
+      renderThreads(state);
+    });
+  });
 
-conversationSearch?.addEventListener("input", () => {
-  state.convoSearch = conversationSearch.value;
-  const thread = activeThread();
-  if (thread) renderMessages(thread);
-});
-
-menuToggle?.addEventListener("click", (event) => {
-  event.stopPropagation();
-  state.menuOpen = !state.menuOpen;
-  menuPopover.classList.toggle("hidden", !state.menuOpen);
-});
-
-document.addEventListener("click", (event) => {
-  const target = event.target;
-  if (
-    target.closest(".menu-wrap") ||
-    target.closest("#search-toggle") ||
-    target.closest(".conversation-search") ||
-    target.closest("#info-drawer") ||
-    target.closest("#new-chat-modal") ||
-    target.closest("#attachment-modal") ||
-    target.closest(".menu-popover") 
-  ) {
-    return;
-  }
-  closeOverlays();
-});
-
-menuPopover?.addEventListener("click", async (event)=> {
-  event.stopPropagation();
-  const btn = event.target.closest(".menu-item");
-  if (!btn) return;
-
-  const action = btn.dataset.menu;
-  closeOverlays();
-
-  if (action === "search") {
+  searchToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
     conversationSearchRow.classList.remove("hidden");
-    conversationSearch.focus();
-  }
+    conversationSearch?.focus();
+  });
 
-  if (action === "clear") {
+  closeSearch?.addEventListener("click", () => {
+    conversationSearchRow.classList.add("hidden");
+    state.convoSearch = "";
+    if (conversationSearch) conversationSearch.value = "";
+    const thread = activeThread(state);
+    if (thread) renderMessages(thread);
+  });
 
-    const thread = activeThread();
+  conversationSearch?.addEventListener("input", () => {
+    state.convoSearch = conversationSearch.value;
+    const thread = activeThread(state);
+    if (thread) renderMessages(thread);
+  });
 
-    if (!thread) return;
+  menuToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.menuOpen = !state.menuOpen;
+    menuPopover?.classList.toggle("hidden", !state.menuOpen);
+  });
 
-    const confirmed = confirm(
-      "Clear this conversation? This only removes it from your view."
-    );
 
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-
-      await clearConversation(thread.id);
-
-      const id = thread.id;
-
-      await loadConversations({
-        preserveSelection: false
-      });
-
-      await openThread(id);
-
-    } catch (error) {
-
-      alert(
-        error.message ||
-        "Failed to clear conversation."
-      );
-
-    }
-  }
-
-  if (action === "info") {
-    state.infoOpen = !state.infoOpen;
-    infoDrawer.classList.toggle("hidden", !state.infoOpen);
-  }
-});
-
-newChatClose?.addEventListener("click", closeNewChatModal);
-newChatBackdrop?.addEventListener("click", closeNewChatModal);
-
-newChatSearch?.addEventListener("input", () => {
-  if (newChatSearchTimer) {
-    clearTimeout(newChatSearchTimer);
-  }
-  const value = newChatSearch.value;
-  newChatSearchTimer = setTimeout(() => {
-    searchRegisteredUsers(value);
-  }, 220);
-});
-
-newChatResults?.addEventListener("click", (event) => {
-  const btn = event.target.closest(".new-chat-result");
-  if (!btn) return;
-  const username = btn.dataset.username;
-  if (!username) return;
-  startChatWithUser(username);
-});
-
-messagesScroll.addEventListener("click", async (event) => {
-  const deleteBtn = event.target.closest(".delete-message-btn");
-
-  if (deleteBtn) {
-
-    const messageId = Number(deleteBtn.dataset.messageId);
-
+  document.addEventListener("click", (event) => {
+    const target = event.target;
     if (
-      !confirm(
-        "Delete this message?"
-      )
+      target.closest(".menu-wrap") ||
+      target.closest("#search-toggle") ||
+      target.closest(".conversation-search") ||
+      target.closest("#info-drawer") ||
+      target.closest("#new-chat-modal") ||
+      target.closest("#room-create-modal") ||
+      target.closest("#chat-launcher-modal") ||
+      target.closest("#attachment-modal") ||
+      target.closest("#message-menu-overlay") ||
+      target.closest("#message-menu-surface") ||
+      target.closest("#message-menu-backdrop") ||
+      target.closest("#room-admin-toggle") ||
+      target.closest("#room-add-member-toggle") ||
+      target.closest("#room-name-edit-btn") ||
+      target.closest("#room-name-save-btn") ||
+      target.closest("#room-name-cancel-btn") ||
+      target.closest("#room-add-member-picker") ||
+      target.closest("#room-add-member-results") ||
+      target.closest(".attachment-card") ||
+      target.closest(".attachment-action-btn") ||
+      target.closest(".chat-image-preview") ||
+      target.closest(".menu-popover") ||
+      target.closest("#room-member-picker") ||
+      target.closest("#room-member-results") ||
+      target.closest(".message-menu-btn") ||
+      target.closest(".message-menu-item")
     ) {
       return;
     }
+    // Close any open message menu overlay when clicking outside.
+    clearRoomMemberSearchResults();
+    closeAllOverlays();
+  });
+
+  menuPopover?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const btn = event.target.closest(".menu-item");
+    if (!btn) return;
+
+    const action = btn.dataset.menu;
+    closeOverlays(state);
+
+    if (action === "search") {
+      conversationSearchRow.classList.remove("hidden");
+      conversationSearch?.focus();
+    }
+
+    if (action === "clear") {
+      const thread = activeThread(state);
+      if (!thread) return;
+      const confirmed = confirm("Clear this conversation? This only removes it from your view.");
+      if (!confirmed) return;
+
+      try {
+        if (thread.kind === "room") {
+          await clearRoomConversation(thread.id);
+        } else {
+          await clearConversation(thread.id);
+        }
+        const id = thread.id;
+        await refreshConversations({ preserveSelection: false });
+        await openThread(id, { remember: true });
+      } catch (error) {
+        alert(error?.message || "Failed to clear conversation.");
+      }
+    }
+
+    if (action === "info") {
+      state.infoOpen = !state.infoOpen;
+      if (state.infoOpen) {
+        menuPopover?.classList.add("hidden");
+      }
+      infoDrawer?.classList.toggle("hidden", !state.infoOpen);
+    }
+  });
+
+  closeInfo?.addEventListener("click", () => {
+    state.infoOpen = false;
+    infoDrawer?.classList.add("hidden");
+  });
+
+  // ── Drawer admin panel (WhatsApp-style room management) ──
+
+  const isAdmin = () => {
+    const thread = activeThread(state);
+    const me = window.currentUser;
+    return thread?.kind === "room" && me && Number(thread.createdBy) === Number(me.id);
+  };
+
+  async function renderRoomAdminPanel(thread) {
+    if (!thread || thread.kind !== "room") {
+      roomAdminSection?.classList.add("hidden");
+      return;
+    }
+
+    const me = window.currentUser;
+    const canManage = me && Number(thread.createdBy) === Number(me.id);
+
+    // Ensure members are fresh from the server.
+    if (typeof getRoomMembers === "function") {
+      try {
+        const members = await getRoomMembers(thread.id);
+        thread.members = Array.isArray(members) ? members : [];
+      } catch (error) {
+        console.warn("Failed to refresh room members", error);
+      }
+    }
+
+    const members = thread.members || [];
+    roomAdminSection?.classList.remove("hidden");
+    roomAddMemberToggle?.classList.toggle("hidden", !canManage);
+    if (roomNameValue) roomNameValue.textContent = thread.title || "Room";
+    roomNameEditBtn?.classList.toggle("hidden", !canManage);
+
+    // Render member list
+    if (roomMembersList) {
+      roomMembersList.innerHTML = members.map((member) => {
+        const isCreator = Number(member.id) === Number(thread.createdBy);
+        const label = isCreator ? `${escapeHTML(member.username || "User")} (Admin)` : escapeHTML(member.username || "User");
+        const initials = (member.username || "U").split(/[^a-zA-Z0-9]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "U";
+        const avatarAttr = Number.isFinite(Number(member.id)) ? `data-avatar-user-id="${Number(member.id)}"` : "";
+        const canRemove = canManage && !isCreator && Number(member.id) !== Number(me.id);
+        const removeBtn = canRemove
+          ? `<button class="room-member-remove" data-remove-member-id="${Number(member.id)}" data-remove-member-name="${escapeHTML(member.username || "")}" title="Remove member" type="button">×</button>`
+          : "";
+        return `
+          <div class="room-member-row" data-member-id="${Number(member.id)}">
+            <div class="room-member-info">
+              <span class="avatar avatar-sm ${avatarAttr ? 'avatar-has-image' : ''}" ${avatarAttr}>${escapeHTML(initials)}</span>
+              <span class="room-member-name">${label}</span>
+            </div>
+            ${removeBtn}
+          </div>
+        `;
+      }).join("");
+      // Decorate member avatars
+      if (typeof window.decorateAvatars === "function") {
+        window.decorateAvatars(roomMembersList);
+      }
+    }
+  }
+
+  // Make window.renderRoomAdminPanel available for the avatar-updated listener.
+  window.renderRoomAdminPanel = renderRoomAdminPanel;
+
+  // Name edit toggle
+  roomNameEditBtn?.addEventListener("click", () => {
+    const thread = activeThread(state);
+    if (!thread) return;
+    roomNameDisplay?.classList.add("hidden");
+    roomNameEditBtn?.classList.add("hidden");
+    roomNameEdit?.classList.remove("hidden");
+    if (roomNameInputInline) {
+      roomNameInputInline.value = thread.title || "";
+      roomNameInputInline.focus();
+    }
+  });
+
+  roomNameCancelBtn?.addEventListener("click", () => {
+    roomNameDisplay?.classList.remove("hidden");
+    roomNameEditBtn?.classList.remove("hidden");
+    roomNameEdit?.classList.add("hidden");
+  });
+
+  roomNameSaveBtn?.addEventListener("click", async () => {
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    const newName = roomNameInputInline?.value?.trim();
+    if (!newName) return;
+    try {
+      await updateRoom(thread.id, { name: newName });
+      thread.title = newName;
+      thread.initials = newName.substring(0, 2).toUpperCase();
+      if (roomNameValue) roomNameValue.textContent = newName;
+      // Refresh header and thread list
+      updateConversationMeta(thread);
+      renderThreads(state);
+      roomNameDisplay?.classList.remove("hidden");
+      roomNameEditBtn?.classList.remove("hidden");
+      roomNameEdit?.classList.add("hidden");
+    } catch (error) {
+      alert(error?.message || "Failed to update room name.");
+    }
+  });
+
+  roomNameInputInline?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); roomNameSaveBtn?.click(); }
+    if (e.key === "Escape") roomNameCancelBtn?.click();
+  });
+
+  // Remove member
+  roomMembersList?.addEventListener("click", async (event) => {
+    const removeBtn = event.target.closest(".room-member-remove");
+    if (!removeBtn) return;
+    const memberId = Number(removeBtn.dataset.removeMemberId);
+    const memberName = removeBtn.dataset.removeMemberName || "this user";
+    if (!confirm(`Remove ${memberName} from the room?`)) return;
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    try {
+      await removeRoomMember(thread.id, memberId);
+      await renderRoomAdminPanel(thread);
+      renderThreads(state);
+    } catch (error) {
+      alert(error?.message || "Failed to remove member.");
+    }
+  });
+
+  // Add member picker in drawer
+  roomAddMemberToggle?.addEventListener("click", () => {
+    roomAddMemberPicker?.classList.toggle("hidden");
+    if (!roomAddMemberPicker?.classList.contains("hidden")) {
+      roomAddMemberSearch?.focus();
+    }
+  });
+
+  let addMemberSearchTimer = null;
+  roomAddMemberSearch?.addEventListener("input", () => {
+    if (addMemberSearchTimer) clearTimeout(addMemberSearchTimer);
+    addMemberSearchTimer = setTimeout(async () => {
+      const query = roomAddMemberSearch.value?.trim() || "";
+      if (!query || !roomAddMemberResults) {
+        roomAddMemberResults?.classList.add("hidden");
+        return;
+      }
+      roomAddMemberResults.classList.remove("hidden");
+      roomAddMemberResults.innerHTML = '<div class="member-picker-state muted">Searching…</div>';
+      try {
+        const users = await searchUsers(query);
+        const thread = activeThread(state);
+        const memberIds = new Set((thread?.members || []).map((m) => Number(m.id)));
+        const list = (Array.isArray(users) ? users : [])
+          .filter((u) => u && u.username)
+          .filter((u) => Number(u.id) !== Number(currentUser.id))
+          .filter((u) => !memberIds.has(Number(u.id)));
+        if (list.length === 0) {
+          roomAddMemberResults.innerHTML = '<div class="member-picker-state muted">No new users to add.</div>';
+          return;
+        }
+        roomAddMemberResults.innerHTML = list.map((user) => {
+          const initials = (user.username || "U").split(/[^a-zA-Z0-9]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "U";
+          return `
+            <button type="button" class="member-result" data-member-id="${Number(user.id)}" data-member-username="${escapeHTML(user.username)}">
+              <div class="avatar">${escapeHTML(initials)}</div>
+              <div class="member-result-copy">
+                <div class="member-result-name">${escapeHTML(user.username)}</div>
+                <div class="member-result-meta">Approved user</div>
+              </div>
+              <div class="member-result-action">Add</div>
+            </button>
+          `;
+        }).join("");
+      } catch (error) {
+        roomAddMemberResults.innerHTML = '<div class="member-picker-state error">Search failed.</div>';
+      }
+    }, 250);
+  });
+
+  roomAddMemberResults?.addEventListener("click", async (event) => {
+    const btn = event.target.closest(".member-result");
+    if (!btn) return;
+    event.preventDefault();
+    const id = Number(btn.dataset.memberId);
+    const username = btn.dataset.memberUsername;
+    const thread = activeThread(state);
+    if (!thread || thread.kind !== "room") return;
+    try {
+      await addRoomMember(thread.id, { user_id: id });
+      roomAddMemberSearch.value = "";
+      roomAddMemberResults?.classList.add("hidden");
+      await renderRoomAdminPanel(thread);
+      renderThreads(state);
+    } catch (error) {
+      alert(error?.message || "Failed to add member.");
+    }
+  });
+
+  roomAddMemberPicker?.addEventListener("click", (event) => event.stopPropagation());
+
+  // Room admin toggle button - opens info drawer with admin panel for room creators
+  console.log("roomAdminToggle element:", roomAdminToggle);
+  if (roomAdminToggle) {
+    roomAdminToggle.addEventListener("click", () => {
+      console.log("Room admin toggle clicked");
+      state.infoOpen = true;
+      menuPopover?.classList.add("hidden");
+      infoDrawer?.classList.remove("hidden");
+      console.log("Info drawer opened, classes:", infoDrawer?.className);
+      const thread = activeThread(state);
+      console.log("Active thread for admin panel:", thread);
+      if (thread?.kind === "room") {
+        console.log("Rendering room admin panel");
+        renderRoomAdminPanel(thread);
+      }
+    });
+  } else {
+    console.log("roomAdminToggle element not found!");
+  }
+
+  newChatClose?.addEventListener("click", () => closeNewChatModal());
+  newChatBackdrop?.addEventListener("click", () => closeNewChatModal());
+
+  newChatSearch?.addEventListener("input", () => {
+    if (window.newChatSearchTimer) {
+      clearTimeout(window.newChatSearchTimer);
+    }
+    const value = newChatSearch.value;
+    window.newChatSearchTimer = setTimeout(() => {
+      searchRegisteredUsers(value);
+    }, 220);
+  });
+
+  newChatResults?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".new-chat-result");
+    if (!btn) return;
+    const username = btn.dataset.username;
+    if (!username) return;
+    startChatWithUser(username);
+  });
+
+  messagesScroll?.addEventListener("click", async (event) => {
+    const thread = activeThread(state);
+    if (!thread) return;
+
+    const menuBtn = event.target.closest(".message-menu-btn");
+    console.log("Menu button click:", menuBtn, "Target:", event.target);
+
+    if (menuBtn) {
+      event.stopPropagation();
+      const messageId = Number(menuBtn.dataset.messageId);
+      const message = thread.messages.find((m) => Number(m.id) === messageId);
+      if (!message) return;
+      openMessageMenu(menuBtn, message, thread);
+      return;
+    }
+
+    const copyBtn = event.target.closest('[data-action="copy"]');
+    if (copyBtn) {
+
+      const message = thread.messages.find(
+        m => m.id === Number(copyBtn.dataset.messageId)
+      );
+
+      if (!message) return;
+
+      await navigator.clipboard.writeText(message.text);
+
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
+
+      return;
+    }
+
+    const deleteForMeBtn = event.target.closest('[data-action="delete-me"]');
+
+    if (deleteForMeBtn) {
+      const messageId = Number(deleteForMeBtn.dataset.messageId);
+
+        if (thread.type === "room") {
+
+            await deleteRoomMessageForMe(
+                messageId
+            );
+
+        } else {
+
+            await deleteMessageForMe(
+                messageId
+            );
+
+        }
+
+        // Remove the deleted message from local thread messages
+        const messageIndex = thread.messages.findIndex(m => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+          
+          // Update thread metadata if the deleted message was the last one
+          if (thread.lastMessage === deletedMessage.text || 
+              (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+              (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
+        }
+
+        await loadMessages(
+            thread.key
+        );
+
+        await loadConversations({
+            preserveSelection: true
+        });
+
+        return;
+
+    }
+
+
+    const deleteAllBtn = event.target.closest('[data-action="delete-all"]');
+    if (deleteAllBtn) {
+
+      if (!confirm("Delete this message for everyone?")) return;
+
+      document.querySelectorAll(".message-menu").forEach(menu => {
+        menu.classList.add("hidden");
+      });
+
+      const messageId = Number(deleteAllBtn.dataset.messageId);
+
+      try {
+
+        if (thread.type === "room") {
+          await deleteRoomMessage(messageId);
+        } else {
+          await deleteMessage(messageId);
+        }
+
+        // Remove the deleted message from local thread messages
+        const messageIndex = thread.messages.findIndex(m => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+          
+          // Update thread metadata if the deleted message was the last one
+          if (thread.lastMessage === deletedMessage.text || 
+              (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+              (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
+        }
+
+        await loadMessages(thread.key);
+        await refreshConversations({ preserveSelection: true });
+
+      } catch (error) {
+
+        alert(error?.message || "Failed to delete message.");
+
+      }
+
+      return;
+    }
+
+
+    const imgEl = event.target.closest(".chat-image-preview");
+    if (imgEl) {
+      event.stopPropagation();
+      event.preventDefault();
+      const thread = activeThread(state);
+      const message = thread?.messages?.find((m) => String(m.id) === String(imgEl.dataset.messageId));
+      openImageViewer(imgEl.src, imgEl.alt || "image", thread, message);
+      return;
+    }
+
+    const actionBtn = event.target.closest("[data-attachment-action]");
+    const card = event.target.closest(".attachment-card.clickable");
+    console.log("Attachment click detection:", { actionBtn, card, target: event.target, actionBtnDataset: actionBtn?.dataset });
+    if (!actionBtn && !card) return;
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    const targetCard = actionBtn ? actionBtn.closest(".attachment-card.clickable") : card;
+    if (!targetCard) return;
+
+    const threadKey = targetCard.dataset.attachmentThreadKey;
+    const messageId = Number(targetCard.dataset.attachmentMessageId);
+    console.log("Attachment card data:", { threadKey, messageId });
+    if (!threadKey || !Number.isFinite(messageId)) return;
+
+    const attachmentThread = state.threads.find((item) => item.key === threadKey);
+    console.log("Thread found:", attachmentThread);
+    if (!attachmentThread) return;
+
+    const fallbackMessage = {
+      id: messageId,
+      type: targetCard.dataset.attachmentKind || "FILE",
+      originalFilename: targetCard.dataset.attachmentFilename || "Attachment",
+      fileMeta: targetCard.dataset.attachmentFilename || "Attachment",
+      attachmentId: targetCard.dataset.attachmentId ? Number(targetCard.dataset.attachmentId) : null,
+      attachmentPath: targetCard.dataset.attachmentUrl || "",
+      attachmentUrl: targetCard.dataset.attachmentUrl || ""
+    };
+
+    const message = (attachmentThread.messages || []).find((item) => String(item.id) === String(messageId)) || fallbackMessage;
+    console.log("Message found:", message);
+
+    const action = actionBtn?.dataset.attachmentAction || "view";
+    console.log("Attachment action clicked:", action, "actionBtn:", actionBtn);
+    if (action === "download") {
+      console.log("Calling downloadAttachment for:", message);
+      await downloadAttachment(attachmentThread, message);
+    } else {
+      console.log("Calling openAttachmentViewer for:", message);
+      openAttachmentViewer(attachmentThread, message);
+    }
+
+    closeMessageMenu();
+
+  });
+
+  attachmentModalBackdrop?.addEventListener("click", () => closeAttachmentModal());
+  attachmentModalClose?.addEventListener("click", () => closeAttachmentModal());
+
+  captionModalBackdrop?.addEventListener("click", closeCaptionModal);
+  captionModalCancel?.addEventListener("click", closeCaptionModal);
+
+  captionInput?.addEventListener("input", () => {
+    const length = captionInput.value.length;
+    if (captionCharCount) {
+      captionCharCount.textContent = length;
+    }
+  });
+
+  captionModalSend?.addEventListener("click", async () => {
+    const caption = captionInput?.value?.trim() || "";
+    await sendPendingAttachment(caption);
+    closeCaptionModal();
+  });
+
+  messageMenuBackdrop?.addEventListener("click", () => closeMessageMenu());
+  messageMenuOverlay?.addEventListener("click", (event) => {
+    if (event.target === messageMenuOverlay) {
+      closeMessageMenu();
+    }
+  });
+  messageMenuSurface?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  async function handleMessageMenuAction(event) {
+    const thread = activeThread(state);
+    if (!thread) return;
+
+    const copyBtn = event.target.closest('[data-action="copy"]');
+    if (copyBtn) {
+      const message = thread.messages.find(
+        (m) => Number(m.id) === Number(copyBtn.dataset.messageId)
+      );
+      if (!message) return;
+      await navigator.clipboard.writeText(message.text || "");
+      closeMessageMenu();
+      return;
+    }
+
+    const deleteForMeBtn = event.target.closest('[data-action="delete-me"]');
+    if (deleteForMeBtn) {
+      const messageId = Number(deleteForMeBtn.dataset.messageId);
+
+      if (thread.type === "room") {
+        await deleteRoomMessageForMe(messageId);
+      } else {
+        await deleteMessageForMe(messageId);
+      }
+
+      const messageIndex = thread.messages.findIndex((m) => m.id === messageId);
+      if (messageIndex !== -1) {
+        const deletedMessage = thread.messages[messageIndex];
+        thread.messages.splice(messageIndex, 1);
+
+        if (
+          thread.lastMessage === deletedMessage.text ||
+          (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+          (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")
+        ) {
+          const newLastMessage = thread.messages[thread.messages.length - 1];
+          if (newLastMessage) {
+            thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+            thread.lastMessageType = newLastMessage.type;
+            thread.lastMessageTime = newLastMessage.time;
+          } else {
+            thread.lastMessage = "";
+            thread.lastMessageType = "TEXT";
+            thread.lastMessageTime = "";
+          }
+          renderThreads(state);
+        }
+      }
+
+      await loadMessages(thread.key);
+      await loadConversations({ preserveSelection: true });
+      closeMessageMenu();
+      return;
+    }
+
+    const deleteAllBtn = event.target.closest('[data-action="delete-all"]');
+    if (deleteAllBtn) {
+      if (!confirm("Delete this message for everyone?")) return;
+      const messageId = Number(deleteAllBtn.dataset.messageId);
+
+      try {
+        if (thread.type === "room") {
+          await deleteRoomMessage(messageId);
+        } else {
+          await deleteMessage(messageId);
+        }
+
+        const messageIndex = thread.messages.findIndex((m) => m.id === messageId);
+        if (messageIndex !== -1) {
+          const deletedMessage = thread.messages[messageIndex];
+          thread.messages.splice(messageIndex, 1);
+
+          if (
+            thread.lastMessage === deletedMessage.text ||
+            (deletedMessage.type === "IMAGE" && thread.lastMessageType === "IMAGE") ||
+            (deletedMessage.type === "FILE" && thread.lastMessageType === "FILE")
+          ) {
+            const newLastMessage = thread.messages[thread.messages.length - 1];
+            if (newLastMessage) {
+              thread.lastMessage = newLastMessage.text || (newLastMessage.type === "IMAGE" ? "Image" : (newLastMessage.type === "FILE" ? newLastMessage.originalFilename : "Message"));
+              thread.lastMessageType = newLastMessage.type;
+              thread.lastMessageTime = newLastMessage.time;
+            } else {
+              thread.lastMessage = "";
+              thread.lastMessageType = "TEXT";
+              thread.lastMessageTime = "";
+            }
+            renderThreads(state);
+          }
+        }
+
+        await loadMessages(thread.key);
+        await refreshConversations({ preserveSelection: true });
+      } catch (error) {
+        alert(error?.message || "Failed to delete message.");
+      }
+
+      closeMessageMenu();
+      return;
+    }
+  }
+
+  messageMenuSurface?.addEventListener("click", handleMessageMenuAction);
+
+  window.addEventListener("resize", () => {
+    if (state.messageMenuOpen && state.messageMenuAnchor?.buttonEl) {
+      const thread = activeThread(state);
+      const message = thread?.messages?.find(
+        (m) => Number(m.id) === Number(state.messageMenuAnchor.messageId)
+      );
+      if (message) {
+        openMessageMenu(state.messageMenuAnchor.buttonEl, message, thread);
+      }
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.newChatOpen) closeNewChatModal();
+    if (event.key === "Escape" && state.launcherOpen) closeLauncherModal();
+    if (event.key === "Escape" && state.roomCreateOpen) closeRoomCreateModal();
+    if (event.key === "Escape" && isAttachmentVisible()) closeAttachmentModal();
+    if (event.key === "Escape" && state.messageMenuOpen) closeMessageMenu();
+  });
+
+  setupImageViewerEvents();
+
+  // Refresh avatars app-wide after a profile image upload.
+  window.addEventListener("vagmi-avatar-updated", async () => {
+    const thread = activeThread(state);
+    if (thread) {
+      renderMessages(thread);
+      updateInfoDrawer(thread);
+      if (thread.kind === "room") {
+        renderRoomAdminPanel?.(thread);
+      }
+    }
+    renderThreads(state);
+  });
+
+  async function initialize() {
+    try {
+      const savedThreadKey = getSavedActiveThreadKey();
+      await refreshConversations({ preserveSelection: false });
+
+      if (savedThreadKey !== null && state.threads.some((thread) => thread.key === savedThreadKey)) {
+        await openThread(savedThreadKey, { remember: false, markAsRead: false });
+      } else {
+        state.activeThreadId = null;
+        state.activeThreadKey = null;
+        saveActiveThreadKey(null);
+        showConversationEmptyState(state);
+        scrollMessagesToBottom();
+      }
+      
+      startConversationPolling();
+
+    } catch (error) {
+      console.error("Conversation load failed", error);
+      state.activeThreadId = null;
+      state.activeThreadKey = null;
+      saveActiveThreadKey(null);
+      showConversationEmptyState(state);
+    }
+  }
+
+  
+
+  initialize();
+});
+
+let refreshTimer = null;
+let pendingAttachmentFile = null;
+let pendingAttachmentType = null;
+
+function openCaptionModal(file, type) {
+  pendingAttachmentFile = file;
+  pendingAttachmentType = type;
+  const captionInput = document.getElementById("caption-input");
+  const captionCharCount = document.getElementById("caption-char-count");
+  const captionModal = document.getElementById("caption-modal");
+  if (captionInput) {
+    captionInput.value = "";
+    if (captionCharCount) {
+      captionCharCount.textContent = "0";
+    }
+  }
+  captionModal?.classList.remove("hidden");
+  captionModal?.setAttribute("aria-hidden", "false");
+  captionInput?.focus();
+}
+
+function closeCaptionModal() {
+  const captionModal = document.getElementById("caption-modal");
+  captionModal?.classList.add("hidden");
+  captionModal?.setAttribute("aria-hidden", "true");
+  pendingAttachmentFile = null;
+  pendingAttachmentType = null;
+}
+
+async function sendPendingAttachment(caption) {
+  if (!pendingAttachmentFile) return;
+
+  const file = pendingAttachmentFile;
+  const type = pendingAttachmentType || (file.type.startsWith("image/") ? "IMAGE" : "FILE");
+
+  showUploadProgress();
+
+  try {
+    await handleAttachment(file, type, caption);
+  } catch (error) {
+    console.error("Attachment send failed", error);
+    alert(error?.message || "Failed to send attachment.");
+  } finally {
+    hideUploadProgress();
+  }
+}
+
+function showUploadProgress() {
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+  uploadProgress?.classList.remove("hidden");
+  uploadProgress?.setAttribute("aria-hidden", "false");
+  if (uploadProgressFill) {
+    uploadProgressFill.style.width = "0%";
+    uploadProgressFill.classList.add("buffering");
+  }
+  if (uploadProgressText) {
+    uploadProgressText.textContent = "Uploading...";
+  }
+}
+
+function hideUploadProgress() {
+  const uploadProgress = document.getElementById("upload-progress");
+  const uploadProgressFill = document.getElementById("upload-progress-fill");
+  const uploadProgressText = document.getElementById("upload-progress-text");
+  uploadProgress?.classList.add("hidden");
+  uploadProgress?.setAttribute("aria-hidden", "true");
+  if (uploadProgressFill) {
+    uploadProgressFill.style.width = "100%";
+    uploadProgressFill.classList.remove("buffering");
+  }
+  if (uploadProgressText) {
+    uploadProgressText.textContent = "Complete";
+  }
+  setTimeout(() => {
+    if (uploadProgressFill) {
+      uploadProgressFill.style.width = "0%";
+    }
+  }, 500);
+}
+
+function showDownloadProgress() {
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+  downloadProgress?.classList.remove("hidden");
+  downloadProgress?.setAttribute("aria-hidden", "false");
+  if (downloadProgressFill) {
+    downloadProgressFill.style.width = "0%";
+    downloadProgressFill.classList.add("buffering");
+  }
+  if (downloadProgressText) {
+    downloadProgressText.textContent = "Downloading...";
+  }
+}
+
+function hideDownloadProgress() {
+  const downloadProgress = document.getElementById("download-progress");
+  const downloadProgressFill = document.getElementById("download-progress-fill");
+  const downloadProgressText = document.getElementById("download-progress-text");
+  downloadProgress?.classList.add("hidden");
+  downloadProgress?.setAttribute("aria-hidden", "true");
+  if (downloadProgressFill) {
+    downloadProgressFill.style.width = "100%";
+    downloadProgressFill.classList.remove("buffering");
+  }
+  if (downloadProgressText) {
+    downloadProgressText.textContent = "Complete";
+  }
+  setTimeout(() => {
+    if (downloadProgressFill) {
+      downloadProgressFill.style.width = "0%";
+    }
+  }, 500);
+}
+
+window.showDownloadProgress = showDownloadProgress;
+window.hideDownloadProgress = hideDownloadProgress;
+
+function startConversationPolling() {
+
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+
+  refreshTimer = setInterval(async () => {
+
+    
 
     try {
-
-      await deleteMessage(messageId);
-
-      const thread = activeThread();
-
-      if (!thread) return;
-
-      await loadMessages(thread.id);
 
       await loadConversations({
         preserveSelection: true
@@ -1428,90 +1815,14 @@ messagesScroll.addEventListener("click", async (event) => {
 
     } catch (error) {
 
-      alert(
-        error.message ||
-        "Failed to delete message."
+      console.error(
+        "Polling failed:",
+        error
       );
 
     }
 
-    return;
-  }
-  const imgEl = event.target.closest(".chat-image-preview");
-  if (imgEl) {
-  openImageViewer(
-    imgEl.src,
-    imgEl.dataset.messageId
-  );
-    return;
-  }
-  const actionBtn = event.target.closest("[data-attachment-action]");
-  const card = event.target.closest(".attachment-card.clickable");
-  if (!actionBtn && !card) return;
+  }, 2000);
 
-  const targetCard = actionBtn ? actionBtn.closest(".attachment-card.clickable") : card;
-  if (!targetCard) return;
-
-  const threadId = Number(targetCard.dataset.attachmentThreadId);
-  const messageId = Number(targetCard.dataset.attachmentMessageId);
-  if (!Number.isFinite(threadId) || !Number.isFinite(messageId)) return;
-
-  const thread = state.threads.find((item) => item.id === threadId);
-  if (!thread) return;
-  const message = thread.messages.find((item) => item.id === messageId);
-  if (!message) return;
-
-  const action = actionBtn?.dataset.attachmentAction || "view";
-  if (action === "download") {
-    downloadAttachment(thread, message);
-  } else {
-    openAttachmentViewer(thread, message);
-  }
-});
-
-attachmentModalBackdrop?.addEventListener("click", closeAttachmentModal);
-attachmentModalClose?.addEventListener("click", closeAttachmentModal);
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.newChatOpen) {
-    closeNewChatModal();
-  }
-  if (event.key === "Escape" && attachmentModal && !attachmentModal.classList.contains("hidden")) {
-    closeAttachmentModal();
-  }
-});
-
-
-if (messagesScroll && !messagesObserver && "MutationObserver" in window) {
-  messagesObserver = new MutationObserver(() => {
-    if (state.activeThreadId !== null) {
-      scrollMessagesToBottom();
-    }
-  });
-  messagesObserver.observe(messagesScroll, { childList: true, subtree: true });
 }
 
-async function initialize() {
-  try {
-    const savedThreadId = getSavedActiveThreadId();
-
-    await loadConversations({ preserveSelection: false });
-
-    if (savedThreadId !== null && state.threads.some((thread) => thread.id === savedThreadId)) {
-      await openThread(savedThreadId, { remember: false });
-    } else {
-      state.activeThreadId = null;
-      saveActiveThreadId(null);
-      showConversationEmptyState();
-      scrollMessagesToBottom();
-    }
-  } catch (error) {
-    console.error("Conversation load failed", error);
-    state.activeThreadId = null;
-    saveActiveThreadId(null);
-    showConversationEmptyState();
-  }
-}
-
-initialize();
-});

@@ -51,6 +51,11 @@ class DirectMessage(Base):
         nullable=True
     )
 
+    caption = Column(
+        String,
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc)

@@ -17,6 +17,8 @@ class MessageResponse(BaseModel):
     attachment_id: int | None = None
     attachment_path: str | None = None
     original_filename: str | None = None
+    file_size: int | None = None
+    caption: str | None = None
     created_at: datetime
     class Config:
         from_attributes = True

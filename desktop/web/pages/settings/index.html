@@ -24,6 +24,16 @@
 
     <div class="settings-grid">
       <section class="panel profile-card">
+        <div class="profile-avatar-wrap">
+          <div class="profile-avatar" id="profile-avatar" aria-label="Profile picture preview">
+            <span class="profile-avatar-fallback mono" id="profile-avatar-fallback">AH</span>
+            <img id="profile-avatar-image" alt="Profile picture" class="profile-avatar-image hidden" />
+          </div>
+          <div class="profile-avatar-actions">
+            <button class="ghost-btn" type="button" id="profile-avatar-upload-btn">Upload photo</button>
+            <input id="profile-avatar-input" type="file" accept="image/*" hidden />
+          </div>
+        </div>
         <img
           data-theme-logo="full"
           src="../../assets/logo_dark_full.png"
@@ -98,6 +108,6 @@
     </div>
   </div>
 
-  <script src="./script.js"></script>
+  <script type="module" src="./script.js"></script>
 </body>
 </html>

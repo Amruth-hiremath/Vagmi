@@ -12,7 +12,8 @@ def create_user_workspace(user_id: int):
         user_root,
         user_root / "documents",
         user_root / "attachments",
-        user_root / "artifacts"
+        user_root / "artifacts",
+        user_root / "profile",
     ]
 
     for directory in directories:

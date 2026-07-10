@@ -33,7 +33,9 @@ class UserResponse(BaseModel):
     id: int
     username: str
     is_admin: bool
-    
+    is_approved: bool
+    role: str = "user"
+    profile_image_path: str | None = None
 
     class Config:
         from_attributes = True

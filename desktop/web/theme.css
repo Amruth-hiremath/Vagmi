@@ -62,6 +62,7 @@ html[data-theme] {
   --shadow-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 
   --modal-overlay: rgba(0, 0, 0, 0.92);
+  --message-menu-backdrop: rgba(255, 255, 255, 0.04);
   --overlay-button-bg: rgba(255, 255, 255, 0.12);
   --overlay-button-border: rgba(255, 255, 255, 0.14);
   --overlay-button-text: #ffffff;
@@ -120,6 +121,7 @@ html[data-theme="claude-light"] {
   --shadow-inset: inset 0 0 0 1px rgba(124, 92, 59, 0.04);
 
   --modal-overlay: rgba(17, 24, 39, 0.88);
+  --message-menu-backdrop: rgba(255, 255, 255, 0.18);
   --overlay-button-bg: rgba(255, 255, 255, 0.18);
   --overlay-button-border: rgba(255, 255, 255, 0.20);
   --overlay-button-text: #ffffff;
@@ -310,6 +312,12 @@ html[data-theme] .toast {
 }
 
 
+html[data-theme] .user-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 html[data-theme] .online-dot,
 html[data-theme] .status-dot,
 html[data-theme] .dot {
@@ -456,3 +464,85 @@ html[data-theme="claude-light"] .message-row.other .message-bubble {
     border: 1px solid #ddd3c5;
     color: var(--text-primary);
 }
+
+
+/* Extra light-theme contrast guardrails */
+html[data-theme="claude-light"] .chat-page,
+html[data-theme="claude-light"] .thread-pane,
+html[data-theme="claude-light"] .conversation-header,
+html[data-theme="claude-light"] .composer,
+html[data-theme="claude-light"] .conversation-search,
+html[data-theme="claude-light"] .menu-popover,
+html[data-theme="claude-light"] .info-drawer,
+html[data-theme="claude-light"] .new-chat-dialog,
+html[data-theme="claude-light"] .room-create-dialog,
+html[data-theme="claude-light"] .attachment-modal-dialog,
+html[data-theme="claude-light"] .conversation-empty-card,
+html[data-theme="claude-light"] .messages-empty-card,
+html[data-theme="claude-light"] .thread-empty-card,
+html[data-theme="claude-light"] .panel,
+html[data-theme="claude-light"] .hero-card,
+html[data-theme="claude-light"] .stat-card,
+html[data-theme="claude-light"] .setting-card,
+html[data-theme="claude-light"] .logo-card,
+html[data-theme="claude-light"] .user-card {
+  border-color: rgba(124, 92, 59, 0.22) !important;
+}
+
+html[data-theme="claude-light"] .auth-logo,
+html[data-theme="claude-light"] .splash .logo {
+  width: min(390px, 86vw) !important;
+  max-height: 280px !important;
+  object-fit: contain !important;
+}
+
+html[data-theme="claude-light"] .splash {
+  padding: 28px !important;
+}
+
+/* =========================================================
+   Room Member Search
+========================================================= */
+
+#room-member-search {
+  background: var(--input-bg)!important;
+  border: 1px solid var(--input-border)!important;
+  color: var(--text-primary)!important;
+}
+
+/* If it is an input field, you might also want to style the placeholder */
+#room-member-search::placeholder {
+  color: var(--placeholder)!important;
+}
+
+/* Optional: Add hover/focus states using your existing variables */
+#room-member-search:hover {
+  background: var(--input-bg-hover)!important;
+}
+
+#room-member-search:focus {
+  outline: 1px solid var(--input-border-strong)!important;
+}
+
+
+
+#room-name-input {
+  background: var(--input-bg)!important;
+  border: 1px solid var(--input-border)!important;
+  color: var(--text-primary)!important;
+}
+
+/* If it is an input field, you might also want to style the placeholder */
+#room-name-input::placeholder {
+  color: var(--placeholder)!important;
+}
+
+/* Optional: Add hover/focus states using your existing variables */
+#room-name-input:hover {
+  background: var(--input-bg-hover)!important;
+}
+
+#room-name-input:focus {
+  outline: 1px solid var(--input-border-strong)!important;
+}
+

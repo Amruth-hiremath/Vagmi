@@ -1,4 +1,5 @@
 import os
+from sqlalchemy import inspect, text
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -16,6 +17,8 @@ from app.models import RoomMember
 from app.models import Attachment
 from app.models import Message
 from app.models import Artifact
+from app.models import DeletedRoomMessage
+from app.models import DeletedDirectMessage
 from app.api.rooms import router as rooms_router
 from app.api.messages import router as messages_router
 from app.api.attachments import router as attachments_router
@@ -25,11 +28,34 @@ from app.api.retrieval import router as retrieval_router
 from app.api.users import router as users_router
 from app.api.direct_messages import router as dm_router
 from app.api.admin import router as admin_router
+from app.api.notifications import router as notifications_router
+
+
+def _ensure_user_profile_image_column() -> None:
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("users"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        if "profile_image_path" not in columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN profile_image_path VARCHAR"))
+
+
+def _ensure_room_member_last_read_at_column() -> None:
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("room_members"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("room_members")}
+        if "last_read_at" not in columns:
+            connection.execute(text("ALTER TABLE room_members ADD COLUMN last_read_at DATETIME"))
 
 # lifespan function to create db tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _ensure_user_profile_image_column()
+    _ensure_room_member_last_read_at_column()
     logger.info("Vagmi backend started")
     yield
     logger.info("Vagmi backend shutting down")
@@ -77,6 +103,7 @@ app.include_router(retrieval_router)
 app.include_router(users_router)
 app.include_router(dm_router)
 app.include_router(admin_router)
+app.include_router(notifications_router)
 # define root and health endpoints
 @app.get("/")
 def root():

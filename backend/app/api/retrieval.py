@@ -23,13 +23,12 @@ def search_documents(
     try:
         logger.info(f"User {current_user.username} searching for: '{request.query}'")
 
-        top_results = (
-        rag["hybrid"].search(
+        # Cleaned up the formatting here!
+        top_results = rag["hybrid"].search(
             query=request.query,
             user_id=current_user.id,
             top_k=request.top_k
-    )
-)
+        )
 
         return RetrievalResponse(results=top_results)
 

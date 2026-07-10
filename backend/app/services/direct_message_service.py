@@ -5,7 +5,8 @@ from datetime import timezone
 from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
-
+from app.models.deleted_direct_message import DeletedDirectMessage
+from datetime import timedelta
 
 def get_or_create_conversation(
     db: Session,
@@ -113,6 +114,21 @@ def get_user_conversations(
                 DirectMessage.conversation_id == conversation.id
             )
         )
+        hidden_ids = [
+            row.message_id
+            for row in db.query(
+                DeletedDirectMessage.message_id
+            )
+            .filter(
+                DeletedDirectMessage.user_id == user_id
+            )
+            .all()
+        ]
+
+        if hidden_ids:
+            query = query.filter(
+                ~DirectMessage.id.in_(hidden_ids)
+            )
 
         if user_id == conversation.user1_id:
             cleared_at = conversation.user1_cleared_at
@@ -143,6 +159,9 @@ def get_user_conversations(
                 DirectMessage.seen_at.is_(None)
             )
         )
+        unread_query = unread_query.filter(
+            ~DirectMessage.id.in_(hidden_ids)
+        )
 
         if cleared_at:
             unread_query = unread_query.filter(
@@ -151,10 +170,23 @@ def get_user_conversations(
 
         unread_count = unread_query.count()
 
+        is_online = False
+
+        if other_user and other_user.last_seen:
+            last_seen = other_user.last_seen
+
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+
+            is_online = (
+                datetime.now(timezone.utc) - last_seen
+            ) < timedelta(seconds=10)
+
         result.append(
             {
                 "conversation_id": conversation.id,
                 "username": other_user.username if other_user else "Unknown",
+                "user_id": other_user.id if other_user else None,
                 "last_message": (
                     "Image"
                     if last_message and last_message.message_type == "IMAGE"
@@ -188,7 +220,9 @@ def get_user_conversations(
                     else "TEXT"
                 ),
 
-                "unread_count": unread_count
+                "unread_count": unread_count,
+                "is_online": is_online,
+                "last_seen": other_user.last_seen if other_user else None,
 
             }
         )

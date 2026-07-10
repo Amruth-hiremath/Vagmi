@@ -3,6 +3,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
+from fastapi import Form
 from fastapi.responses import FileResponse
 from pathlib import Path
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.direct_conversation import DirectConversation
 from app.models.direct_message import DirectMessage
+from app.models.deleted_direct_message import DeletedDirectMessage
 
 from app.schemas.direct_message import (
     StartConversationRequest,
@@ -25,6 +27,8 @@ from app.schemas.direct_message import (
 )
 from app.schemas.conversation import ConversationListResponse
 
+from app.services.attachment_service import create_attachment
+from app.models.attachment import Attachment
 from app.services.direct_message_service import (
     get_or_create_conversation,
     verify_conversation_member,
@@ -33,9 +37,11 @@ from app.services.direct_message_service import (
 )
 from app.services.image_service import save_image
 from app.services.voice_service import save_voice
+from app.services.attachment_service import save_upload_file
+from app.core.config import USERS_DIR
 router = APIRouter(
     prefix="/dm",
-    tags=["Direct Messages"]
+    tags=["Chat"]
 )
 
 
@@ -91,6 +97,12 @@ def get_conversations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    current_user.last_seen = datetime.now(timezone.utc)
+
+    db.commit()
+
+    db.refresh(current_user)
+    
     return get_user_conversations(
         db=db,
         user_id=current_user.id
@@ -136,6 +148,7 @@ def send_message(
         sender_id=current_user.id,
         message_text=message_data.message_text
     )
+    
 
     return {
         "id": message.id,
@@ -158,6 +171,7 @@ def send_message(
 def send_image_dm(
     conversation_id: int,
     file: UploadFile = File(...),
+    caption: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -196,12 +210,23 @@ def send_image_dm(
         message_type="IMAGE",
         attachment_path=image_path,
         original_filename=original_name,
+        caption=caption,
         delivered_at=datetime.now(timezone.utc)
     )
 
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    image_file_size = Path(image_path).stat().st_size if Path(image_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(image_path),
+        file_size=image_file_size,
+    )
 
     return {
         "id": message.id,
@@ -212,6 +237,87 @@ def send_image_dm(
         "message_type": "IMAGE",
         "attachment_path": image_path,
         "original_filename": original_name,
+        "file_size": image_file_size,
+        "caption": message.caption,
+        "created_at": message.created_at,
+        "delivered_at": message.delivered_at,
+        "seen_at": message.seen_at,
+    }
+
+@router.post(
+    "/{conversation_id}/attachment",
+    response_model=DirectMessageResponse
+)
+@router.post(
+    "/{conversation_id}/attachments",
+    response_model=DirectMessageResponse
+)
+def send_attachment_dm(
+    conversation_id: int,
+    file: UploadFile = File(...),
+    caption: str = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(DirectConversation)
+        .filter(DirectConversation.id == conversation_id)
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not verify_conversation_member(conversation, current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    attachment_dir = (
+        USERS_DIR /
+        f"user_{current_user.id}" /
+        "dm_attachments" /
+        f"conversation_{conversation_id}"
+    )
+
+    file_path, original_name, file_size = save_upload_file(
+        file=file,
+        destination_dir=attachment_dir,
+    )
+
+    message = DirectMessage(
+        conversation_id=conversation_id,
+        sender_id=current_user.id,
+        message_text=original_name,
+        message_type="FILE",
+        attachment_path=file_path,
+        original_filename=original_name,
+        caption=caption,
+        delivered_at=datetime.now(timezone.utc)
+    )
+
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(file_path),
+        file_size=file_size,
+    )
+
+    return {
+        "id": message.id,
+        "conversation_id": message.conversation_id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "message_text": original_name,
+        "message_type": "FILE",
+        "attachment_path": file_path,
+        "original_filename": original_name,
+        "file_size": file_size,
+        "caption": message.caption,
         "created_at": message.created_at,
         "delivered_at": message.delivered_at,
         "seen_at": message.seen_at,
@@ -269,6 +375,16 @@ def send_voice_dm(
     db.commit()
     db.refresh(message)
 
+    voice_file_size = Path(voice_path).stat().st_size if Path(voice_path).exists() else None
+    attachment = create_attachment(
+        db=db,
+        message_id=message.id,
+        owner_id=current_user.id,
+        original_filename=original_name,
+        file_path=str(voice_path),
+        file_size=voice_file_size,
+    )
+
     return {
         "id": message.id,
         "conversation_id": message.conversation_id,
@@ -278,6 +394,7 @@ def send_voice_dm(
         "message_type": "VOICE",
         "attachment_path": voice_path,
         "original_filename": original_name,
+        "file_size": voice_file_size,
         "created_at": message.created_at,
         "delivered_at": message.delivered_at,
         "seen_at": message.seen_at
@@ -322,6 +439,22 @@ def get_messages(
         )
     )
 
+    hidden_ids = [
+        row.message_id
+        for row in db.query(
+            DeletedDirectMessage.message_id
+        )
+        .filter(
+            DeletedDirectMessage.user_id == current_user.id
+        )
+        .all()
+    ]
+
+    if hidden_ids:
+        query = query.filter(
+            ~DirectMessage.id.in_(hidden_ids)
+        )
+
     if current_user.id == conversation.user1_id:
         cleared_at = conversation.user1_cleared_at
     else:
@@ -352,6 +485,18 @@ def get_messages(
             .first()
         )
 
+        attachment = (
+            db.query(Attachment)
+            .filter(
+                Attachment.message_id == message.id
+            )
+            .first()
+        )
+
+        attachment_path = message.attachment_path or (attachment.file_path if attachment else None)
+        original_filename = message.original_filename or (attachment.original_filename if attachment else None)
+        file_size = attachment.file_size if attachment else None
+
         result.append(
             {
                 "id": message.id,
@@ -360,9 +505,11 @@ def get_messages(
                 "sender_username": sender.username if sender else "Unknown",
                 "message_text": message.message_text,
                 "message_type": message.message_type,
-                "attachment_path": message.attachment_path,
-                "original_filename": message.original_filename,
-                "created_at": message.created_at,   
+                "attachment_path": attachment_path,
+                "original_filename": original_filename,
+                "file_size": file_size,
+                "caption": message.caption,
+                "created_at": message.created_at,
                 "delivered_at": message.delivered_at,
                 "seen_at": message.seen_at,
             }
@@ -590,6 +737,73 @@ def delete_direct_message(
             file_path.unlink()
 
     db.delete(message)
+    db.commit()
+
+    return {
+        "status": "deleted"
+    }
+
+@router.delete(
+    "/message/{message_id}/me"
+)
+def delete_direct_message_for_me(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    message = (
+        db.query(DirectMessage)
+        .filter(
+            DirectMessage.id == message_id
+        )
+        .first()
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Message not found"
+        )
+
+    conversation = (
+        db.query(DirectConversation)
+        .filter(
+            DirectConversation.id == message.conversation_id
+        )
+        .first()
+    )
+
+    if (
+        conversation.user1_id != current_user.id
+        and
+        conversation.user2_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied"
+        )
+
+    existing = (
+        db.query(DeletedDirectMessage)
+        .filter(
+            DeletedDirectMessage.user_id == current_user.id,
+            DeletedDirectMessage.message_id == message.id
+        )
+        .first()
+    )
+
+    if existing:
+        return {
+            "status": "already deleted"
+        }
+
+    db.add(
+        DeletedDirectMessage(
+            user_id=current_user.id,
+            message_id=message.id
+        )
+    )
+
     db.commit()
 
     return {

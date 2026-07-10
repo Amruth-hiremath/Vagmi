@@ -41,6 +41,11 @@ class Attachment(Base):
         nullable=False
     )
 
+    file_size = Column(
+        Integer,
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc)
