@@ -10,3 +10,7 @@ from .direct_conversation import DirectConversation
 from .direct_message import DirectMessage
 from .deleted_room_message import DeletedRoomMessage
 from .deleted_direct_message import DeletedDirectMessage
+from .ai_session import AiSession
+from .ai_session_document import AiSessionDocument
+from .ai_session_message import AiSessionMessage
+from .ai_session_artifact import AiSessionArtifact

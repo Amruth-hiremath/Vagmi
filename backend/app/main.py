@@ -29,6 +29,8 @@ from app.api.users import router as users_router
 from app.api.direct_messages import router as dm_router
 from app.api.admin import router as admin_router
 from app.api.notifications import router as notifications_router
+from app.api.ai import router as ai_router
+from app.core.ai_migrations import ensure_ai_schema
 
 
 def _ensure_user_profile_image_column() -> None:
@@ -50,10 +52,16 @@ def _ensure_room_member_last_read_at_column() -> None:
         if "last_read_at" not in columns:
             connection.execute(text("ALTER TABLE room_members ADD COLUMN last_read_at DATETIME"))
 
+
+def _ensure_ai_session_tables() -> None:
+    # create_all will handle new tables, this hook is here for future light migrations
+    return
+
 # lifespan function to create db tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_ai_schema(engine)
     _ensure_user_profile_image_column()
     _ensure_room_member_last_read_at_column()
     logger.info("Vagmi backend started")
@@ -104,6 +112,7 @@ app.include_router(users_router)
 app.include_router(dm_router)
 app.include_router(admin_router)
 app.include_router(notifications_router)
+app.include_router(ai_router)
 # define root and health endpoints
 @app.get("/")
 def root():
