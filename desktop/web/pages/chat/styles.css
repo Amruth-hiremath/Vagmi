@@ -530,6 +530,17 @@ button {
   accent-color: var(--branding-orange);
 }
 
+.chat-video-player {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  max-height: 360px;
+  border-radius: 12px;
+  background: #000;
+  border: 1px solid var(--border-subtle);
+  object-fit: contain;
+}
+
 .voice-message-bubble {
   padding-bottom: 12px;
 }
@@ -1415,8 +1426,8 @@ button {
 .attachment-modal-dialog {
   position: relative;
   z-index: 1;
-  width: min(760px, calc(100% - 40px));
-  max-height: min(86vh, 780px);
+  width: min(95vw, 1200px);
+  height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
   border-radius: 22px;
@@ -1445,9 +1456,15 @@ button {
 .attachment-modal-body {
   min-height: 220px;
   padding: 20px;
-  overflow: auto;
+  overflow: hidden;
   display: grid;
   place-items: center;
+  flex: 1;
+  display:flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+
 }
 
 .attachment-preview {
@@ -1503,7 +1520,7 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 8px 20px;
   border-top: 1px solid var(--border-subtle);
 }
 

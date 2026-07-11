@@ -196,8 +196,19 @@ export async function fetchAttachmentBlob(thread, message) {
 export function buildAttachmentCard(thread, message) {
   const displayName = fallbackAttachmentName(message);
   const name = escapeHTML(displayName);
-  const meta = message.type === "IMAGE" ? "Image attachment" : "File attachment";
-  const icon = message.type === "IMAGE" ? iconMap.imageSmall : iconMap.file;
+  const meta =
+      message.type === "IMAGE"
+          ? "Image attachment"
+          : message.type === "VIDEO"
+              ? "Video attachment"
+              : "File attachment";
+
+  const icon =
+      message.type === "IMAGE"
+          ? iconMap.imageSmall
+          : message.type === "VIDEO"
+              ? "🎥"
+              : iconMap.file;
   const attachmentUrl = buildAttachmentUrl(thread, message);
   const hasRemoteAttachment = Boolean(attachmentUrl);
   const fileSize = message.fileSize ? formatFileSize(message.fileSize) : "";
@@ -246,8 +257,16 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
   if (attachmentModalTitle) attachmentModalTitle.textContent = title;
 
   const isImage = contentType.startsWith("image/") || message.type === "IMAGE";
-  const isPdf = contentType.includes("pdf") || /\.pdf$/i.test(title);
-  const isText = contentType.startsWith("text/") || /\.(txt|md|json|csv|log)$/i.test(title);
+
+  const isVideo = contentType.startsWith("video/");
+
+  const isPdf =
+      contentType.includes("pdf") ||
+      /\.pdf$/i.test(title);
+
+  const isText =
+      contentType.startsWith("text/") ||
+      /\.(txt|md|json|csv|log)$/i.test(title);
 
   if (!attachmentModalBody) return;
 
@@ -263,15 +282,48 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
         <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
       </div>
     `;
+  } else if (isVideo) {
+      attachmentModalBody.innerHTML = `
+          <div class="attachment-preview">
+
+              <video
+                  controls
+                  autoplay
+                  style="
+                        width:100%;
+                        height:100%;
+                        object-fit:contain;
+                        border-radius:12px;
+                        background:#000;
+                    "
+              >
+                  <source
+                      src="${objectUrl}"
+                      type="${contentType}"
+                  >
+              </video>
+
+          </div>
+      `;
+
   } else if (isText) {
-    attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
-        <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
-      </div>
+      attachmentModalBody.innerHTML = `
+        <div class="attachment-preview">
+          <iframe class="attachment-preview-frame" src="${objectUrl}" title="${escapeHTML(title)}"></iframe>
+        </div>
     `;
   } else {
     attachmentModalBody.innerHTML = `
-      <div class="attachment-preview">
+      <div
+            class="attachment-preview"
+            style="
+                width:100%;
+                height:100%;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+            "
+        >
         <div class="attachment-preview-card">
           <div class="avatar-large" style="margin:0 auto;">${iconMap.file}</div>
           <div class="attachment-preview-name">${escapeHTML(title)}</div>

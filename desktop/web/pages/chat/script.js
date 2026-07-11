@@ -1430,6 +1430,26 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       openImageViewer(imgEl.src, imgEl.alt || "image", thread, message);
       return;
     }
+    const videoEl = event.target.closest(".chat-video-player");
+    if (videoEl) {
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const thread = activeThread(state);
+
+      if (!thread) return;
+
+      const message = thread.messages.find(
+        (m) => String(m.id) === String(videoEl.dataset.messageId)
+      );
+
+      if (!message) return;
+
+      openAttachmentViewer(thread, message);
+
+      return;
+    }
 
     const actionBtn = event.target.closest("[data-attachment-action]");
     const card = event.target.closest(".attachment-card.clickable");
