@@ -13,6 +13,12 @@ import {
   loadMyAvatarObjectUrl
 } from "./services/avatar.js";
 
+import {
+    startNotificationService,
+    stopNotificationService,
+    subscribeUnread
+} from "./services/notifications.js";
+
 const PAGE_MAP = {
   home: "/pages/home/index.html",
   intelligence: "/pages/intelligence/index.html",
@@ -254,6 +260,7 @@ async function bootstrap() {
       clearInterval(chatUnreadRefreshTimer);
       chatUnreadRefreshTimer = null;
     }
+    stopNotificationService();
   });
 
   requestAnimationFrame(() => {
@@ -264,6 +271,11 @@ async function bootstrap() {
       document.body.style.transform = "";
       document.body.style.willChange = "auto";
     });
+  });
+  startNotificationService();
+
+  subscribeUnread((count) => {
+      setChatNotificationDot(count);
   });
 }
 
