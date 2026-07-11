@@ -132,15 +132,55 @@ export function messageHTML(thread, message) {
   }
 
   if (message.type === "FILE") {
+
+    const filename = (message.originalFilename || "").toLowerCase();
+
+    const isVideo =
+      /\.(mp4|webm|mov|m4v|avi|mkv|ts)$/i.test(filename);
+
     const caption = message.caption ? escapeHTML(message.caption) : "";
+
+    if (isVideo) {
+        return `
+            <div class="message-row ${sideClass}">
+                <div class="message-bubble">
+
+                    ${messageMenuButtonHTML(message)}
+
+                    ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+
+                    ${buildAttachmentCard(thread, {
+                        ...message,
+                        type: "VIDEO"
+                    })}
+
+                    ${caption ? `<div class="message-caption">${caption}</div>` : ""}
+
+                    <div class="message-time mono">
+                        ${escapeHTML(message.time || "")}
+                    </div>
+
+                </div>
+            </div>
+        `;
+    }
+
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+
           ${messageMenuButtonHTML(message)}
+
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+
           ${buildAttachmentCard(thread, message)}
+
           ${caption ? `<div class="message-caption">${caption}</div>` : ""}
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+
+          <div class="message-time mono">
+            ${escapeHTML(message.time || "")}
+          </div>
+
         </div>
       </div>
     `;
@@ -246,6 +286,7 @@ export async function loadInlineImages() {
     }
   }
 }
+
 
 export function renderMessages(thread) {
   const state = window.chatState;

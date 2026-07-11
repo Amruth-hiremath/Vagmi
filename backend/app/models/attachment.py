@@ -42,7 +42,7 @@ class Attachment(Base):
     )
 
     file_size = Column(
-        Integer,
+        BigInteger,
         nullable=True
     )
 
