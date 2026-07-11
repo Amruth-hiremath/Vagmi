@@ -176,7 +176,7 @@ export function messageHTML(thread, message) {
     const filename = (message.originalFilename || "").toLowerCase();
 
     const isVideo =
-      /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(filename);
+      /\.(mp4|webm|mov|m4v|avi|mkv|ts)$/i.test(filename);
 
     const caption = message.caption ? escapeHTML(message.caption) : "";
 
