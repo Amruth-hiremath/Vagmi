@@ -115,15 +115,19 @@ class VectorStoreService:
             formatted_results.append(
                 {
                     "document_id":
-                        metadatas[index][
-                            "document_id"
-                        ],
+                        metadatas[index]["document_id"],
 
                     "chunk_text":
                         documents[index],
 
                     "score":
-                        final_score
+                        final_score,
+
+                    "chunk_index":
+                        metadatas[index].get("chunk_index"),
+
+                    "chunk_id":
+                        results["ids"][0][index],
                 }
             )
 

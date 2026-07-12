@@ -32,13 +32,29 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         Selected documents:
         {chr(10).join(doc_lines) if doc_lines else "- None selected"}
 
-        Retrieved passages (cite by bracket number, do not invent facts outside these passages when they exist):
+        Retrieved passages:
         {chr(10).join(grounding_lines) if grounding_lines else "- No passages retrieved for this prompt"}
+
+        Citation Rules:
+        - Every factual statement taken from the retrieved passages MUST include citation markers.
+        - Use the citation numbers exactly as provided above.
+        - Example: "The radar operates at X GHz [1]."
+        - Multiple citations are allowed, e.g. [1][3].
+        - Never invent citation numbers.
+        - If the retrieved passages do not contain the answer, explicitly state that the available documents do not contain sufficient information.
+        - Do not use outside knowledge when retrieved passages are available.
 
         Recent messages:
         {chr(10).join(message_lines) if message_lines else "- No prior context"}
 
         User request:
         {prompt}
+
+        Answer Requirements:
+        - Answer naturally and professionally.
+        - Prefer concise answers unless the user explicitly asks for detail.
+        - Every factual claim supported by retrieved passages must include citations like [1] or [2].
+        - If multiple passages support the same statement, cite all of them.
+        - Do not output a bibliography or source list; only inline citations.
         """
     ).strip()

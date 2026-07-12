@@ -119,9 +119,24 @@ def retrieve_grounding_chunks(
     return [
         {
             "document_id": item["document_id"],
-            "filename": filename_by_id.get(item["document_id"], f"document-{item['document_id']}"),
-            "chunk_text": _truncate(item.get("chunk_text", "")),
-            "score": round(float(item.get("score", 0.0)), 4),
+
+            "filename": filename_by_id.get(
+                item["document_id"],
+                f"document-{item['document_id']}"
+            ),
+
+            "chunk_text": _truncate(
+                item.get("chunk_text", "")
+            ),
+
+            "score": round(
+                float(item.get("score", 0.0)),
+                4
+            ),
+
+            "chunk_index": item.get("chunk_index"),
+
+            "chunk_id": item.get("chunk_id"),
         }
         for item in filtered
     ]

@@ -161,7 +161,13 @@ def run_session_turn(
         if reply is None:
             reply, artifact_type, artifact_title = build_grounded_reply(prompt, route.routed_agent, context)
         citations = [
-            {"index": index, "filename": chunk["filename"], "document_id": chunk["document_id"]}
+            {
+                "index": index,
+                "filename": chunk["filename"],
+                "document_id": chunk["document_id"],
+                "chunk_index": chunk.get("chunk_index"),
+                "chunk_id": chunk.get("chunk_id"),
+            }
             for index, chunk in enumerate(context.get("grounding_chunks", []), start=1)
         ]
 

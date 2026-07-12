@@ -164,9 +164,27 @@ export function renderArtifactsStrip() {
   }).join("");
 }
 
+function renderMessageWithCitations(text) {
+
+    return escapeHTML(text)
+        .replace(
+            /\[(\d+)\]/g,
+            (_, number) => `
+                <button
+                    class="citation-chip"
+                    data-citation="${number}"
+                    type="button">
+                    [${number}]
+                </button>
+            `
+        );
+}
+
 function renderMessage(message) {
   const role = String(message.role || "assistant");
-  const body = escapeHTML(message.content || "");
+  const body = renderMessageWithCitations(
+      message.content || ""
+  );
   const agent = message.agent_name ? `<div class="message-agent mono">${escapeHTML(message.agent_name)}</div>` : "";
   return `
     <article class="message ${role === "user" ? "user" : "assistant"}">
@@ -197,8 +215,22 @@ export function renderMessages() {
     return;
   }
 
-  els.outputBody.innerHTML = messages.map((message) => renderMessage(message)).join("");
+  els.outputBody
+      .querySelectorAll(".citation-chip")
+      .forEach(button => {
+
+          button.onclick = () => {
+
+              console.log(
+                  "Citation",
+                  button.dataset.citation
+              );
+
+          };
+
+      });
 }
+
 
 export function renderWorkspaceChrome() {
   const session = getActiveSession();

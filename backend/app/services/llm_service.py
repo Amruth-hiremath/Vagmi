@@ -77,13 +77,20 @@ def _try_load_model():
 
         try:
             n_threads = max(1, (os.cpu_count() or 4) - 1)
+            print("===== ABOUT TO LOAD MODEL =====")
             _MODEL_INSTANCE = Llama(
                 model_path=model_path,
                 n_ctx=int(os.getenv("VAGMI_AI_CTX", "4096")),
                 n_threads=n_threads,
                 verbose=False,
             )
-            logger.info("Local LLM scaffold: loaded model from %s", model_path)
+            print("===== MODEL LOADED SUCCESSFULLY =====")
+            logger.info(
+                "Loaded GGUF model: %s | ctx=%s | threads=%s",
+                model_path,
+                os.getenv("VAGMI_AI_CTX", "4096"),
+                n_threads,
+            )
         except Exception as exc:  # noqa: BLE001 - never let model load crash a chat turn
             logger.warning("Local LLM scaffold: failed to load %s (%s), staying on deterministic fallback.", model_path, exc)
             _MODEL_INSTANCE = None
@@ -107,16 +114,30 @@ def generate_local_reply(prompt_bundle: str, routed_agent: str, context: dict) -
         "not contain the answer, say so plainly instead of guessing."
     )
     full_prompt = f"{system_hint}\n\n{prompt_bundle}\n\nAssistant:"
+    
 
     try:
+        print("===== STARTING INFERENCE =====")
         result = model(
             full_prompt,
             max_tokens=int(os.getenv("VAGMI_AI_MAX_TOKENS", "512")),
-            temperature=0.3,
-            stop=["User request:", "\nUser:"],
+            temperature=float(os.getenv("VAGMI_AI_TEMPERATURE", "0.2")),
+            top_p=float(os.getenv("VAGMI_AI_TOP_P", "0.9")),
+            repeat_penalty=float(os.getenv("VAGMI_AI_REPEAT_PENALTY", "1.1")),
+            stop=[
+                "User request:",
+                "\nUser:",
+                "<|im_end|>",
+                "<|endoftext|>",
+            ],
         )
+        print("===== INFERENCE FINISHED =====")
         text = (result.get("choices") or [{}])[0].get("text", "").strip()
+        logger.info(
+            "LLM generated %d characters.",
+            len(text),
+        )
         return text or None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Local LLM scaffold: generation failed (%s), falling back.", exc)
+        logger.exception("Local LLM generation failed. Falling back to deterministic response.")
         return None
