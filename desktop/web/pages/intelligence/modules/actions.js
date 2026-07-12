@@ -1,5 +1,6 @@
 import {
   fetchAiSessions,
+  fetchAiDocuments,
   createAiSession,
   fetchAiSession,
   updateAiSession,
@@ -26,7 +27,7 @@ import {
   getSelectedDocIds,
   truncate
 } from "./context.js";
-import { showToast, openDialog, closeDialog, clearSessionMenu, openSessionMenu, positionMenu } from "./ui.js";
+import { showToast, openDialog, closeDialog, clearSessionMenu, openSessionMenu, positionMenu, renderAgentPicker } from "./ui.js";
 import { renderAll, renderHub, renderDocumentList, renderArtifactsStrip, renderMessages, renderWorkspace, renderWorkspaceChrome } from "./render.js";
 
 export async function loadBootstrapData() {
@@ -34,9 +35,17 @@ export async function loadBootstrapData() {
   state.loading = true;
 
   try {
-    const sessions = await fetchAiSessions();
-    state.sessions = Array.isArray(sessions) ? sessions.map(normalizeSession) : [];
-    state.documents = [];
+    const [sessionsResult, documentsResult] = await Promise.allSettled([
+      fetchAiSessions(),
+      fetchAiDocuments()
+    ]);
+
+    state.sessions = sessionsResult.status === "fulfilled" && Array.isArray(sessionsResult.value)
+      ? sessionsResult.value.map(normalizeSession)
+      : [];
+    state.documents = documentsResult.status === "fulfilled" && Array.isArray(documentsResult.value)
+      ? documentsResult.value.map(normalizeDocument)
+      : [];
 
     const saved = getStorageUi();
     state.ui = {
@@ -59,21 +68,13 @@ export async function loadBootstrapData() {
     if (els.sessionSort) els.sessionSort.value = state.hubSort;
     if (els.docSearch) els.docSearch.value = state.docSearch;
 
-    const savedActive = saved.activeSessionId ? Number(saved.activeSessionId) : null;
-    const initialSessionId = state.sessions.some((session) => Number(session.id) === Number(savedActive))
-      ? savedActive
-      : state.sessions[0]?.id || null;
-
     state.booted = true;
-
-    if (initialSessionId) {
-      await openSession(initialSessionId, { fromBootstrap: true });
-    } else {
-      state.activeSessionId = null;
-      state.activeSession = null;
-      renderAll();
-      setBusy(false, "Ready");
-    }
+    state.activeSessionId = null;
+    state.activeSession = null;
+    state.sessionArtifacts = [];
+    state.agentMenuOpen = false;
+    renderAll();
+    setBusy(false, "Ready");
   } catch (error) {
     console.error(error);
     state.booted = true;
@@ -114,7 +115,6 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
     if (seq !== state.loadSeq) return;
 
     state.activeSession = normalizeSession(session);
-    state.documents = Array.isArray(session?.selected_documents) ? session.selected_documents.map(normalizeDocument) : [];
     state.sessionArtifacts = Array.isArray(artifacts) ? artifacts : [];
     state.agentMenuOpen = false;
     state.artifactsOpen = Boolean(state.ui.artifactsOpen && state.sessionArtifacts.length > 0);
@@ -135,7 +135,6 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
     console.error(error);
     showToast(error?.message || "Could not open session", "error");
     state.activeSession = null;
-    state.documents = [];
     state.sessionArtifacts = [];
     state.artifactsOpen = false;
     state.activeSessionId = null;
@@ -150,7 +149,6 @@ export function showHub() {
   clearSessionMenu();
   state.activeSessionId = null;
   state.activeSession = null;
-  state.documents = [];
   state.sessionArtifacts = [];
   state.artifactsOpen = false;
   state.agentMenuOpen = false;
@@ -433,6 +431,7 @@ export async function handleRun() {
   try {
     const response = await runAiSession(session.id, {
       prompt,
+      message_text: prompt,
       routing_mode: session.routing_mode,
       selected_agent: session.selected_agent
     });
@@ -529,9 +528,13 @@ export async function handleUploadDocuments(fileList) {
       await uploadAiDocument(file, session.id);
     }
 
-    const refreshed = await fetchAiSession(session.id);
-    state.activeSession = normalizeSession(refreshed);
-    state.documents = Array.isArray(refreshed?.selected_documents) ? refreshed.selected_documents.map(normalizeDocument) : [];
+    const [refreshedSession, refreshedDocs] = await Promise.all([
+      fetchAiSession(session.id),
+      fetchAiDocuments().catch(() => state.documents)
+    ]);
+
+    state.activeSession = normalizeSession(refreshedSession);
+    state.documents = Array.isArray(refreshedDocs) ? refreshedDocs.map(normalizeDocument) : state.documents;
     upsertSession(state.activeSession);
     renderAll();
     showToast(files.length === 1 ? "Document attached to this session" : `${files.length} documents attached to this session`);

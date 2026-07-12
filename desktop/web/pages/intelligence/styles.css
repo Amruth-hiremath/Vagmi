@@ -464,6 +464,7 @@ button {
   grid-template-columns: minmax(300px, 342px) minmax(0, 1fr);
   gap: var(--page-gap);
   min-height: 0;
+  align-items: stretch;
 }
 
 .sources-panel {
@@ -473,6 +474,7 @@ button {
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
+  justify-content: flex-start;
 }
 
 .sources-head {
@@ -501,9 +503,13 @@ button {
   display: grid;
   gap: 10px;
   padding-right: 2px;
+  align-content: start;
+  justify-content: stretch;
+  grid-auto-rows: min-content;
 }
 
 .doc-item {
+  width: 100%;
   min-height: 88px;
   padding: 12px 14px;
   border-radius: 18px;
@@ -1617,6 +1623,13 @@ button {
 .agent-button:hover,
 .menu-item:hover {
   transform: translateY(-1px);
+}
+
+.session-card:hover,
+.session-card-add:hover,
+.doc-item:hover,
+.artifact-card:hover {
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent-ring) 14%, transparent);
 }
 
 .toast-stack {

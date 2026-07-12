@@ -136,10 +136,16 @@ export async function deleteAiSessionArtifact(sessionId, artifactId) {
 }
 
 export async function runAiSession(sessionId, payload = {}) {
+  const normalized = {
+    message_text: payload.message_text ?? payload.prompt ?? payload.content ?? "",
+    routing_mode: payload.routing_mode ?? payload.mode ?? "manual",
+    selected_agent: payload.selected_agent ?? payload.agent ?? "query"
+  };
+
   return parseJson(
     await apiRequest(`/ai/sessions/${sessionId}/messages`, {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: JSON.stringify(normalized)
     })
   );
 }
