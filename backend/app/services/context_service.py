@@ -8,24 +8,20 @@ from app.models.ai_session_document import AiSessionDocument
 from app.models.ai_session_message import AiSessionMessage
 from app.models.document import Document
 
+MAX_RETRIEVED_CHUNKS = 6
+MAX_CHUNK_CHARS = 480
+
 
 def _safe_iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
 def session_selected_documents(db: Session, session_id: int, owner_id: int) -> list[dict]:
-    selected_ids = {
-        row[0]
-        for row in db.query(AiSessionDocument.document_id)
+    rows = (
+        db.query(AiSessionDocument, Document)
         .join(Document, Document.id == AiSessionDocument.document_id)
         .filter(AiSessionDocument.session_id == session_id, Document.owner_id == owner_id)
-        .all()
-    }
-
-    docs = (
-        db.query(Document)
-        .filter(Document.owner_id == owner_id)
-        .order_by(Document.created_at.desc(), Document.id.desc())
+        .order_by(AiSessionDocument.created_at.desc(), AiSessionDocument.id.desc())
         .all()
     )
 
@@ -35,9 +31,9 @@ def session_selected_documents(db: Session, session_id: int, owner_id: int) -> l
             "filename": doc.filename,
             "status": doc.status,
             "created_at": _safe_iso(doc.created_at),
-            "selected": doc.id in selected_ids,
+            "selected": bool(link.selected),
         }
-        for doc in docs
+        for link, doc in rows
     ]
 
 
@@ -62,11 +58,85 @@ def session_messages(db: Session, session_id: int, limit: int | None = None) -> 
     ]
 
 
+def _truncate(text: str, limit: int = MAX_CHUNK_CHARS) -> str:
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def retrieve_grounding_chunks(
+    db: Session,
+    prompt: str | None,
+    owner_id: int,
+    selected_document_ids: set[int],
+    top_k: int = MAX_RETRIEVED_CHUNKS,
+) -> list[dict]:
+    """
+    Pull hybrid (BM25 + vector) chunks for the prompt, scoped to only the
+    documents the user has selected for this session. Fully local/offline:
+    reuses the same singleton services the /retrieval endpoint uses, so no
+    extra model loads happen per-call. Any failure degrades to an empty
+    grounding set rather than breaking the chat turn.
+    """
+    text = (prompt or "").strip()
+    if not text or not selected_document_ids:
+        return []
+
+    try:
+        from app.core.dependencies import hybrid_retriever
+    except Exception:
+        return []
+
+    try:
+        # Over-fetch since results are user-scoped, not session-scoped, and
+        # we need to filter down to the documents selected for this session.
+        raw_results = hybrid_retriever.search(query=text, user_id=owner_id, top_k=top_k * 4)
+    except Exception:
+        return []
+
+    filtered: list[dict] = []
+    for result in raw_results:
+        doc_id = result.get("document_id")
+        if doc_id not in selected_document_ids:
+            continue
+        filtered.append(result)
+        if len(filtered) >= top_k:
+            break
+
+    filename_by_id: dict[int, str] = {}
+    if filtered:
+        try:
+            rows = (
+                db.query(Document.id, Document.filename)
+                .filter(Document.id.in_({item["document_id"] for item in filtered}))
+                .all()
+            )
+            filename_by_id = {row[0]: row[1] for row in rows}
+        except Exception:
+            filename_by_id = {}
+
+    return [
+        {
+            "document_id": item["document_id"],
+            "filename": filename_by_id.get(item["document_id"], f"document-{item['document_id']}"),
+            "chunk_text": _truncate(item.get("chunk_text", "")),
+            "score": round(float(item.get("score", 0.0)), 4),
+        }
+        for item in filtered
+    ]
+
+
 def build_session_context(db: Session, session: AiSession, owner_id: int, prompt: str | None = None) -> dict:
     documents = session_selected_documents(db, session.id, owner_id)
     selected_documents = [doc for doc in documents if doc["selected"]]
     messages = session_messages(db, session.id, limit=24)
     recent_messages = messages[-12:]
+
+    grounding_chunks: list[dict] = []
+    if prompt:
+        selected_ids = {doc["id"] for doc in selected_documents}
+        grounding_chunks = retrieve_grounding_chunks(db, prompt, owner_id, selected_ids)
 
     return {
         "session_id": session.id,
@@ -81,4 +151,5 @@ def build_session_context(db: Session, session: AiSession, owner_id: int, prompt
         "documents": documents,
         "selected_documents": selected_documents,
         "recent_messages": recent_messages,
+        "grounding_chunks": grounding_chunks,
     }

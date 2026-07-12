@@ -36,6 +36,11 @@ class AiChatRequest(BaseModel):
     selected_agent: Optional[str] = None
 
 
+class AiRegenerateRequest(BaseModel):
+    routing_mode: Optional[str] = None
+    selected_agent: Optional[str] = None
+
+
 class AiSessionMessageResponse(BaseModel):
     id: int
     role: str
@@ -53,6 +58,16 @@ class AiSessionDocumentResponse(BaseModel):
     status: str
     created_at: datetime
     selected: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class AiDocumentResponse(BaseModel):
+    id: int
+    filename: str
+    status: str
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -78,14 +93,22 @@ class AiSessionResponse(BaseModel):
         from_attributes = True
 
 
+class AiCitation(BaseModel):
+    index: int
+    filename: str
+    document_id: int
+
+
 class AiChatResponse(BaseModel):
     session: AiSessionResponse
     routed_agent: str
     routing_mode: str
     confidence: float
     needs_clarification: bool = False
+    clarification_options: list[str] = Field(default_factory=list)
     reply: str
     sources: list[str] = Field(default_factory=list)
+    citations: list[AiCitation] = Field(default_factory=list)
     artifact_type: Optional[str] = None
     artifact_title: Optional[str] = None
 

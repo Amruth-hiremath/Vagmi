@@ -6,8 +6,13 @@ function parseJson(response) {
   return response.json();
 }
 
+// "master" intentionally stays in this list (routing_mode=auto reports it
+// as the routed agent while it is asking for clarification), but manual
+// mode must never expose or persist it — see SPECIALIST_AGENTS in
+// pages/intelligence/script.js, which is the list actually rendered in
+// the manual agent picker.
 export const AI_AGENT_OPTIONS = [
-  { value: "master", label: "Master" },
+  { value: "master", label: "Auto" },
   { value: "query", label: "Query" },
   { value: "summary", label: "Summary" },
   { value: "diagram", label: "Diagram" },
@@ -32,12 +37,30 @@ export function setAiStorageState(nextState) {
   localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(nextState || {}));
 }
 
+export function patchAiStorageState(patch) {
+  const next = { ...getAiStorageState(), ...(patch || {}) };
+  setAiStorageState(next);
+  return next;
+}
+
 export async function fetchAiStatus() {
   return parseJson(await apiRequest("/ai/status"));
 }
 
 export async function fetchAiDocuments() {
   return parseJson(await apiRequest("/ai/documents"));
+}
+
+export async function uploadAiDocument(file, sessionId = null) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+  return parseJson(
+    await apiRequest(`/ai/documents/upload${query}`, {
+      method: "POST",
+      body: formData
+    })
+  );
 }
 
 export async function fetchAiSessions() {
@@ -51,7 +74,7 @@ export async function createAiSession(payload = {}) {
       body: JSON.stringify({
         title: payload.title ?? payload.name ?? "",
         routing_mode: payload.routing_mode ?? payload.mode ?? "manual",
-        selected_agent: payload.selected_agent ?? payload.agent ?? "master"
+        selected_agent: payload.selected_agent ?? payload.agent ?? "query"
       })
     })
   );
@@ -104,9 +127,26 @@ export async function fetchAiSessionArtifacts(sessionId) {
   return parseJson(await apiRequest(`/ai/sessions/${sessionId}/artifacts`));
 }
 
+export async function deleteAiSessionArtifact(sessionId, artifactId) {
+  return parseJson(
+    await apiRequest(`/ai/sessions/${sessionId}/artifacts/${artifactId}`, {
+      method: "DELETE"
+    })
+  );
+}
+
 export async function runAiSession(sessionId, payload = {}) {
   return parseJson(
     await apiRequest(`/ai/sessions/${sessionId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    })
+  );
+}
+
+export async function regenerateAiSession(sessionId, payload = {}) {
+  return parseJson(
+    await apiRequest(`/ai/sessions/${sessionId}/regenerate`, {
       method: "POST",
       body: JSON.stringify(payload)
     })

@@ -16,6 +16,10 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
             content = content[:177].rstrip() + "..."
         message_lines.append(f"{role}: {content}")
 
+    grounding_lines = []
+    for index, chunk in enumerate(context.get("grounding_chunks", []), start=1):
+        grounding_lines.append(f"[{index}] {chunk['filename']}: {chunk['chunk_text']}")
+
     prompt = context.get("prompt") or ""
 
     return dedent(
@@ -27,6 +31,9 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         Routing reason: {routing_reason}
         Selected documents:
         {chr(10).join(doc_lines) if doc_lines else "- None selected"}
+
+        Retrieved passages (cite by bracket number, do not invent facts outside these passages when they exist):
+        {chr(10).join(grounding_lines) if grounding_lines else "- No passages retrieved for this prompt"}
 
         Recent messages:
         {chr(10).join(message_lines) if message_lines else "- No prior context"}

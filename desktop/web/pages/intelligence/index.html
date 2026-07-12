@@ -17,10 +17,7 @@
         <h1>Session-first intelligence for offline use.</h1>
         <p>Pick a session, bind the documents it should see, then route the request in manual or auto mode.</p>
       </div>
-      <div class="head-actions">
-        <button class="ghost-btn" data-nav="chat" type="button">Go to Chat</button>
-        <button class="ghost-btn" data-nav="settings" type="button">Settings</button>
-      </div>
+
     </header>
 
     <main class="intelligence-root">
@@ -43,10 +40,14 @@
               <select id="session-sort" aria-label="Sort sessions">
                 <option value="recent">Most recent</option>
                 <option value="name">Name</option>
+                <option value="activity">Most active</option>
               </select>
             </label>
 
-            <button class="primary-btn" id="create-session-btn" type="button">New</button>
+            <button class="primary-btn" id="create-session-btn" type="button">
+              <span class="btn-icon" aria-hidden="true">+</span>
+              New session
+            </button>
           </div>
         </div>
 
@@ -55,16 +56,22 @@
 
       <section class="workspace hidden" id="workspace-view" aria-live="polite">
         <aside class="panel sources-panel">
-          <button class="back-btn" id="back-to-sessions-btn" type="button">← Sessions</button>
+          <button class="back-btn" id="back-to-sessions-btn" type="button">
+            <span aria-hidden="true">←</span> Sessions
+          </button>
 
           <div class="sources-head">
             <div>
               <h2>Sources</h2>
               <div class="sidebar-sub mono" id="docs-summary">0 selected</div>
             </div>
-            <button class="ghost-mini-btn" id="select-all-docs-btn" type="button">Select all</button>
+            <div class="sources-actions">
+              <button class="ghost-mini-btn" id="upload-docs-btn" type="button">Upload</button>
+              <button class="ghost-mini-btn" id="select-all-docs-btn" type="button">Select all</button>
+            </div>
           </div>
 
+          <input class="hidden" id="upload-docs-input" type="file" accept=".pdf,.docx,.txt" multiple />
           <label class="search-field" for="doc-search">
             <span class="search-icon" aria-hidden="true">⌕</span>
             <input id="doc-search" type="search" placeholder="Search documents" autocomplete="off" />
@@ -76,15 +83,21 @@
         <section class="panel chat-panel">
           <div class="chat-head">
             <div class="chat-title-block">
-              <div class="section-kicker mono" id="session-kicker">SESSION</div>
+              <div class="chat-title-row">
+                <div class="section-kicker mono" id="session-kicker">SESSION</div>
+              </div>
               <h2 id="session-title">Session</h2>
             </div>
             <div class="chat-head-actions">
+              <button class="ghost-mini-btn artifacts-toggle" id="artifacts-toggle-btn" type="button" aria-expanded="false">
+                <span id="session-artifact-count">0</span> artifacts
+              </button>
               <span class="pill mono" id="session-mode-pill">manual</span>
               <span class="pill mono" id="session-agent-pill">query</span>
-              <button class="icon-btn" id="session-actions-btn" type="button" aria-label="Session actions">⋮</button>
             </div>
           </div>
+
+          <div class="artifacts-strip hidden" id="artifacts-strip" aria-label="Session artifacts"></div>
 
           <div class="conversation" id="output-body"></div>
 
@@ -95,27 +108,28 @@
                 <button type="button" class="segmented-btn" data-mode="auto" id="auto-mode-btn">Auto-route</button>
               </div>
 
-              <div class="agent-box" id="agent-box">
-                <button class="agent-button" id="agent-select-btn" type="button" aria-haspopup="menu" aria-expanded="false">
-                  <span class="agent-label mono">Agent</span>
-                  <span class="agent-value" id="agent-select-label">Query</span>
-                  <span class="agent-caret" aria-hidden="true">▾</span>
-                </button>
-                <div class="agent-menu hidden" id="agent-menu" role="menu" aria-label="Agent selection"></div>
-              </div>
+              <div class="agent-picker" id="agent-picker" aria-label="Agent selection"></div>
 
               <div class="composer-note mono" id="route-hint">Manual mode uses a specialist agent.</div>
             </div>
 
-            <textarea
-              id="prompt-input"
-              placeholder="Ask a question, request a summary, draft a document, or generate a diagram..."
-              rows="6"
-            ></textarea>
+            <div class="composer-input-wrap">
+              <textarea
+                id="prompt-input"
+                placeholder="Ask a question, request a summary, draft a document, or generate a diagram..."
+                rows="1"
+                maxlength="4000"
+              ></textarea>
+              <div class="composer-char-count mono" id="composer-char-count">0 / 4000</div>
+            </div>
 
             <div class="composer-footer">
               <div class="composer-state mono" id="composer-state">Ready</div>
-              <button class="primary-btn" id="run-btn" type="button">Run</button>
+              <div class="composer-footer-actions">
+                <button class="primary-btn" id="run-btn" type="button">
+                  Run <span class="run-shortcut mono">Ctrl+Enter</span>
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -141,6 +155,8 @@
         </div>
       </div>
     </div>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   </div>
 
   <script type="module" src="./script.js"></script>

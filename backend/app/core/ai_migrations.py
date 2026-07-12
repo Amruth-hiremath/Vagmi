@@ -121,6 +121,37 @@ def _migrate_ai_session_messages(connection) -> None:
     connection.exec_driver_sql("ALTER TABLE ai_session_messages_new RENAME TO ai_session_messages")
 
 
+def _migrate_ai_session_documents(connection) -> None:
+    columns = _table_columns(connection, "ai_session_documents")
+    if not columns:
+        return
+
+    if "selected" in columns:
+        return
+
+    connection.exec_driver_sql(
+        """
+        CREATE TABLE ai_session_documents_new (
+            id INTEGER PRIMARY KEY,
+            session_id INTEGER NOT NULL,
+            document_id INTEGER NOT NULL,
+            selected INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME,
+            FOREIGN KEY(session_id) REFERENCES ai_sessions(id),
+            FOREIGN KEY(document_id) REFERENCES documents(id)
+        )
+        """
+    )
+    created_expr = "created_at" if "created_at" in columns else f"'{_utcnow_iso()}'"
+    connection.exec_driver_sql(
+        f"INSERT INTO ai_session_documents_new (id, session_id, document_id, selected, created_at) "
+        f"SELECT id, session_id, document_id, 1, {created_expr} FROM ai_session_documents"
+    )
+    connection.exec_driver_sql("DROP TABLE ai_session_documents")
+    connection.exec_driver_sql("ALTER TABLE ai_session_documents_new RENAME TO ai_session_documents")
+
+
+
 def _ensure_simple_table(connection, table_name: str, ddl: str) -> None:
     if not inspect(connection).has_table(table_name):
         connection.exec_driver_sql(ddl)
@@ -155,6 +186,7 @@ def ensure_ai_schema(engine: Engine) -> None:
                 id INTEGER PRIMARY KEY,
                 session_id INTEGER NOT NULL,
                 document_id INTEGER NOT NULL,
+                selected INTEGER NOT NULL DEFAULT 1,
                 created_at DATETIME,
                 FOREIGN KEY(session_id) REFERENCES ai_sessions(id),
                 FOREIGN KEY(document_id) REFERENCES documents(id)
@@ -196,4 +228,5 @@ def ensure_ai_schema(engine: Engine) -> None:
         )
 
         _migrate_ai_sessions(connection)
+        _migrate_ai_session_documents(connection)
         _migrate_ai_session_messages(connection)

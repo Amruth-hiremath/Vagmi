@@ -1,15 +1,17 @@
-
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
+from app.schemas.document import DocumentResponse
 from app.schemas.ai import (
     AiChatRequest,
     AiChatResponse,
+    AiDocumentResponse,
+    AiRegenerateRequest,
     AiSessionArtifactResponse,
     AiSessionContextResponse,
     AiSessionCreate,
@@ -19,18 +21,24 @@ from app.schemas.ai import (
     AiSessionUpdate,
     AiStatusResponse,
 )
+from app.core.dependencies import get_rag_services
 from app.services.ai_service import (
+    attach_document_to_session,
     create_session,
+    delete_artifact,
     delete_session,
     get_ai_status,
     get_session,
     get_session_context,
+    list_ai_documents,
     list_session_artifacts,
     list_sessions,
+    regenerate_chat_turn,
     replace_session_documents,
     run_chat_turn,
     update_session,
 )
+from app.services.document_ingest_service import ingest_uploaded_document
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -38,6 +46,37 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 @router.get("/status", response_model=AiStatusResponse)
 def ai_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return get_ai_status(db, current_user.id)
+
+
+@router.get("/documents", response_model=list[AiDocumentResponse])
+def get_ai_documents(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Full document library for the Intelligence tab's sources sidebar.
+    This is intentionally independent of any single session — sessions
+    each track their own selection subset via /ai/sessions/{id}/documents."""
+    return list_ai_documents(db, current_user.id)
+
+
+
+@router.post("/documents/upload", response_model=DocumentResponse)
+def upload_ai_document(
+    file: UploadFile = File(...),
+    session_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    rag: dict = Depends(get_rag_services),
+):
+    document = ingest_uploaded_document(
+        file=file,
+        owner_id=current_user.id,
+        db=db,
+        rag=rag,
+    )
+    if session_id:
+        session = get_session(db, current_user.id, session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="AI session not found")
+        attach_document_to_session(db, session, document.id, current_user.id, selected=True)
+    return document
 
 
 @router.get("/sessions", response_model=list[AiSessionResponse])
@@ -147,10 +186,33 @@ def get_ai_session_artifacts(session_id: int, current_user: User = Depends(get_c
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.delete("/sessions/{session_id}/artifacts/{artifact_id}")
+def remove_ai_session_artifact(session_id: int, artifact_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        delete_artifact(db, current_user.id, session_id, artifact_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"detail": "Artifact deleted"}
+
+
 @router.post("/sessions/{session_id}/messages", response_model=AiChatResponse)
 def post_ai_session_message(session_id: int, payload: AiChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return run_chat_turn(db, current_user.id, session_id, payload.prompt, payload.routing_mode, payload.selected_agent)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/sessions/{session_id}/regenerate", response_model=AiChatResponse)
+def post_ai_session_regenerate(session_id: int, payload: AiRegenerateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    session = get_session(db, current_user.id, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="AI session not found")
+    if payload.routing_mode or payload.selected_agent:
+        from app.services.ai_service import update_session as _update_session
+        _update_session(db, session, routing_mode=payload.routing_mode, selected_agent=payload.selected_agent)
+    try:
+        return regenerate_chat_turn(db, current_user.id, session_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

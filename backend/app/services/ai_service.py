@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -12,7 +11,7 @@ from app.models.ai_session_artifact import AiSessionArtifact
 from app.models.ai_session_document import AiSessionDocument
 from app.models.ai_session_message import AiSessionMessage
 from app.models.document import Document
-from app.services.ai_orchestrator import run_session_turn
+from app.services.ai_orchestrator import regenerate_last_turn, run_session_turn
 from app.services.context_service import build_session_context, session_messages, session_selected_documents
 from app.services.llm_service import resolve_local_model_path
 
@@ -56,11 +55,11 @@ def _session_doc_ids(session_id: int, db: Session) -> set[int]:
 
 
 def _session_documents(session_id: int, owner_id: int, db: Session) -> list[dict]:
-    selected_ids = _session_doc_ids(session_id, db)
-    docs = (
-        db.query(Document)
-        .filter(Document.owner_id == owner_id)
-        .order_by(Document.created_at.desc(), Document.id.desc())
+    rows = (
+        db.query(AiSessionDocument, Document)
+        .join(Document, Document.id == AiSessionDocument.document_id)
+        .filter(AiSessionDocument.session_id == session_id, Document.owner_id == owner_id)
+        .order_by(AiSessionDocument.created_at.desc(), AiSessionDocument.id.desc())
         .all()
     )
     return [
@@ -69,10 +68,23 @@ def _session_documents(session_id: int, owner_id: int, db: Session) -> list[dict
             "filename": doc.filename,
             "status": doc.status,
             "created_at": doc.created_at,
-            "selected": doc.id in selected_ids,
+            "selected": bool(link.selected),
         }
-        for doc in docs
+        for link, doc in rows
     ]
+
+
+def list_ai_documents(db: Session, owner_id: int) -> list[Document]:
+    """All documents owned by the user, in the shape the Intelligence tab's
+    sources sidebar expects. Kept separate from `_session_documents` (which
+    also carries per-session `selected` flags) so `/ai/documents` can serve
+    a plain library listing regardless of which session, if any, is open."""
+    return (
+        db.query(Document)
+        .filter(Document.owner_id == owner_id)
+        .order_by(Document.created_at.desc(), Document.id.desc())
+        .all()
+    )
 
 
 def _messages(session_id: int, db: Session, limit: int | None = None) -> list[AiSessionMessage]:
@@ -226,18 +238,33 @@ def update_session(
 
 
 def replace_session_documents(db: Session, session: AiSession, document_ids: Iterable[int], owner_id: int) -> AiSession:
-    valid_ids = {int(doc_id) for doc_id in document_ids}
+    desired_ids = {int(doc_id) for doc_id in document_ids if str(doc_id).isdigit() or isinstance(doc_id, int)}
 
-    db.query(AiSessionDocument).filter(AiSessionDocument.session_id == session.id).delete(synchronize_session=False)
-    if valid_ids:
-        available_ids = {
-            row[0]
-            for row in db.query(Document.id)
-            .filter(Document.owner_id == owner_id, Document.id.in_(sorted(valid_ids)))
-            .all()
-        }
-        for document_id in sorted(available_ids):
-            db.add(AiSessionDocument(session_id=session.id, document_id=document_id, created_at=_now()))
+    existing_links = {
+        row.document_id: row
+        for row in db.query(AiSessionDocument)
+        .join(Document, Document.id == AiSessionDocument.document_id)
+        .filter(AiSessionDocument.session_id == session.id, Document.owner_id == owner_id)
+        .all()
+    }
+
+    available_ids = {
+        row[0]
+        for row in db.query(Document.id)
+        .filter(Document.owner_id == owner_id, Document.id.in_(sorted(desired_ids)))
+        .all()
+    }
+
+    # Keep every previously attached document visible in the session.
+    for document_id, link in existing_links.items():
+        link.selected = document_id in available_ids
+
+    # Attach any newly selected documents to this session.
+    for document_id in sorted(available_ids):
+        if document_id in existing_links:
+            existing_links[document_id].selected = True
+            continue
+        db.add(AiSessionDocument(session_id=session.id, document_id=document_id, selected=True, created_at=_now()))
 
     session.updated_at = _now()
     db.commit()
@@ -245,11 +272,53 @@ def replace_session_documents(db: Session, session: AiSession, document_ids: Ite
     return session
 
 
+def attach_document_to_session(db: Session, session: AiSession, document_id: int, owner_id: int, selected: bool = True) -> None:
+    document = (
+        db.query(Document)
+        .filter(Document.id == int(document_id), Document.owner_id == owner_id)
+        .first()
+    )
+    if not document:
+        raise ValueError("Document not found")
+
+    link = (
+        db.query(AiSessionDocument)
+        .filter(AiSessionDocument.session_id == session.id, AiSessionDocument.document_id == document.id)
+        .first()
+    )
+    if link:
+        link.selected = bool(selected)
+        if not getattr(link, "created_at", None):
+            link.created_at = _now()
+    else:
+        db.add(AiSessionDocument(session_id=session.id, document_id=document.id, selected=bool(selected), created_at=_now()))
+
+    session.updated_at = _now()
+    db.commit()
+    db.refresh(session)
+
+
 def delete_session(db: Session, session: AiSession) -> None:
     db.query(AiSessionDocument).filter(AiSessionDocument.session_id == session.id).delete(synchronize_session=False)
     db.query(AiSessionMessage).filter(AiSessionMessage.session_id == session.id).delete(synchronize_session=False)
     db.query(AiSessionArtifact).filter(AiSessionArtifact.session_id == session.id).delete(synchronize_session=False)
     db.delete(session)
+    db.commit()
+
+
+def delete_artifact(db: Session, owner_id: int, session_id: int, artifact_id: int) -> None:
+    artifact = (
+        db.query(AiSessionArtifact)
+        .filter(
+            AiSessionArtifact.id == artifact_id,
+            AiSessionArtifact.session_id == session_id,
+            AiSessionArtifact.owner_id == owner_id,
+        )
+        .first()
+    )
+    if not artifact:
+        raise ValueError("Artifact not found")
+    db.delete(artifact)
     db.commit()
 
 
@@ -272,7 +341,7 @@ def get_ai_status(db: Session, owner_id: int) -> dict:
     return {
         "enabled": True,
         "offline_only": True,
-        "model_policy": "Offline scaffold; local model path only, no HuggingFace downloads",
+        "model_policy": "Offline scaffold; local GGUF model path only (llama-cpp-python, optional), no downloads",
         "ready": True,
         "session_count": db.query(AiSession).filter(AiSession.owner_id == owner_id).count(),
         "local_model_available": bool(model_path),
@@ -292,3 +361,10 @@ def run_chat_turn(db: Session, owner_id: int, session_id: int, prompt: str, rout
         routing_mode=routing_mode,
         selected_agent=selected_agent,
     )
+
+
+def regenerate_chat_turn(db: Session, owner_id: int, session_id: int) -> dict:
+    session = get_session(db, owner_id, session_id)
+    if not session:
+        raise ValueError("AI session not found")
+    return regenerate_last_turn(db, session, owner_id)
