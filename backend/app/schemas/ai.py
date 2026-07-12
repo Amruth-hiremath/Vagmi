@@ -30,8 +30,9 @@ class AiSessionDocumentsUpdate(BaseModel):
 
 
 class AiChatRequest(BaseModel):
-    session_id: int
-    prompt: str = Field(min_length=1)
+    session_id: int | None = None
+    prompt: str | None = None
+    message_text: str | None = None
     routing_mode: Optional[str] = None
     selected_agent: Optional[str] = None
 

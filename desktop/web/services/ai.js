@@ -137,7 +137,7 @@ export async function deleteAiSessionArtifact(sessionId, artifactId) {
 
 export async function runAiSession(sessionId, payload = {}) {
   const normalized = {
-    message_text: payload.message_text ?? payload.prompt ?? payload.content ?? "",
+    prompt: payload.prompt ?? payload.message_text ?? payload.content ?? "",
     routing_mode: payload.routing_mode ?? payload.mode ?? "manual",
     selected_agent: payload.selected_agent ?? payload.agent ?? "query"
   };

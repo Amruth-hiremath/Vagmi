@@ -11,6 +11,8 @@ from app.services.ai_router_service import AUTO_MODE, MANUAL_MODE, RoutingDecisi
 from app.services.context_service import build_session_context
 from app.services.llm_service import generate_local_reply
 from app.services.prompt_service import build_prompt_bundle
+from app.services.ai_payload import session_payload
+
 
 
 def _format_citations(chunks: list[dict]) -> str:
@@ -174,22 +176,20 @@ def run_session_turn(
         artifact_title=artifact_title,
     )
 
-    updated_context = build_session_context(db, session, owner_id)
+    payload = session_payload(session, owner_id, db, include_messages=True)
 
     return {
-        "session": updated_context,
+        "session": payload,
         "routed_agent": route.routed_agent,
         "routing_mode": route.routing_mode,
         "confidence": route.confidence,
         "needs_clarification": route.needs_clarification,
         "clarification_options": route.suggestion_labels(),
         "reply": reply,
-        "sources": [doc["filename"] for doc in updated_context.get("selected_documents", [])[:6]],
+        "sources": [doc["filename"] for doc in payload.get("selected_documents", [])[:6]],
         "citations": citations,
         "artifact_type": artifact_type,
         "artifact_title": artifact_title,
-        "route_reason": route.reason,
-        "local_model_ready": False,
     }
 
 

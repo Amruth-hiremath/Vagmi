@@ -110,8 +110,8 @@ def _resolve_update_payload(payload: AiSessionUpdate) -> dict:
 @router.post("/sessions", response_model=AiSessionResponse)
 def create_ai_session(payload: AiSessionCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     session = create_session(db, current_user.id, **_resolve_create_payload(payload))
-    from app.services.ai_service import _session_payload
-    return _session_payload(session, current_user.id, db, include_messages=True)
+    from app.services.ai_payload import session_payload
+    return session_payload(session, current_user.id, db, include_messages=True)
 
 
 @router.get("/sessions/{session_id}", response_model=AiSessionResponse)
@@ -119,8 +119,8 @@ def get_ai_session(session_id: int, current_user: User = Depends(get_current_use
     session = get_session(db, current_user.id, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="AI session not found")
-    from app.services.ai_service import _session_payload
-    return _session_payload(session, current_user.id, db, include_messages=True)
+    from app.services.ai_payload import session_payload
+    return session_payload(session, current_user.id, db, include_messages=True)
 
 
 @router.patch("/sessions/{session_id}", response_model=AiSessionResponse)
@@ -129,8 +129,8 @@ def patch_ai_session(session_id: int, payload: AiSessionUpdate, current_user: Us
     if not session:
         raise HTTPException(status_code=404, detail="AI session not found")
     update_session(db, session, **_resolve_update_payload(payload))
-    from app.services.ai_service import _session_payload
-    return _session_payload(session, current_user.id, db, include_messages=True)
+    from app.services.ai_payload import session_payload
+    return session_payload(session, current_user.id, db, include_messages=True)
 
 
 @router.delete("/sessions/{session_id}")
@@ -157,8 +157,8 @@ def set_session_documents(session_id: int, payload: AiSessionDocumentsUpdate, cu
     if not session:
         raise HTTPException(status_code=404, detail="AI session not found")
     replace_session_documents(db, session, payload.document_ids, current_user.id)
-    from app.services.ai_service import _session_payload
-    return _session_payload(session, current_user.id, db, include_messages=True)
+    from app.services.ai_payload import session_payload
+    return session_payload(session, current_user.id, db, include_messages=True)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[AiSessionMessageResponse])
@@ -197,8 +197,11 @@ def remove_ai_session_artifact(session_id: int, artifact_id: int, current_user: 
 
 @router.post("/sessions/{session_id}/messages", response_model=AiChatResponse)
 def post_ai_session_message(session_id: int, payload: AiChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    resolved_prompt = payload.prompt or payload.message_text
+    if not resolved_prompt:
+        raise HTTPException(status_code=422, detail="prompt or message_text is required")
     try:
-        return run_chat_turn(db, current_user.id, session_id, payload.prompt, payload.routing_mode, payload.selected_agent)
+        return run_chat_turn(db, current_user.id, session_id, resolved_prompt, payload.routing_mode, payload.selected_agent)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

@@ -12,6 +12,7 @@ from app.models.ai_session_document import AiSessionDocument
 from app.models.ai_session_message import AiSessionMessage
 from app.models.document import Document
 from app.services.ai_orchestrator import regenerate_last_turn, run_session_turn
+from app.services.ai_payload import session_payload
 from app.services.context_service import build_session_context, session_messages, session_selected_documents
 from app.services.llm_service import resolve_local_model_path
 
@@ -118,36 +119,7 @@ def _artifacts(session_id: int, owner_id: int, db: Session) -> list[dict]:
     ]
 
 
-def _session_payload(session: AiSession, owner_id: int, db: Session, include_messages: bool = True) -> dict:
-    selected_documents = _session_documents(session.id, owner_id, db)
-    messages = [
-        {
-            "id": item.id,
-            "role": item.role,
-            "content": item.content,
-            "agent_name": item.agent_name,
-            "created_at": item.created_at,
-        }
-        for item in _messages(session.id, db)
-    ] if include_messages else []
 
-    data = {
-        "id": session.id,
-        "title": session.title,
-        "routing_mode": session.routing_mode,
-        "selected_agent": session.selected_agent,
-        "status": session.status,
-        "last_prompt": session.last_prompt,
-        "created_at": session.created_at,
-        "updated_at": session.updated_at,
-        "last_used_at": session.last_used_at,
-        "selected_document_count": len([doc for doc in selected_documents if doc.get("selected")]),
-        "message_count": len(_messages(session.id, db)),
-        "artifact_count": len(_artifacts(session.id, owner_id, db)),
-        "selected_documents": selected_documents,
-        "messages": messages,
-    }
-    return data
 
 
 def list_sessions(db: Session, owner_id: int) -> list[dict]:
@@ -157,7 +129,7 @@ def list_sessions(db: Session, owner_id: int) -> list[dict]:
         .order_by(AiSession.updated_at.desc(), AiSession.created_at.desc())
         .all()
     )
-    return [_session_payload(session, owner_id, db, include_messages=False) for session in sessions]
+    return [session_payload(session, owner_id, db, include_messages=False) for session in sessions]
 
 
 def get_session(db: Session, owner_id: int, session_id: int) -> AiSession | None:
