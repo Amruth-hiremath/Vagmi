@@ -9,7 +9,7 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         doc_lines.append(f"- {doc['filename']} (id={doc['id']})")
 
     message_lines = []
-    for item in context.get("recent_messages", [])[-8:]:
+    for item in context.get("recent_messages", [])[-6:]:
         role = item.get("role", "assistant")
         content = (item.get("content") or "").strip().replace("\n", " ")
         if len(content) > 180:
@@ -43,6 +43,8 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         - Never invent citation numbers.
         - If the retrieved passages do not contain the answer, explicitly state that the available documents do not contain sufficient information.
         - Do not use outside knowledge when retrieved passages are available.
+        - Do not copy or enumerate the retrieved passages verbatim.
+        - Synthesize the passages into a short, direct answer instead of echoing raw excerpts.
 
         Recent messages:
         {chr(10).join(message_lines) if message_lines else "- No prior context"}
@@ -53,8 +55,11 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         Answer Requirements:
         - Answer naturally and professionally.
         - Prefer concise answers unless the user explicitly asks for detail.
+        - Start by answering the user's question directly.
+        - Do not repeat the same sentence or restate the prompt more than once.
         - Every factual claim supported by retrieved passages must include citations like [1] or [2].
         - If multiple passages support the same statement, cite all of them.
         - Do not output a bibliography or source list; only inline citations.
+        - Do not return the retrieved passages as-is; summarize them in your own words.
         """
     ).strip()

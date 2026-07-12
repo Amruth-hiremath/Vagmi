@@ -313,7 +313,7 @@ def get_ai_status(db: Session, owner_id: int) -> dict:
     return {
         "enabled": True,
         "offline_only": True,
-        "model_policy": "Offline scaffold; local GGUF model path only (llama-cpp-python, optional), no downloads",
+        "model_policy": "Offline scaffold; local GGUF model path only (llama.cpp), no downloads",
         "ready": True,
         "session_count": db.query(AiSession).filter(AiSession.owner_id == owner_id).count(),
         "local_model_available": bool(model_path),

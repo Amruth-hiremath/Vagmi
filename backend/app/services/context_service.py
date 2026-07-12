@@ -146,7 +146,7 @@ def build_session_context(db: Session, session: AiSession, owner_id: int, prompt
     documents = session_selected_documents(db, session.id, owner_id)
     selected_documents = [doc for doc in documents if doc["selected"]]
     messages = session_messages(db, session.id, limit=24)
-    recent_messages = messages[-12:]
+    recent_messages = messages[-8:]
 
     grounding_chunks: list[dict] = []
     if prompt:

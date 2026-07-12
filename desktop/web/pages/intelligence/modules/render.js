@@ -164,33 +164,33 @@ export function renderArtifactsStrip() {
   }).join("");
 }
 
-function renderMessageWithCitations(text) {
 
-    return escapeHTML(text)
-        .replace(
-            /\[(\d+)\]/g,
-            (_, number) => `
-                <button
-                    class="citation-chip"
-                    data-citation="${number}"
-                    type="button">
-                    [${number}]
-                </button>
-            `
-        );
+function renderMessageWithCitations(text) {
+  return escapeHTML(text)
+    .replace(
+      /\[(\d+)\]/g,
+      (_, number) => `
+        <button class="citation-chip" data-citation="${number}" type="button">[${number}]</button>
+      `
+    );
 }
 
 function renderMessage(message) {
-  const role = String(message.role || "assistant");
-  const body = renderMessageWithCitations(
-      message.content || ""
-  );
-  const agent = message.agent_name ? `<div class="message-agent mono">${escapeHTML(message.agent_name)}</div>` : "";
+  const role = String(message.role || "assistant").toLowerCase();
+  const isUser = role === "user";
+  const content = String(message.content || "").trim();
+  const body = renderMessageWithCitations(content);
+  const sender = isUser
+    ? "You"
+    : (message.agent_name ? agentLabel(message.agent_name) : "Assistant");
+
   return `
-    <article class="message ${role === "user" ? "user" : "assistant"}">
-      <div class="message-bubble">
-        ${agent}
-        <div class="message-text">${body || "<span class='empty-subtle'>No content</span>"}</div>
+    <article class="message-row ${isUser ? "user" : "assistant"}" aria-label="${escapeHTML(role)} message">
+      <div class="message-stack">
+        <div class="message-label ${isUser ? "user" : "assistant"}">${escapeHTML(sender)}</div>
+        <div class="message-bubble">
+          <div class="message-text">${body || "<span class='empty-subtle'>No content</span>"}</div>
+        </div>
       </div>
     </article>
   `;
@@ -198,15 +198,14 @@ function renderMessage(message) {
 
 export function renderMessages() {
   const session = getActiveSession();
-  if (!session) {
-    els.outputBody.innerHTML = "";
+  if (!session || !els.outputBody) {
     return;
   }
 
   const messages = Array.isArray(session.messages) ? session.messages : [];
   if (!messages.length) {
     els.outputBody.innerHTML = `
-      <div class="empty-state empty-state-card">
+      <div class="empty-state empty-state-card conversation-empty">
         <div class="empty-state-icon" aria-hidden="true">✦</div>
         <div class="empty-title">Ready to run</div>
         <div class="empty-sub">Choose the sources on the left, write a prompt, and run the session.</div>
@@ -215,23 +214,25 @@ export function renderMessages() {
     return;
   }
 
-  els.outputBody
-      .querySelectorAll(".citation-chip")
-      .forEach(button => {
+  const previousMessageCount = els.outputBody.querySelectorAll(".message-row").length;
+  const hasNewMessages = messages.length > previousMessageCount;
 
-          button.onclick = () => {
+  els.outputBody.innerHTML = messages.map(renderMessage).join("");
 
-              console.log(
-                  "Citation",
-                  button.dataset.citation
-              );
+  els.outputBody.querySelectorAll(".citation-chip").forEach((button) => {
+    button.addEventListener("click", () => {
+      const citation = button.dataset.citation || "";
+      console.log("Citation", citation);
+    });
+  });
 
-          };
-
-      });
+  // Always scroll to bottom when new messages are added
+  if (hasNewMessages) {
+    requestAnimationFrame(() => {
+      els.outputBody.scrollTop = els.outputBody.scrollHeight;
+    });
+  }
 }
-
-
 export function renderWorkspaceChrome() {
   const session = getActiveSession();
   if (!session) return;
