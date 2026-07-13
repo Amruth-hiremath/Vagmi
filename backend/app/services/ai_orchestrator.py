@@ -1,31 +1,20 @@
 from __future__ import annotations
 
-from collections import Counter
-from typing import Iterable
 import re
+from collections import Counter
 
 from sqlalchemy.orm import Session
 
+from app.agents import get_agent_spec
+from app.agents.base import build_agent_artifact_content
 from app.models.ai_session import AiSession
 from app.models.ai_session_artifact import AiSessionArtifact
 from app.models.ai_session_message import AiSessionMessage
-from app.services.ai_router_service import AUTO_MODE, MANUAL_MODE, RoutingDecision, route_prompt
+from app.services.ai_router_service import AUTO_MODE, RoutingDecision, route_prompt
+from app.services.ai_payload import session_payload
 from app.services.context_service import build_session_context
 from app.services.llm_service import generate_local_reply
 from app.services.prompt_service import build_prompt_bundle
-from app.services.ai_payload import session_payload
-
-
-
-def _format_citations(chunks: list[dict]) -> str:
-    if not chunks:
-        return ""
-    lines = ["", "Sources:"]
-    for index, chunk in enumerate(chunks, start=1):
-        lines.append(f"[{index}] {chunk['filename']}")
-    return "\n".join(lines)
-
-
 
 _STOPWORDS = {
     "about", "above", "after", "again", "also", "and", "any", "around", "because", "been", "before", "between",
@@ -81,8 +70,7 @@ def _split_sentences(text: str) -> list[str]:
     cleaned = _clean_sentence(text)
     if not cleaned:
         return []
-    parts = _SENTENCE_SPLIT_RE.split(cleaned)
-    return [part.strip() for part in parts if part.strip()]
+    return [part.strip() for part in _SENTENCE_SPLIT_RE.split(cleaned) if part.strip()]
 
 
 def _informative_sentence(sentence: str) -> bool:
@@ -92,7 +80,6 @@ def _informative_sentence(sentence: str) -> bool:
     if len(set(tokens)) < 4:
         return False
 
-    # Filter out boilerplate/template content
     lowered = sentence.lower()
     for pattern in _BOILERPLATE_PATTERNS:
         if pattern in lowered:
@@ -112,9 +99,8 @@ def _sentence_score(sentence: str, chunk_score: float, prompt_terms: set[str]) -
     length_bonus = min(len(tokens), 40) / 40.0
     density_bonus = min(len(token_set), 18) / 18.0
 
-    # Heavily penalize boilerplate/template content
     lowered = sentence.lower()
-    boilerplate_penalty = 0
+    boilerplate_penalty = 0.0
     for pattern in _BOILERPLATE_PATTERNS:
         if pattern in lowered:
             boilerplate_penalty -= 15.0
@@ -122,7 +108,7 @@ def _sentence_score(sentence: str, chunk_score: float, prompt_terms: set[str]) -
     return (float(chunk_score) * 0.9) + (query_overlap * 2.2) + (theme_overlap * 0.9) + length_bonus + (density_bonus * 0.4) + boilerplate_penalty
 
 
-def _select_supporting_sentences(chunks: list[dict], prompt: str, limit: int = 3) -> list[tuple[int, str]]:
+def _select_supporting_sentences(chunks: list[dict], prompt: str, limit: int = 4) -> list[tuple[int, str]]:
     prompt_terms = {
         token
         for token in _tokenize(prompt)
@@ -138,8 +124,10 @@ def _select_supporting_sentences(chunks: list[dict], prompt: str, limit: int = 3
             if len(cleaned) < 40:
                 continue
             lowered = cleaned.lower()
-            # Skip sentences that start with common boilerplate prefixes
-            if lowered.startswith(("citation rules", "answer requirements", "selected documents", "recent messages", "user request", "the master agent", "the document generation", "the query agent", "the summary agent", "the diagram agent", "the following capabilities", "the minimum viable product", "the core value proposition", "the document-generation engine", "the highest-value office module")):
+            if lowered.startswith((
+                "citation rules", "answer requirements", "selected documents", "recent messages", "user request",
+                "the master agent", "the document generation", "the query agent", "the summary agent", "the diagram agent",
+            )):
                 continue
             if not _informative_sentence(cleaned):
                 continue
@@ -160,7 +148,6 @@ def _select_supporting_sentences(chunks: list[dict], prompt: str, limit: int = 3
         chosen.append((chunk_index, sentence))
         if len(chosen) >= limit:
             break
-
     return chosen
 
 
@@ -174,28 +161,19 @@ def _topic_hint_from_chunks(chunks: list[dict], prompt: str, limit: int = 3) -> 
     counter: Counter[str] = Counter()
     for chunk in chunks:
         text = str(chunk.get("chunk_text") or "")
-        # Filter out boilerplate content before counting
-        sentences = _split_sentences(text)
-        for sentence in sentences:
+        for sentence in _split_sentences(text):
             lowered = sentence.lower()
-            # Skip sentences containing boilerplate
             if any(pattern in lowered for pattern in _BOILERPLATE_PATTERNS):
                 continue
             for token in _tokenize(sentence):
-                if token in _STOPWORDS:
-                    continue
-                if token in _THEME_TERMS:
+                if token in _STOPWORDS or token in _THEME_TERMS:
                     continue
                 counter[token] += 1
 
     ordered = [token for token, _count in counter.most_common(12) if token not in prompt_terms]
-    if not ordered:
-        ordered = [token for token in prompt_terms if token not in _THEME_TERMS]
-
     ordered = ordered[:limit]
     if not ordered:
         return "the selected documents"
-
     if len(ordered) == 1:
         return ordered[0]
     if len(ordered) == 2:
@@ -208,102 +186,114 @@ def _is_about_query(prompt: str) -> bool:
     return any(
         phrase in lowered
         for phrase in (
-            "what is this",
-            "what is this document about",
-            "what is this pdf about",
-            "what is the pdf about",
-            "what is this file about",
-            "what does this document say",
-            "what does the pdf say",
-            "summarize",
-            "summary",
-            "elaborate",
-            "recap",
+            "what is this", "what is this document about", "what is this pdf about", "what is the pdf about",
+            "what is this file about", "what does this document say", "what does the pdf say",
+            "summarize", "summary", "elaborate", "recap",
         )
     )
 
 
-def _synthesize_summary(chunks: list[dict], routed_agent: str, prompt: str) -> tuple[str, list[dict]]:
-    selected = _select_supporting_sentences(chunks, prompt, limit=5)
+def _synthesize_summary(chunks: list[dict], prompt: str) -> tuple[str, list[dict]]:
+    selected = _select_supporting_sentences(chunks, prompt, limit=4)
     selected_indices = [index for index, _sentence in selected]
     selected_chunks = [chunks[index - 1] for index in selected_indices if 0 < index <= len(chunks)]
 
     if selected:
-        # Combine selected sentences into a coherent response
         sentences = [sentence for _index, sentence in selected]
-        # Remove any remaining boilerplate from the combined text
-        cleaned_sentences = []
-        for sentence in sentences:
-            lowered = sentence.lower()
-            is_boilerplate = any(pattern in lowered for pattern in _BOILERPLATE_PATTERNS)
-            if not is_boilerplate:
-                cleaned_sentences.append(sentence)
-
-        if cleaned_sentences:
-            lead = " ".join(cleaned_sentences[:3])
-            return lead.strip(), selected_chunks or chunks[: min(3, len(chunks))]
+        lead = " ".join(sentences[:3]).strip()
+        if lead:
+            return lead, selected_chunks or chunks[: min(3, len(chunks))]
 
     return "", chunks[: min(3, len(chunks))]
 
 
+def _format_citations(chunks: list[dict]) -> str:
+    if not chunks:
+        return ""
+    lines = ["", "Sources:"]
+    for index, chunk in enumerate(chunks, start=1):
+        lines.append(f"[{index}] {chunk['filename']}")
+    return "\n".join(lines)
+
+
 def build_grounded_reply(prompt: str, routed_agent: str, context: dict) -> tuple[str, str | None, str | None]:
-    """
-    Deterministic, fully-offline reply built from the retrieved passages when
-    a local model is unavailable or rejects the turn. The goal is to synthesize
-    the evidence into a short answer rather than dumping the passages back to
-    the user verbatim.
-    """
+    spec = get_agent_spec(routed_agent)
     selected_docs = context.get("selected_documents", [])
     chunks = context.get("grounding_chunks", [])
     doc_names = [doc["filename"] for doc in selected_docs[:4]]
     doc_summary = ", ".join(doc_names) if doc_names else "no documents selected yet"
 
-    # Only generate artifacts for specific agent types, not based on keyword matching
-    artifact_type = None
-    artifact_title = None
-    if routed_agent == "diagram":
-        artifact_type = "mermaid"
-        artifact_title = "Mermaid Diagram"
-    elif routed_agent == "document":
-        artifact_type = "document"
-        artifact_title = "Document Draft"
+    artifact_type = spec.artifact_type
+    artifact_title = spec.artifact_title
 
     if chunks:
-        reply, citation_chunks = _synthesize_summary(chunks, routed_agent, prompt)
+        reply, citation_chunks = _synthesize_summary(chunks, prompt)
         if not reply:
             topic = _topic_hint_from_chunks(chunks, prompt)
-            if _is_about_query(prompt):
-                reply = f"This document mainly discusses {topic}."
-            elif routed_agent == "summary":
-                reply = f"The selected documents mainly discuss {topic}."
+            if routed_agent == "summary":
+                reply = f"The selected documents are mainly about {topic}."
+                if _is_about_query(prompt):
+                    reply += f" In plain terms, the material focuses on {topic} and the related workflow around it."
             elif routed_agent == "diagram":
-                reply = f"The selected passages can be turned into a diagram about {topic}."
+                reply = (
+                    f"A useful diagram for these passages would center on {topic}. "
+                    f"The flow is: request -> selected documents -> grounded output."
+                )
             elif routed_agent == "document":
-                reply = f"The selected passages can be drafted into a document about {topic}."
+                reply = (
+                    f"This can be drafted into a document about {topic}. "
+                    f"A clean structure would be overview, details, and next steps."
+                )
             else:
                 reply = f"The selected passages mainly discuss {topic}."
         else:
-            # Clean up any remaining boilerplate patterns from the reply
-            for pattern in _BOILERPLATE_PATTERNS:
-                reply = re.sub(re.escape(pattern), "", reply, flags=re.IGNORECASE)
-            reply = re.sub(r"^(this response is grounded in\s+\d+\s+retrieved passage\(s\)\.\s*)", "", reply, flags=re.IGNORECASE).strip()
-            # Clean up extra whitespace
             reply = re.sub(r"\s+", " ", reply).strip()
 
-        reply = reply.strip()
         if not reply.endswith((".", "!", "?")):
             reply += "."
         reply += _format_citations(citation_chunks)
     else:
-        reply = "\n".join([
-            f"Routed to the {routed_agent} agent.",
-            f"Context snapshot: {len(selected_docs)} selected document(s), {len(context.get('recent_messages', []))} recent message(s).",
-            f"Selected docs: {doc_summary}.",
-            "No passages matched this prompt in the selected documents yet."
-            if selected_docs
-            else "Select one or more documents in the sidebar to ground responses in their content.",
-            "Local model hook is staged next; this deterministic scaffold keeps the offline flow stable.",
-        ])
+        if routed_agent == "summary":
+            reply = (
+                f"The session is set up for a summary, but no passages were retrieved yet. "
+                f"Selected docs: {doc_summary}."
+            )
+        elif routed_agent == "diagram":
+            reply = (
+                f"The session is set up for a diagram, but no passages were retrieved yet. "
+                f"Selected docs: {doc_summary}."
+            )
+        elif routed_agent == "document":
+            reply = (
+                f"The session is set up for a document draft, but no passages were retrieved yet. "
+                f"Selected docs: {doc_summary}."
+            )
+        else:
+            if routed_agent == "query":
+                reply = (
+                    f"The available context is limited, but the request appears to be about the selected documents. "
+                    f"Selected docs: {doc_summary}."
+                )
+            elif routed_agent == "summary":
+                reply = (
+                    f"The available context is limited, but the selected documents can still be summarized. "
+                    f"Selected docs: {doc_summary}."
+                )
+            elif routed_agent == "diagram":
+                reply = (
+                    f"The available context is limited, but a diagram can still be drafted from the selected documents. "
+                    f"Selected docs: {doc_summary}."
+                )
+            elif routed_agent == "document":
+                reply = (
+                    f"The available context is limited, but a document draft can still be started from the selected documents. "
+                    f"Selected docs: {doc_summary}."
+                )
+            else:
+                reply = (
+                    f"Routed to the {routed_agent} agent. Context snapshot: {len(selected_docs)} selected document(s), "
+                    f"{len(context.get('recent_messages', []))} recent message(s). Selected docs: {doc_summary}."
+                )
 
     return reply, artifact_type, artifact_title
 
@@ -336,6 +326,7 @@ def persist_turn(
     reply: str,
     artifact_type: str | None = None,
     artifact_title: str | None = None,
+    artifact_content: str | None = None,
 ) -> None:
     db.add(AiSessionMessage(
         session_id=session.id,
@@ -356,7 +347,7 @@ def persist_turn(
             owner_id=owner_id,
             title=artifact_title or "AI Artifact",
             artifact_type=artifact_type,
-            content=reply,
+            content=artifact_content or reply,
             file_path=None,
         ))
 
@@ -376,14 +367,18 @@ def run_session_turn(
 ) -> dict:
     route = route_prompt(prompt, routing_mode or session.routing_mode, selected_agent or session.selected_agent)
     context = build_session_context(db, session, owner_id, prompt=prompt)
+    spec = get_agent_spec(route.routed_agent)
 
     prompt_bundle = build_prompt_bundle(context, route.routed_agent, route.reason)
-    artifact_type = None
-    artifact_title = None
+    artifact_type = spec.artifact_type
+    artifact_title = spec.artifact_title
+    artifact_content = None
     citations: list[dict] = []
 
     if route.needs_clarification and route.routing_mode == AUTO_MODE:
         reply = build_clarification_reply(prompt, route, context)
+        artifact_type = None
+        artifact_title = None
     else:
         reply = generate_local_reply(
             prompt_bundle=prompt_bundle,
@@ -391,7 +386,14 @@ def run_session_turn(
             context=context,
         )
         if reply is None:
-            reply, artifact_type, artifact_title = build_grounded_reply(prompt, route.routed_agent, context)
+            reply, fallback_artifact_type, fallback_artifact_title = build_grounded_reply(prompt, route.routed_agent, context)
+            if fallback_artifact_type is not None:
+                artifact_type = fallback_artifact_type
+            if fallback_artifact_title is not None:
+                artifact_title = fallback_artifact_title
+        else:
+            artifact_content = build_agent_artifact_content(spec, prompt, reply, context)
+
         citations = [
             {
                 "index": index,
@@ -403,6 +405,9 @@ def run_session_turn(
             for index, chunk in enumerate(context.get("grounding_chunks", []), start=1)
         ]
 
+    if artifact_type and artifact_content is None and not (route.needs_clarification and route.routing_mode == AUTO_MODE):
+        artifact_content = build_agent_artifact_content(spec, prompt, reply, context)
+
     persist_turn(
         db=db,
         session=session,
@@ -412,6 +417,7 @@ def run_session_turn(
         reply=reply,
         artifact_type=artifact_type,
         artifact_title=artifact_title,
+        artifact_content=artifact_content,
     )
 
     payload = session_payload(session, owner_id, db, include_messages=True)
@@ -432,27 +438,7 @@ def run_session_turn(
 
 
 def regenerate_last_turn(db: Session, session: AiSession, owner_id: int) -> dict:
-    """
-    Re-run the most recent user prompt in this session through the same
-    routing/orchestration path, without requiring the caller to retype it.
-    The previous assistant turn (and any artifact it produced) is left in
-    place; a fresh assistant message is appended, matching how regenerate
-    works in NotebookLM-style tools.
-    """
-    last_user_message = (
-        db.query(AiSessionMessage)
-        .filter(AiSessionMessage.session_id == session.id, AiSessionMessage.role == "user")
-        .order_by(AiSessionMessage.created_at.desc(), AiSessionMessage.id.desc())
-        .first()
-    )
-    if not last_user_message:
-        raise ValueError("No previous prompt to regenerate")
-
-    return run_session_turn(
-        db=db,
-        session=session,
-        owner_id=owner_id,
-        prompt=last_user_message.content,
-        routing_mode=session.routing_mode,
-        selected_agent=session.selected_agent,
-    )
+    last_prompt = session.last_prompt
+    if not last_prompt:
+        raise ValueError("No prompt available to regenerate")
+    return run_session_turn(db, session, owner_id, last_prompt, session.routing_mode, session.selected_agent)

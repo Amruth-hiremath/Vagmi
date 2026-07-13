@@ -730,15 +730,16 @@ button {
   display: flex;
   width: 100%;
   min-width: 0;
-  padding-inline: 4px;
+  padding-inline: 2px;
+  padding-block: 2px;
 }
 
 .message-stack {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
-  width: min(78%, 760px);
+  width: min(74%, 720px);
   flex: 0 0 auto;
 }
 
@@ -763,15 +764,15 @@ button {
 .message-label {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 11px;
+  min-height: 22px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--chip-border);
   background: var(--surface-hover);
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   width: fit-content;
 }
@@ -785,28 +786,28 @@ button {
 .message-bubble {
   width: 100%;
   min-width: 0;
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 16px 20px;
+  background: color-mix(in srgb, var(--surface-hover) 72%, transparent);
+  padding: 14px 16px;
   position: relative;
   display: block;
   line-height: 1.6;
   overflow: hidden;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.10);
 }
 
 .message-row.user .message-bubble {
-  background: linear-gradient(135deg, rgba(232, 80, 2, 0.15), rgba(232, 80, 2, 0.08));
-  border-color: rgba(232, 80, 2, 0.35);
+  background: linear-gradient(135deg, rgba(232, 80, 2, 0.18), rgba(232, 80, 2, 0.1));
+  border-color: rgba(232, 80, 2, 0.38);
   border-bottom-right-radius: 6px;
-  box-shadow: 0 4px 12px rgba(232, 80, 2, 0.15);
+  box-shadow: 0 12px 24px rgba(232, 80, 2, 0.14);
 }
 
 .message-row.assistant .message-bubble {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
+  border-color: rgba(255, 255, 255, 0.11);
   border-bottom-left-radius: 6px;
 }
 
@@ -836,7 +837,7 @@ button {
 .message-text {
   color: var(--text-primary);
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.72;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -1839,4 +1840,25 @@ button {
     transform:translateY(-1px);
 
     opacity:.9;
+}
+
+@media (max-width: 1100px) {
+  .message-stack {
+    width: min(88%, 720px);
+  }
+}
+
+@media (max-width: 760px) {
+  .message-stack {
+    width: 100%;
+  }
+
+  .message-bubble {
+    padding: 13px 15px;
+  }
+
+  .message-text {
+    font-size: 14.5px;
+    line-height: 1.64;
+  }
 }
