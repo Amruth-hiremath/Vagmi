@@ -5,6 +5,7 @@ import re
 import threading
 from multiprocessing import get_context
 from pathlib import Path
+from typing import Any
 
 from app.agents import get_agent_spec
 from app.core.config import LOCAL_MODELS_DIR, OFFLINE_MODELS_DIR
@@ -30,6 +31,11 @@ _GGUF_CANDIDATE_NAMES = (
 )
 
 
+def _emit_stage(message: str) -> None:
+    logger.info(message)
+    print(message, flush=True)
+
+
 def resolve_local_model_path() -> str | None:
     """Resolve a usable local model path/file without touching the network."""
     env_override = os.getenv("VAGMI_AI_MODEL_PATH", "").strip() or None
@@ -52,7 +58,7 @@ def has_local_model() -> bool:
     return resolve_local_model_path() is not None
 
 
-def _extract_reply_text(result) -> str:
+def _extract_reply_text(result: Any) -> str:
     if not isinstance(result, dict):
         return ""
     choices = result.get("choices") or []
@@ -103,30 +109,6 @@ def _dedupe_sentences(text: str) -> str:
     return " ".join(deduped).strip()
 
 
-def _looks_repetitive(text: str) -> bool:
-    cleaned = _collapse_repeated_lines(text)
-    if not cleaned:
-        return True
-
-    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", cleaned) if part.strip()]
-    if len(sentences) < 3:
-        return False
-
-    normalized = [re.sub(r"\s+", " ", sentence).lower() for sentence in sentences]
-    if len(set(normalized)) <= max(1, len(normalized) // 4):
-        return True
-
-    repeated_runs = 1
-    longest_run = 1
-    for prev, current in zip(normalized, normalized[1:]):
-        if current == prev:
-            repeated_runs += 1
-            longest_run = max(longest_run, repeated_runs)
-        else:
-            repeated_runs = 1
-    return longest_run >= 4
-
-
 def _clean_reply_text(text: str) -> str:
     cleaned = _dedupe_sentences(text)
     if not cleaned:
@@ -155,31 +137,39 @@ def _strip_prompt_echo(text: str) -> str:
     return text.strip()
 
 
-def _prepare_prompt_for_model(prompt_bundle: str) -> str:
-    prompt = (prompt_bundle or "").strip()
-    if len(prompt) <= _MAX_PROMPT_CHARS:
-        return prompt
+def _prepare_messages_for_model(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    safe_messages: list[dict[str, str]] = []
+    total_chars = 0
+    for message in messages:
+        role = str(message.get("role") or "").strip() or "user"
+        content = str(message.get("content") or "").strip()
+        if not content:
+            continue
+        total_chars += len(content)
+        safe_messages.append({"role": role, "content": content})
 
-    # Preserve the top-level instructions and user request while trimming older context first.
-    sections = [
-        "Retrieved passages:",
-        "Recent messages:",
-        "Selected documents:",
-    ]
-    trimmed = prompt
-    for marker in sections:
-        if len(trimmed) <= _MAX_PROMPT_CHARS:
-            break
-        idx = trimmed.find(marker)
-        if idx != -1:
-            head = trimmed[:idx].rstrip()
-            tail = trimmed[idx:]
-            tail_limit = max(1000, _MAX_PROMPT_CHARS - len(head) - 120)
-            trimmed = (head + "\n\n" + tail[:tail_limit].rstrip()).strip()
+    if total_chars <= _MAX_PROMPT_CHARS:
+        return safe_messages
 
-    if len(trimmed) > _MAX_PROMPT_CHARS:
-        trimmed = trimmed[: _MAX_PROMPT_CHARS - 1].rstrip() + "…"
-    return trimmed
+    # Preserve the system prompt and the latest user turn, trimming older
+    # conversational context first.
+    preserved: list[dict[str, str]] = []
+    system_messages = [msg for msg in safe_messages if msg["role"] == "system"]
+    user_messages = [msg for msg in safe_messages if msg["role"] == "user"]
+    assistant_messages = [msg for msg in safe_messages if msg["role"] == "assistant"]
+
+    if system_messages:
+        preserved.append(system_messages[0])
+
+    if assistant_messages and user_messages:
+        preserved.extend(assistant_messages[-3:])
+        preserved.extend(user_messages[-1:])
+    elif user_messages:
+        preserved.extend(user_messages[-2:])
+    else:
+        preserved.extend(safe_messages[-2:])
+
+    return preserved
 
 
 def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
@@ -193,12 +183,14 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
         return
 
     try:
+        _emit_stage("===== ABOUT TO LOAD MODEL =====")
         model = Llama(
             model_path=model_path,
             n_ctx=n_ctx,
             n_threads=n_threads,
             verbose=False,
         )
+        _emit_stage("===== MODEL LOADED SUCCESSFULLY =====")
     except Exception as exc:  # noqa: BLE001
         try:
             conn.send({"type": "load_error", "error": repr(exc)})
@@ -229,17 +221,38 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
             continue
 
         try:
-            result = model(
-                message.get("prompt", ""),
-                max_tokens=int(message.get("max_tokens", 256)),
-                temperature=float(message.get("temperature", 0.3)),
-                top_p=float(message.get("top_p", 0.9)),
-                repeat_penalty=float(message.get("repeat_penalty", 1.1)),
-                stop=list(message.get("stop") or []),
-                echo=False,
-            )
+            _emit_stage("===== STARTING INFERENCE =====")
+            prompt_messages = _prepare_messages_for_model(list(message.get("messages") or []))
+            max_tokens = int(message.get("max_tokens", 256))
+            temperature = float(message.get("temperature", 0.3))
+            top_p = float(message.get("top_p", 0.9))
+            repeat_penalty = float(message.get("repeat_penalty", 1.1))
+            stop_tokens = list(message.get("stop") or [])
+
+            if hasattr(model, "create_chat_completion"):
+                result = model.create_chat_completion(
+                    messages=prompt_messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repeat_penalty=repeat_penalty,
+                    stop=stop_tokens,
+                )
+            else:
+                prompt = "\n\n".join(f"{item['role'].title()}: {item['content']}" for item in prompt_messages)
+                result = model(
+                    prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repeat_penalty=repeat_penalty,
+                    stop=stop_tokens,
+                    echo=False,
+                )
+
             raw_text = _extract_reply_text(result)
             conn.send({"type": "result", "text": raw_text})
+            _emit_stage("===== INFERENCE FINISHED =====")
         except Exception as exc:  # noqa: BLE001
             try:
                 conn.send({"type": "error", "error": repr(exc)})
@@ -375,7 +388,7 @@ def _ensure_worker(model_path: str) -> bool:
         return True
 
 
-def generate_local_reply(prompt_bundle: str, routed_agent: str, context: dict) -> str | None:
+def generate_local_reply(prompt_messages: list[dict[str, str]], routed_agent: str, context: dict) -> str | None:
     model_path = resolve_local_model_path()
     if model_path is None:
         return None
@@ -387,7 +400,7 @@ def generate_local_reply(prompt_bundle: str, routed_agent: str, context: dict) -
     top_p = float(os.getenv(f"VAGMI_AI_TOP_P_{spec.name.upper()}", str(generation["top_p"])))
     repeat_penalty = float(os.getenv(f"VAGMI_AI_REPEAT_PENALTY_{spec.name.upper()}", str(generation["repeat_penalty"])))
 
-    full_prompt = _prepare_prompt_for_model(f"{prompt_bundle}\n\nAssistant:")
+    prepared_messages = _prepare_messages_for_model(prompt_messages)
     stop_tokens = [
         "\nUser:",
         "\nAssistant:",
@@ -408,7 +421,7 @@ def generate_local_reply(prompt_bundle: str, routed_agent: str, context: dict) -
             conn.send(
                 {
                     "type": "generate",
-                    "prompt": full_prompt,
+                    "messages": prepared_messages,
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "top_p": top_p,
@@ -455,16 +468,8 @@ def generate_local_reply(prompt_bundle: str, routed_agent: str, context: dict) -
     raw_text = _strip_prompt_echo(str(response.get("text") or ""))
     text = _clean_reply_text(raw_text)
 
-    if not text or len(text) < 20:
-        logger.info("Local LLM produced an empty or tiny response; falling back to deterministic reply.")
+    if not text:
         return None
-
-    if _looks_repetitive(text):
-        cleaned = _clean_reply_text(text)
-        if len(cleaned) < 40:
-            logger.info("Local LLM response was too repetitive; falling back to deterministic reply.")
-            return None
-        text = cleaned
 
     logger.info("LLM generated %d characters.", len(text))
     return text

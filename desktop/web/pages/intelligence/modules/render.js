@@ -1,4 +1,4 @@
-import { els, state, escapeHTML, truncate, agentLabel, modeLabel, sessionDisplayTime, getFilteredSessions, getFilteredDocuments, getSelectedDocIds, getActiveSession } from "./context.js";
+import { els, state, escapeHTML, truncate, agentLabel, modeLabel, sessionDisplayTime, normalizeDocument, getFilteredSessions, getSelectedDocIds, getActiveSession } from "./context.js";
 import { renderAgentPicker } from "./ui.js";
 
 export function renderHubTabs() {
@@ -73,15 +73,74 @@ export function renderHub() {
   els.sessionGrid.innerHTML = createCard + emptyCard + cards;
 }
 
+function renderDocumentCard(doc, { selected = false, badge = "", emptyLabel = "" } = {}) {
+  return `
+    <button class="doc-item ${selected ? "selected" : ""}" type="button" data-doc-id="${doc.id}">
+      <div class="doc-top">
+        <div class="doc-main">
+          <div class="doc-icon" aria-hidden="true">${selected ? "✓" : "▢"}</div>
+          <div class="doc-copy">
+            <div class="doc-title">${escapeHTML(doc.filename)}</div>
+            <div class="doc-status mono">${escapeHTML(doc.status || emptyLabel || "indexed")}</div>
+          </div>
+        </div>
+        <span class="doc-badge mono">${escapeHTML(badge || (selected ? "session" : "library"))}</span>
+      </div>
+    </button>
+  `;
+}
+
+function renderSourceSection(title, subtitle, docs, { selected = false, emptyTitle = "", emptySubtitle = "", emptyIcon = "◎", emptyButton = "" } = {}) {
+  if (!docs.length) {
+    return `
+      <section class="source-section">
+        <div class="source-section-head">
+          <div>
+            <div class="source-section-title">${escapeHTML(title)}</div>
+            <div class="sidebar-sub mono">${escapeHTML(subtitle)}</div>
+          </div>
+        </div>
+        <div class="doc-empty compact">
+          <div class="doc-empty-icon" aria-hidden="true">${escapeHTML(emptyIcon)}</div>
+          <div class="empty-title">${escapeHTML(emptyTitle)}</div>
+          <div class="empty-subtle">${escapeHTML(emptySubtitle)}</div>
+          ${emptyButton ? `<button class="ghost-mini-btn" type="button" id="doc-empty-upload-btn">${escapeHTML(emptyButton)}</button>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="source-section">
+      <div class="source-section-head">
+        <div>
+          <div class="source-section-title">${escapeHTML(title)}</div>
+          <div class="sidebar-sub mono">${escapeHTML(subtitle)}</div>
+        </div>
+      </div>
+      <div class="doc-list-group">
+        ${docs.map((doc) => renderDocumentCard(doc, { selected, badge: selected ? "session" : "library" })).join("")}
+      </div>
+    </section>
+  `;
+}
+
 export function renderDocumentList() {
   if (!els.docList) return;
   const session = getActiveSession();
-  const docs = getFilteredDocuments();
   const selectedIds = new Set(getSelectedDocIds(session));
-  const selectedCount = selectedIds.size;
-  const attachedCount = state.documents.length;
+  const query = state.docSearch.trim().toLowerCase();
+  const allDocs = state.documents
+    .map((doc) => normalizeDocument(doc))
+    .filter((doc) => Number.isFinite(Number(doc.id)));
+  const selectedDocs = allDocs.filter((doc) => selectedIds.has(Number(doc.id)));
+  const libraryDocs = allDocs.filter((doc) => !selectedIds.has(Number(doc.id)) && (!query || doc.filename.toLowerCase().includes(query) || doc.status.toLowerCase().includes(query)));
+  const selectedCount = selectedDocs.length;
+  const totalCount = allDocs.length;
 
-  els.docsSummary.textContent = `${selectedCount} selected • ${attachedCount} in this session`;
+  els.docsSummary.textContent = session
+    ? `${selectedCount} in session • ${libraryDocs.length} in library`
+    : `${totalCount} documents`;
 
   if (!session) {
     els.docList.innerHTML = `
@@ -94,7 +153,7 @@ export function renderDocumentList() {
     return;
   }
 
-  if (!docs.length) {
+  if (!allDocs.length) {
     els.docList.innerHTML = `
       <div class="doc-empty">
         <div class="doc-empty-icon" aria-hidden="true">⌁</div>
@@ -106,23 +165,33 @@ export function renderDocumentList() {
     return;
   }
 
-  els.docList.innerHTML = docs.map((doc) => {
-    const checked = selectedIds.has(Number(doc.id));
-    return `
-      <button class="doc-item ${checked ? "selected" : ""}" type="button" data-doc-id="${doc.id}">
-        <div class="doc-top">
-          <div class="doc-main">
-            <div class="doc-icon" aria-hidden="true">${checked ? "✓" : "▢"}</div>
-            <div class="doc-copy">
-              <div class="doc-title">${escapeHTML(doc.filename)}</div>
-              <div class="doc-status mono">${escapeHTML(doc.status || "indexed")}</div>
-            </div>
-          </div>
-          <span class="doc-badge mono">${checked ? "selected" : "attached"}</span>
-        </div>
-      </button>
-    `;
-  }).join("");
+  const sections = [
+    renderSourceSection(
+      "Session Sources",
+      `${selectedDocs.length} attached to this session`,
+      selectedDocs,
+      {
+        selected: true,
+        emptyTitle: "No session sources",
+        emptySubtitle: "Select documents from the library to keep this session isolated.",
+        emptyIcon: "◇"
+      }
+    ),
+    renderSourceSection(
+      "Library",
+      `${libraryDocs.length} available for selection`,
+      libraryDocs,
+      {
+        selected: false,
+        emptyTitle: "Library filtered out",
+        emptySubtitle: "Nothing matches the current search.",
+        emptyIcon: "⌁",
+        emptyButton: "Upload document"
+      }
+    )
+  ];
+
+  els.docList.innerHTML = sections.join("");
 }
 
 export function renderArtifactsStrip() {
@@ -183,11 +252,16 @@ function renderMessage(message) {
   const sender = isUser
     ? "You"
     : (message.agent_name ? agentLabel(message.agent_name) : "Assistant");
+  const metaBits = [];
+  if (!isUser && message.agent_name) metaBits.push(escapeHTML(agentLabel(message.agent_name)));
+  if (message.created_at) metaBits.push(escapeHTML(sessionDisplayTime(message.created_at)));
+  const meta = metaBits.length ? `<div class="message-meta">${metaBits.map((bit) => `<span class="message-role">${bit}</span>`).join("")}</div>` : "";
 
   return `
     <article class="message-row ${isUser ? "user" : "assistant"}" aria-label="${escapeHTML(role)} message">
       <div class="message-stack">
         <div class="message-label ${isUser ? "user" : "assistant"}">${escapeHTML(sender)}</div>
+        ${meta}
         <div class="message-bubble">
           <div class="message-text">${body || "<span class='empty-subtle'>No content</span>"}</div>
         </div>

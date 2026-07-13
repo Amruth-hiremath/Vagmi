@@ -53,26 +53,35 @@ def _answer_rules(routed_agent: str) -> str:
     )
 
 
-def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -> str:
-    spec = get_agent_spec(routed_agent)
-
-    doc_lines = []
+def _selected_document_block(context: dict) -> str:
+    lines = []
     for doc in context.get("selected_documents", [])[:MAX_SELECTED_DOCUMENT_LINES]:
-        doc_lines.append(f"- {doc['filename']} (id={doc['id']})")
+        lines.append(f"- {doc['filename']} (id={doc['id']})")
+    return "\n".join(lines) if lines else "- None selected"
 
-    message_lines = []
+
+def _retrieved_passage_block(context: dict) -> str:
+    lines = []
+    for index, chunk in enumerate(context.get("grounding_chunks", [])[:MAX_GROUNDING_LINES], start=1):
+        snippet = _compact(chunk.get("chunk_text") or "")
+        lines.append(f"[{index}] {chunk['filename']}: {snippet}")
+    return "\n".join(lines) if lines else "- No passages retrieved for this prompt"
+
+
+def _recent_message_block(context: dict) -> str:
+    lines = []
     for item in context.get("recent_messages", [])[-MAX_RECENT_MESSAGE_LINES:]:
         role = item.get("role", "assistant")
         content = _compact(item.get("content") or "", 180)
-        message_lines.append(f"{role}: {content}")
+        lines.append(f"{role}: {content}")
+    return "\n".join(lines) if lines else "- No prior context"
 
-    grounding_lines = []
-    for index, chunk in enumerate(context.get("grounding_chunks", [])[:MAX_GROUNDING_LINES], start=1):
-        snippet = _compact(chunk.get("chunk_text") or "")
-        grounding_lines.append(f"[{index}] {chunk['filename']}: {snippet}")
 
+def build_prompt_messages(context: dict, routed_agent: str, routing_reason: str) -> list[dict[str, str]]:
+    spec = get_agent_spec(routed_agent)
     prompt = context.get("prompt") or ""
-    return dedent(
+
+    system_prompt = dedent(
         f"""
         You are Vāgmi, an offline, user-isolated workplace AI.
 
@@ -80,20 +89,18 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         Routing mode: {context.get('routing_mode')}
         Routed specialist: {spec.label}
         Routing reason: {routing_reason}
+
         Specialist system prompt: {spec.system_prompt}
         Specialist contract: {agent_instruction_block(spec, routing_reason, context)}
 
         Selected documents:
-        {chr(10).join(doc_lines) if doc_lines else "- None selected"}
+        {_selected_document_block(context)}
 
         Retrieved passages:
-        {chr(10).join(grounding_lines) if grounding_lines else "- No passages retrieved for this prompt"}
+        {_retrieved_passage_block(context)}
 
         Recent messages:
-        {chr(10).join(message_lines) if message_lines else "- No prior context"}
-
-        User request:
-        {prompt}
+        {_recent_message_block(context)}
 
         Answer rules:
         {_answer_rules(routed_agent)}
@@ -104,7 +111,16 @@ def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -
         - Answer from the retrieved passages and recent session context only.
         - Do not echo passages verbatim or dump raw excerpts.
         - If the answer is not fully supported, say what is missing instead of inventing facts.
-        - Use inline citations like [1] or [2] only for supported claims.
         - Keep the tone professional and production-ready.
         """
     ).strip()
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt},
+    ]
+
+
+def build_prompt_bundle(context: dict, routed_agent: str, routing_reason: str) -> str:
+    messages = build_prompt_messages(context, routed_agent, routing_reason)
+    return "\n\n".join(f"{message['role'].title()}: {message['content']}" for message in messages).strip()

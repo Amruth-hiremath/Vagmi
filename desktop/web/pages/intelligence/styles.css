@@ -1862,3 +1862,137 @@ button {
     line-height: 1.64;
   }
 }
+
+
+/* Intelligence workspace refinements */
+.sources-panel .doc-list {
+  gap: 14px;
+}
+
+.source-section {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.source-section + .source-section {
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.source-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.source-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.doc-list-group {
+  display: grid;
+  gap: 10px;
+}
+
+.doc-empty.compact {
+  min-height: 140px;
+  padding: 12px 10px;
+}
+
+.doc-item {
+  text-align: left;
+}
+
+.doc-main {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.doc-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.doc-badge {
+  align-self: flex-start;
+  padding: 0 10px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.message-stack {
+  gap: 8px;
+  width: min(78%, 760px);
+}
+
+.message-meta {
+  margin-top: -2px;
+}
+
+.message-bubble {
+  padding: 15px 17px;
+  border-radius: 22px;
+}
+
+.message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-row.user .message-bubble {
+  border-bottom-right-radius: 8px;
+}
+
+.message-row.assistant .message-bubble {
+  border-bottom-left-radius: 8px;
+}
+
+@media (max-width: 1180px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sources-panel {
+    max-height: 44vh;
+  }
+
+  .message-stack {
+    width: min(86%, 760px);
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 14px;
+  }
+
+  .hub-view {
+    padding: 14px;
+  }
+
+  .sources-panel,
+  .chat-panel {
+    padding: 14px;
+  }
+
+  .message-stack {
+    width: 100%;
+  }
+}

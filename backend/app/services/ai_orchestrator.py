@@ -13,8 +13,9 @@ from app.models.ai_session_message import AiSessionMessage
 from app.services.ai_router_service import AUTO_MODE, RoutingDecision, route_prompt
 from app.services.ai_payload import session_payload
 from app.services.context_service import build_session_context
+from app.core.logging_config import logger
 from app.services.llm_service import generate_local_reply
-from app.services.prompt_service import build_prompt_bundle
+from app.services.prompt_service import build_prompt_messages
 
 _STOPWORDS = {
     "about", "above", "after", "again", "also", "and", "any", "around", "because", "been", "before", "between",
@@ -365,15 +366,46 @@ def run_session_turn(
     routing_mode: str | None = None,
     selected_agent: str | None = None,
 ) -> dict:
+    logger.info(
+        "AI turn received: session=%s mode=%s selected_agent=%s prompt_len=%s",
+        session.id,
+        routing_mode or session.routing_mode,
+        selected_agent or session.selected_agent,
+        len(prompt or ""),
+    )
     route = route_prompt(prompt, routing_mode or session.routing_mode, selected_agent or session.selected_agent)
     context = build_session_context(db, session, owner_id, prompt=prompt)
     spec = get_agent_spec(route.routed_agent)
 
-    prompt_bundle = build_prompt_bundle(context, route.routed_agent, route.reason)
+    logger.info(
+        "AI context built: session=%s selected_docs=%s recent_messages=%s grounding_chunks=%s",
+        session.id,
+        len(context.get("selected_documents", [])),
+        len(context.get("recent_messages", [])),
+        len(context.get("grounding_chunks", [])),
+    )
+
+    prompt_messages = build_prompt_messages(context, route.routed_agent, route.reason)
+    logger.info(
+        "AI prompt built: session=%s agent=%s message_count=%s",
+        session.id,
+        route.routed_agent,
+        len(prompt_messages),
+    )
     artifact_type = spec.artifact_type
     artifact_title = spec.artifact_title
     artifact_content = None
     citations: list[dict] = []
+
+    logger.info(
+        "AI turn routed: session=%s mode=%s agent=%s reason=%s selected_docs=%s grounding_chunks=%s",
+        session.id,
+        route.routing_mode,
+        route.routed_agent,
+        route.reason,
+        len(context.get("selected_documents", [])),
+        len(context.get("grounding_chunks", [])),
+    )
 
     if route.needs_clarification and route.routing_mode == AUTO_MODE:
         reply = build_clarification_reply(prompt, route, context)
@@ -381,7 +413,7 @@ def run_session_turn(
         artifact_title = None
     else:
         reply = generate_local_reply(
-            prompt_bundle=prompt_bundle,
+            prompt_messages=prompt_messages,
             routed_agent=route.routed_agent,
             context=context,
         )
@@ -407,6 +439,14 @@ def run_session_turn(
 
     if artifact_type and artifact_content is None and not (route.needs_clarification and route.routing_mode == AUTO_MODE):
         artifact_content = build_agent_artifact_content(spec, prompt, reply, context)
+
+    logger.info(
+        "AI turn completed: session=%s agent=%s clarification=%s artifact_type=%s",
+        session.id,
+        route.routed_agent,
+        bool(route.needs_clarification and route.routing_mode == AUTO_MODE),
+        artifact_type,
+    )
 
     persist_turn(
         db=db,

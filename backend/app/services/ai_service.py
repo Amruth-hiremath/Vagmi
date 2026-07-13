@@ -210,7 +210,11 @@ def update_session(
 
 
 def replace_session_documents(db: Session, session: AiSession, document_ids: Iterable[int], owner_id: int) -> AiSession:
-    desired_ids = {int(doc_id) for doc_id in document_ids if str(doc_id).isdigit() or isinstance(doc_id, int)}
+    desired_ids = {
+        int(doc_id)
+        for doc_id in document_ids
+        if isinstance(doc_id, int) or (isinstance(doc_id, str) and doc_id.isdigit())
+    }
 
     existing_links = {
         row.document_id: row
@@ -227,11 +231,14 @@ def replace_session_documents(db: Session, session: AiSession, document_ids: Ite
         .all()
     }
 
-    # Keep every previously attached document visible in the session.
-    for document_id, link in existing_links.items():
-        link.selected = document_id in available_ids
+    # Replace the session's source set deterministically so removing a document
+    # from the UI actually removes it from the session context as well.
+    for document_id, link in list(existing_links.items()):
+        if document_id not in available_ids:
+            db.delete(link)
+        else:
+            link.selected = True
 
-    # Attach any newly selected documents to this session.
     for document_id in sorted(available_ids):
         if document_id in existing_links:
             existing_links[document_id].selected = True
