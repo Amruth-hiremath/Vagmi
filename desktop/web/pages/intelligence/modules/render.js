@@ -74,6 +74,14 @@ export function renderHub() {
 }
 
 function renderDocumentCard(doc, { selected = false, badge = "", emptyLabel = "" } = {}) {
+  // Clean up filename - remove extension for cleaner display
+  const cleanName = doc.filename.replace(/\.[^/.]+$/, "");
+  // Map status to simple visual indicator
+  const statusClass = doc.status === 'indexed' ? 'status-ready' : 'status-processing';
+  const statusIcon = doc.status === 'indexed'
+    ? '<svg class="icon"><path d="M20 6L9 17l-5-5"/></svg>'
+    : '<svg class="icon animate-spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+
   return `
     <button class="doc-item ${selected ? "selected" : ""}" type="button" data-doc-id="${doc.id}">
       <div class="doc-top">

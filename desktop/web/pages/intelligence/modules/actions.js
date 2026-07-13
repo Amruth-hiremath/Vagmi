@@ -648,13 +648,13 @@ export function bindEvents() {
   els.sessionSearch?.addEventListener("input", () => {
     state.hubSearch = els.sessionSearch.value;
     persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
-    renderHub();
+    renderHub(); // Only render hub, not entire UI
   });
 
   els.sessionSort?.addEventListener("change", () => {
     state.hubSort = els.sessionSort.value || "recent";
     persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
-    renderHub();
+    renderHub(); // Only render hub, not entire UI
   });
 
   els.docSearch?.addEventListener("input", () => {
