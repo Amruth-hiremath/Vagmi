@@ -10,42 +10,104 @@
   <link rel="stylesheet" href="../../theme.css" />
 </head>
 <body>
-  <div class="page settings-page">
+  <div class="settings-page">
     <header class="page-head">
-      <div>
+      <div class="page-head-copy">
         <div class="section-kicker mono">Workspace settings</div>
         <h1>Preferences, status, and offline diagnostics.</h1>
+        <p class="page-lead">
+          Keep the workspace identity, look and feel, and local system status in one place.
+        </p>
       </div>
+
       <div class="head-actions">
         <button class="ghost-btn" data-nav="chat">Chat</button>
         <button class="ghost-btn" data-nav="intelligence">Intelligence</button>
       </div>
     </header>
 
-    <div class="settings-grid">
-      <section class="panel profile-card">
-        <div class="profile-avatar-wrap">
+    <section class="panel hero-panel">
+      <article class="hero-column hero-profile">
+        <div class="profile-avatar-row">
           <div class="profile-avatar" id="profile-avatar" aria-label="Profile picture preview">
-            <span class="profile-avatar-fallback mono" id="profile-avatar-fallback">AH</span>
+            <span class="profile-avatar-fallback mono" id="profile-avatar-fallback">U</span>
             <img id="profile-avatar-image" alt="Profile picture" class="profile-avatar-image hidden" />
           </div>
+
           <div class="profile-avatar-actions">
             <button class="ghost-btn" type="button" id="profile-avatar-upload-btn">Upload photo</button>
             <input id="profile-avatar-input" type="file" accept="image/*" hidden />
+            <span class="profile-hint mono">PNG, JPG, or WEBP</span>
           </div>
         </div>
+
+        <div class="profile-copy">
+          <div class="section-kicker mono">Workspace identity</div>
+          <h2 id="profile-display-name">Workspace user</h2>
+          <p class="profile-subtitle mono" id="profile-display-subtitle">Secure LAN account</p>
+          <p class="profile-description">
+            This identity follows the user across chat, intelligence, and diagnostics so the workspace feels cohesive
+            instead of random UI soup.
+          </p>
+          <div class="chip-row" aria-label="Workspace highlights">
+            <span class="chip">Secure LAN</span>
+            <span class="chip">Offline first</span>
+            <span class="chip">Theme aware</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="hero-column hero-brand">
+        <div class="section-kicker mono">Brand anchor</div>
         <img
-          data-theme-logo="full"
+          data-theme-logo="mark"
           src="../../assets/logo_dark_full.png"
           alt="Vāgmi logo"
           class="brand-banner"
         />
-        <div class="profile-meta">
-          <div class="profile-name">Amruthesh</div>
-          <div class="profile-sub mono">Secure LAN user</div>
+        <div class="brand-copy">
+          <div class="brand-name">Vāgmi</div>
+          <div class="brand-tagline">Share. Discuss. Understand.</div>
         </div>
-      </section>
+      </article>
 
+      <article class="hero-column hero-status">
+        <div class="panel-head compact">
+          <h2>Workspace snapshot</h2>
+          <span class="pill mono">Healthy</span>
+        </div>
+
+        <div class="snapshot-copy">
+          Local services are healthy and the workspace is running in a fully offline stack.
+        </div>
+
+        <div class="info-grid" aria-label="Workspace summary">
+          <div class="info-tile">
+            <span class="info-label">Backend</span>
+            <strong class="mono">Offline LAN</strong>
+          </div>
+          <div class="info-tile">
+            <span class="info-label">Vector store</span>
+            <strong class="mono">ChromaDB</strong>
+          </div>
+          <div class="info-tile">
+            <span class="info-label">Retrieval</span>
+            <strong class="mono">BM25 + vectors</strong>
+          </div>
+          <div class="info-tile">
+            <span class="info-label">Model</span>
+            <strong class="mono">Local LLM</strong>
+          </div>
+        </div>
+
+        <div class="status-foot">
+          <span class="status-foot-label mono">No cloud dependency</span>
+          <span class="status-foot-value">Designed for reliable local use.</span>
+        </div>
+      </article>
+    </section>
+
+    <div class="settings-grid">
       <section class="panel setting-card theme-card">
         <div class="panel-head">
           <h2>Appearance</h2>
@@ -82,28 +144,20 @@
         </div>
       </section>
 
-      <section class="panel setting-card">
+      <section class="panel setting-card status-card">
         <div class="panel-head">
-          <h2>Workspace status</h2>
-          <span class="pill mono">Healthy</span>
+          <h2>System status</h2>
+          <span class="pill mono">Live</span>
         </div>
         <div class="setting-list">
           <div class="setting-row"><span>Backend</span><span class="mono">Offline LAN</span></div>
           <div class="setting-row"><span>Vector store</span><span class="mono">ChromaDB</span></div>
-          <div class="setting-row"><span>Keyword index</span><span class="mono">BM25</span></div>
-          <div class="setting-row"><span>Model</span><span class="mono">Qwen2.5 7B Q4</span></div>
+          <div class="setting-row"><span>Retrieval</span><span class="mono">BM25 + vectors</span></div>
+          <div class="setting-row"><span>Model</span><span class="mono">Local LLM</span></div>
         </div>
-      </section>
-
-      <section class="panel setting-card">
-        <div class="panel-head">
-          <h2>Storage</h2>
-          <span class="pill mono">Local</span>
+        <div class="storage-caption">
+          This panel stays intentionally minimal so the important runtime facts are easy to scan.
         </div>
-        <div class="storage-bar">
-          <div class="storage-fill"></div>
-        </div>
-        <div class="storage-caption mono">Documents, chats, and artifacts remain on the local machine.</div>
       </section>
     </div>
   </div>
