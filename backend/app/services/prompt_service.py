@@ -5,10 +5,10 @@ from textwrap import dedent
 from app.agents import get_agent_spec
 from app.agents.base import agent_instruction_block
 
-MAX_SELECTED_DOCUMENT_LINES = 4
-MAX_RECENT_MESSAGE_LINES = 6
-MAX_GROUNDING_LINES = 4
-MAX_SNIPPET_CHARS = 240
+MAX_SELECTED_DOCUMENT_LINES = 8
+MAX_RECENT_MESSAGE_LINES = 10
+MAX_GROUNDING_LINES = 8
+MAX_SNIPPET_CHARS = 600
 
 
 def _compact(text: str, limit: int = MAX_SNIPPET_CHARS) -> str:

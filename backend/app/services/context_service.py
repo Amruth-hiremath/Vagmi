@@ -8,8 +8,8 @@ from app.models.ai_session_document import AiSessionDocument
 from app.models.ai_session_message import AiSessionMessage
 from app.models.document import Document
 
-MAX_RETRIEVED_CHUNKS = 6
-MAX_CHUNK_CHARS = 480
+MAX_RETRIEVED_CHUNKS = 12
+MAX_CHUNK_CHARS = 1200
 
 
 def _safe_iso(value: datetime | None) -> str | None:

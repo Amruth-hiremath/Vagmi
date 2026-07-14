@@ -235,7 +235,7 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
             request.add_header(key, value)
 
         try:
-            with urlopen(request, timeout=30) as response:
+            with urlopen(request, timeout=300) as response:
                 payload = response.read()
                 self.send_response(response.status)
                 self._copy_response_headers(response.headers.items(), len(payload))

@@ -17,42 +17,13 @@ from app.core.logging_config import logger
 from app.services.llm_service import generate_local_reply
 from app.services.prompt_service import build_prompt_messages
 
-_STOPWORDS = {
-    "about", "above", "after", "again", "also", "and", "any", "around", "because", "been", "before", "between",
-    "both", "can", "could", "document", "documents", "during", "each", "from", "have", "here", "into", "just",
-    "like", "make", "many", "more", "most", "much", "need", "only", "other", "over", "please", "project",
-    "retrieved", "retrieval", "section", "sections", "should", "show", "some", "such", "that", "their", "there",
-    "these", "this", "those", "through", "turn", "user", "using", "what", "when", "where", "which", "with",
-    "would", "your", "pdf", "file", "files", "text", "passage", "passages", "answer", "context", "query",
-    "session", "selected", "local", "offline", "assistant", "prompt", "grounded", "grounding", "result",
-    "results", "response", "snippet", "snippets", "about", "summary", "diagram", "document", "query",
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does",
-    "did", "will", "would", "could", "should", "may", "might", "must", "shall", "can", "of", "in", "on", "at",
-    "to", "for", "by", "with", "from", "as", "or", "but", "not", "no", "yes", "all", "any", "some", "such",
-}
+_STOPWORDS = {"the", "a", "an", "is", "are", "was", "were", "be", "of", "in", "on", "at", "to", "for", "and", "or"}
 
-_THEME_TERMS = {
-    "assistant", "agent", "workflow", "retrieval", "document", "summary", "diagram", "markdown", "docx", "pdf",
-    "mermaid", "office", "workspace", "session", "context", "prompt", "export", "generation", "draft", "local",
-    "offline", "secure", "query", "answer", "source", "sources", "library", "upload", "chat", "validation",
-    "structure", "system", "analysis", "knowledge", "report", "notes", "snippet", "index", "hybrid",
-    "engine", "module", "feature", "capability", "component", "interface", "platform", "architecture",
-    "implementation", "deployment", "configuration", "integration", "management", "processing",
-}
+_THEME_TERMS = set()  # empty — let the 7B LLM handle relevance
 
 _BOILERPLATE_PATTERNS = {
-    "the master agent", "the document generation agent", "the query agent", "the summary agent",
-    "the diagram agent", "the following capabilities", "the minimum viable product",
-    "the core value proposition", "the document-generation engine", "the highest-value office module",
-    "distinguishes vāgmi from", "plain document chat tool", "polished office document",
-    "inserts a mermaid diagram", "exports the result", "markdown, docx, and pdf",
-    "in-scope features", "mvp", "system dependencies", "component notes", "ollama local inference",
-    "cpu/gpu-capable", "local quantized models", "gguf format", "q4 or q5 quantization",
-    "document ingestion", "upload, parse, chunk, embed, and index", "pyside6", "qt desktop shell",
-    "tray/dock/always-on-top", "web interface", "fastapi-served", "jinja2 templates",
-    "collaboration panel", "intra-chat", "group chat", "file attachment", "local session cache",
-    "current account", "window preference", "last room/document", "air-gapped office",
-    "structured artifact", "polished deliverables", "practical and measurable",
+    "the master agent", "the document generation agent",
+    "the query agent", "the summary agent", "the diagram agent",
 }
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -417,7 +388,7 @@ def run_session_turn(
             routed_agent=route.routed_agent,
             context=context,
         )
-        if reply is None:
+        if reply is None or len(reply.strip()) < 20:
             reply, fallback_artifact_type, fallback_artifact_title = build_grounded_reply(prompt, route.routed_agent, context)
             if fallback_artifact_type is not None:
                 artifact_type = fallback_artifact_type
@@ -459,6 +430,11 @@ def run_session_turn(
         artifact_title=artifact_title,
         artifact_content=artifact_content,
     )
+
+    # FIX: Reset session status to idle so the frontend stops spinning
+    session.status = "idle"
+    db.commit()
+    db.refresh(session)
 
     payload = session_payload(session, owner_id, db, include_messages=True)
 

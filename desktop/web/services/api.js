@@ -82,19 +82,29 @@ export async function apiRequest(endpoint, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
+  // FIX: Add a 180-second (3 minute) timeout for slow LLM requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
+
   let response;
   try {
     response = await fetch(`${API_URL}${endpoint}`, {
       ...rest,
       headers,
-      body
+      body,
+      signal: controller.signal
     });
   } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new ApiError("Request timed out. The AI model took too long to respond.", 408);
+    }
     throw new ApiError(
       "Unable to reach the backend. Make sure FastAPI is running.",
       0,
       { cause: error }
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (response.status === 401 && !skipAuthRedirect) {

@@ -2,6 +2,13 @@ import { apiRequest } from "./api.js";
 
 const AI_STORAGE_KEY = "vagmi-ai-ui-state";
 
+// FIX: Add a lock to prevent duplicate requests while the LLM is thinking
+let isGenerating = false;
+
+export function isAiGenerating() {
+  return isGenerating;
+}
+
 function parseJson(response) {
   return response.json();
 }
@@ -136,25 +143,42 @@ export async function deleteAiSessionArtifact(sessionId, artifactId) {
 }
 
 export async function runAiSession(sessionId, payload = {}) {
-  const normalized = {
-    prompt: payload.prompt ?? payload.message_text ?? payload.content ?? "",
-    routing_mode: payload.routing_mode ?? payload.mode ?? "manual",
-    selected_agent: payload.selected_agent ?? payload.agent ?? "query"
-  };
-
-  return parseJson(
-    await apiRequest(`/ai/sessions/${sessionId}/messages`, {
-      method: "POST",
-      body: JSON.stringify(normalized)
-    })
-  );
+  if (isGenerating) {
+    console.warn("AI generation already in progress. Ignoring duplicate request.");
+    return null;
+  }
+  isGenerating = true;
+  try {
+    const normalized = {
+      prompt: payload.prompt ?? payload.message_text ?? payload.content ?? "",
+      routing_mode: payload.routing_mode ?? payload.mode ?? "manual",
+      selected_agent: payload.selected_agent ?? payload.agent ?? "query"
+    };
+    return parseJson(
+      await apiRequest(`/ai/sessions/${sessionId}/messages`, {
+        method: "POST",
+        body: JSON.stringify(normalized)
+      })
+    );
+  } finally {
+    isGenerating = false;
+  }
 }
 
 export async function regenerateAiSession(sessionId, payload = {}) {
-  return parseJson(
-    await apiRequest(`/ai/sessions/${sessionId}/regenerate`, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    })
-  );
-}
+  if (isGenerating) {
+    console.warn("AI generation already in progress. Ignoring duplicate request.");
+    return null;
+  }
+  isGenerating = true;
+  try {
+    return parseJson(
+      await apiRequest(`/ai/sessions/${sessionId}/regenerate`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+    );
+  } finally {
+    isGenerating = false;
+  }
+}

@@ -15,7 +15,7 @@ _MODEL_LOCK = threading.Lock()
 _WORKER_LOCK = threading.Lock()
 _INFERENCE_LOCK = threading.Lock()
 
-_MAX_PROMPT_CHARS = int(os.getenv("VAGMI_AI_PROMPT_CHARS", "9000"))
+_MAX_PROMPT_CHARS = int(os.getenv("VAGMI_AI_PROMPT_CHARS", "64000"))  # effectively disabled; token-based truncation in worker
 _WORKER_START_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_START_TIMEOUT", "90"))
 _WORKER_RESPONSE_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_RESPONSE_TIMEOUT", "180"))
 
@@ -115,12 +115,8 @@ def _clean_reply_text(text: str) -> str:
         return ""
 
     boilerplate_patterns = (
-        r"^(here is|here's) what the retrieved passages say[:\-\s]*",
-        r"^(here is|here's) a grounded summary based on the retrieved passages[:\-\s]*",
-        r"^(here is|here's) a draft grounded in the retrieved passages[:\-\s]*",
-        r"^(this document appears to focus on)\s+",
+        r"^(here is|here's) (what|a grounded|a draft).{0,40}say[:\-\s]*",
         r"^(this response is grounded in \d+ retrieved passage\(s\)\.\s*)",
-        r"^(answer|summary|diagram|document|clarification)[:\-]\s*",
     )
     for pattern in boilerplate_patterns:
         cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
@@ -188,6 +184,10 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
             model_path=model_path,
             n_ctx=n_ctx,
             n_threads=n_threads,
+            n_gpu_layers=int(os.getenv("VAGMI_AI_GPU_LAYERS", "-1")),  # -1 = all layers to GPU
+            n_batch=int(os.getenv("VAGMI_AI_BATCH", "512")),
+            flash_attn=os.getenv("VAGMI_AI_FLASH_ATTN", "1") == "1",
+            chat_format=os.getenv("VAGMI_AI_CHAT_FORMAT", "qwen"),  # explicit for Qwen2.5
             verbose=False,
         )
         _emit_stage("===== MODEL LOADED SUCCESSFULLY =====")
@@ -197,6 +197,58 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
         except Exception:
             pass
         return
+
+    def _truncate_messages_by_tokens(messages: list[dict], max_ctx: int, reserve_output: int) -> list[dict]:
+        """Token-based truncation using the loaded model's tokenizer."""
+        budget = max_ctx - reserve_output - 64  # 64 token safety margin
+        if budget <= 0:
+            return messages[-2:]
+
+        # Always keep the system prompt + last user message
+        system_msgs = [m for m in messages if m["role"] == "system"]
+        user_msgs = [m for m in messages if m["role"] == "user"]
+        asst_msgs = [m for m in messages if m["role"] == "assistant"]
+
+        preserved = []
+        if system_msgs:
+            preserved.append(system_msgs[0])
+        if user_msgs:
+            preserved.append(user_msgs[-1])
+
+        # Calculate tokens used by preserved messages
+        preserved_text = " ".join(m["content"] for m in preserved)
+        try:
+            preserved_tokens = len(model.tokenize(preserved_text.encode("utf-8"), add_bos=False))
+        except Exception:
+            preserved_tokens = len(preserved_text) // 4  # fallback
+
+        remaining_budget = budget - preserved_tokens
+        if remaining_budget <= 0:
+            return preserved
+
+        # Add recent assistant messages from newest to oldest
+        for msg in reversed(asst_msgs):
+            try:
+                msg_tokens = len(model.tokenize(msg["content"].encode("utf-8"), add_bos=False))
+            except Exception:
+                msg_tokens = len(msg["content"]) // 4
+            if msg_tokens > remaining_budget:
+                break
+            preserved.insert(-1, msg)  # insert before the last user message
+            remaining_budget -= msg_tokens
+
+        # Add older user messages if budget remains
+        for msg in reversed(user_msgs[:-1]):
+            try:
+                msg_tokens = len(model.tokenize(msg["content"].encode("utf-8"), add_bos=False))
+            except Exception:
+                msg_tokens = len(msg["content"]) // 4
+            if msg_tokens > remaining_budget:
+                break
+            preserved.insert(1, msg)  # after system prompt
+            remaining_budget -= msg_tokens
+
+        return preserved
 
     try:
         conn.send({"type": "ready"})
@@ -222,7 +274,10 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
 
         try:
             _emit_stage("===== STARTING INFERENCE =====")
-            prompt_messages = _prepare_messages_for_model(list(message.get("messages") or []))
+            raw_messages = list(message.get("messages") or [])
+            max_ctx = int(os.getenv("VAGMI_AI_CTX", "8192"))
+            reserve_output = int(message.get("max_tokens", 1024))
+            prompt_messages = _truncate_messages_by_tokens(raw_messages, max_ctx, reserve_output)
             max_tokens = int(message.get("max_tokens", 256))
             temperature = float(message.get("temperature", 0.3))
             top_p = float(message.get("top_p", 0.9))
@@ -323,7 +378,7 @@ def _ensure_worker(model_path: str) -> bool:
             parent_conn, child_conn = ctx.Pipe(duplex=True)
             proc = ctx.Process(
                 target=_worker_main,
-                args=(child_conn, model_path, int(os.getenv("VAGMI_AI_CTX", "4096")), max(1, (os.cpu_count() or 4) - 1)),
+                args=(child_conn, model_path, int(os.getenv("VAGMI_AI_CTX", "8192")), max(1, (os.cpu_count() or 4) - 1)),
                 daemon=True,
             )
             proc.start()
