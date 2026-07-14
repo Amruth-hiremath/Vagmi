@@ -16,6 +16,7 @@ import {
 const PAGE_MAP = {
   home: "/pages/home/index.html",
   intelligence: "/pages/intelligence/index.html",
+  diagram: "/pages/diagram/index.html",
   chat: "/pages/chat/index.html",
   settings: "/pages/settings/index.html",
   admin: "/pages/admin/index.html"

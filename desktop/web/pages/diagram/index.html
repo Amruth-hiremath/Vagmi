@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi - Diagram Studio</title>
+  <link rel="icon" type="image/png" href="../../assets/logo_dark.png" />
+  <script src="../../core/theme.js"></script>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="../../theme.css" />
+</head>
+<body>
+  <div class="page diagram-page">
+    <header class="page-head">
+      <div class="page-copy">
+        <div class="section-kicker mono">Offline diagram studio</div>
+        <h1>Write Mermaid, preview instantly, export clean diagrams.</h1>
+        <p>Use Mermaid syntax for flowcharts, sequence diagrams, class diagrams, and more. Everything stays local in your workspace.</p>
+      </div>
+      <div class="head-actions">
+        <button class="ghost-btn" type="button" data-nav="home">Home</button>
+        <button class="ghost-btn" type="button" data-nav="intelligence">Intelligence</button>
+      </div>
+    </header>
+
+    <main class="studio-grid">
+      <section class="panel studio-panel editor-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Mermaid source</h2>
+            <div class="panel-sub mono">Saved locally • Ctrl/Cmd + Enter to render</div>
+          </div>
+          <span class="pill mono" id="render-status">Ready</span>
+        </div>
+
+        <div class="editor-toolbar">
+          <button class="primary-btn" id="render-btn" type="button">Render</button>
+          <button class="ghost-btn" id="sample-btn" type="button">Sample</button>
+          <button class="ghost-btn" id="clear-btn" type="button">Clear</button>
+          <button class="ghost-btn" id="open-file-btn" type="button">Open .mmd</button>
+          <input id="file-input" type="file" accept=".mmd,.txt" hidden />
+        </div>
+
+        <textarea id="diagram-input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+
+        <div class="footer-actions">
+          <button class="ghost-btn" id="copy-btn" type="button">Copy code</button>
+          <button class="ghost-btn" id="download-mmd-btn" type="button">Download .mmd</button>
+        </div>
+      </section>
+
+      <section class="panel studio-panel preview-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Preview</h2>
+            <div class="panel-sub mono">SVG output and export tools</div>
+          </div>
+          <div class="preview-actions">
+            <button class="ghost-btn" id="export-svg-btn" type="button">Export SVG</button>
+            <button class="ghost-btn" id="export-png-btn" type="button">Export PNG</button>
+          </div>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview-surface" id="preview-surface" aria-live="polite">
+            <div class="preview-empty" id="preview-empty">
+              <div class="empty-title">No diagram rendered yet</div>
+              <div class="empty-sub">Press Render to preview your Mermaid diagram.</div>
+            </div>
+          </div>
+          <div class="preview-error hidden" id="preview-error"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./script.js"></script>
+</body>
+</html>

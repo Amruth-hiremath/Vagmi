@@ -1,0 +1,244 @@
+.diagram-page {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(232, 80, 2, 0.06), transparent 24%),
+    linear-gradient(180deg, rgba(255,255,255,0.01), transparent 18%),
+    var(--primary-black);
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-copy {
+  max-width: 760px;
+}
+
+.page-copy h1 {
+  margin: 4px 0 0;
+  font-size: clamp(28px, 3vw, 44px);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+}
+
+.page-copy p {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 760px;
+}
+
+.head-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ghost-btn,
+.primary-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.ghost-btn {
+  color: var(--text-primary);
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+}
+
+.ghost-btn:hover,
+.primary-btn:hover {
+  transform: translateY(-1px);
+}
+
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  min-height: calc(100% - 90px);
+}
+
+.studio-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.panel-sub {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.editor-toolbar,
+.footer-actions,
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--branding-gradient);
+  color: var(--text-on-accent);
+  box-shadow: 0 10px 30px var(--accent-ring);
+}
+
+.editor-panel {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, transparent), var(--surface));
+}
+
+#diagram-input {
+  flex: 1;
+  width: 100%;
+  min-height: 320px;
+  resize: none;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface));
+  color: var(--text-primary);
+  padding: 16px;
+  outline: none;
+  line-height: 1.6;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+#diagram-input:focus {
+  border-color: var(--accent-border-hover);
+}
+
+.preview-panel {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, transparent), var(--surface));
+}
+
+.preview-wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.preview-surface {
+  flex: 1;
+  min-height: 320px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top right, rgba(232,80,2,0.04), transparent 26%),
+    var(--surface-soft);
+  overflow: auto;
+  padding: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.preview-surface svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.preview-error {
+  border-radius: 16px;
+  border: 1px solid rgba(232, 80, 2, 0.35);
+  background: rgba(232, 80, 2, 0.08);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.empty-title {
+  font-size: 18px;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+
+.empty-sub {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+@media (max-width: 1100px) {
+  .studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-surface,
+  #diagram-input {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 760px) {
+  .diagram-page {
+    padding: 14px;
+  }
+
+  .page-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .studio-panel {
+    padding: 14px;
+  }
+
+  .panel-head {
+    flex-direction: column;
+  }
+}
