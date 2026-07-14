@@ -486,6 +486,72 @@ button {
   gap: 12px;
 }
 
+.sources-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sources-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.sources-panel-toggle:hover {
+  transform: translateY(-1px);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.sources-panel-toggle svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+}
+
+.sources-panel.collapsed .sources-panel-toggle svg {
+  transform: rotate(180deg);
+}
+
+.sources-panel.collapsed .sources-head,
+.sources-panel.collapsed .search-field,
+.sources-panel.collapsed .doc-list,
+.sources-panel.collapsed .sources-actions {
+  display: none;
+}
+
+.sources-panel.collapsed {
+  min-width: 60px;
+  max-width: 60px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.sources-panel.collapsed .back-btn {
+  justify-content: center;
+}
+
+.sources-panel.collapsed .back-btn span {
+  display: none;
+}
+
+.sources-panel.collapsed .sources-panel-toggle {
+  margin-top: auto;
+}
+
 .sources-head h2,
 .chat-head h2,
 .docs-empty-title,
@@ -943,7 +1009,7 @@ button {
 .composer {
   display: grid;
   gap: 12px;
-  padding: 14px;
+  padding: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: 24px;
   background: var(--surface-soft);
@@ -1128,7 +1194,7 @@ button {
   border-radius: 18px;
   border: 1px solid var(--border-subtle);
   background: var(--surface);
-  padding: 14px 16px 20px;
+  padding: 14px 16px 20px 48px;
   line-height: 1.5;
   color: var(--text-primary);
   outline: 0;
@@ -1141,6 +1207,25 @@ button {
 
 .composer-input-wrap {
   position: relative;
+}
+
+.toolbar-toggle-icon {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+
+.toolbar-toggle-icon:hover {
+  background: var(--surface-hover);
 }
 
 .composer-char-count {
@@ -2075,4 +2160,65 @@ button, .doc-item, .session-tab, .session-card {
   .message-stack {
     width: 100%;
   }
+}
+
+/* 1. Make the wrapper a relative positioning context */
+.composer-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* 2. Position the button absolutely to the left side */
+#toolbar-toggle-btn {
+  position: absolute;
+  left: 12px; /* Adjust this value to push it closer/further from the left edge */
+  top: 12px;  /* Adjust this to align it vertically with your text */
+  z-index: 10; /* Ensures the button sits on top of the textarea */
+}
+
+/* 3. Add padding to the textarea so typed text doesn't hide behind the button */
+#prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 44px; /* Make this value larger than the button's width + left offset */
+}
+
+/* Optional: Position the character count in the bottom right */
+#composer-char-count {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  pointer-events: none; /* Prevents the text from blocking clicks on the textarea */
+}
+
+#toolbar-toggle-btn {
+  /* Positioning (from our previous step) */
+  position: absolute;
+  left: 12px;
+  top: 12px; /* You may need to tweak this slightly to vertically center the larger icon */
+  z-index: 10;
+
+  /* 1. Remove the box/button appearance */
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  
+  /* 2. Make the icon a little bigger */
+  font-size: 28px; /* Adjust this value (e.g., 20px, 24px) until it looks right */
+  
+  /* 3. Ensure it looks clickable */
+  cursor: pointer;
+  
+  /* Optional: Adjust color to match your dark theme */
+  color: #a0a0a0; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Optional: Add a subtle color change when hovering over the bare icon */
+#toolbar-toggle-btn:hover {
+  background: transparent !important; /* Ensure no box appears on hover */
+  color: #ffffff; /* Make it brighter on hover */
 }

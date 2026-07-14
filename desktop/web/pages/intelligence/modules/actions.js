@@ -28,7 +28,7 @@ import {
   truncate
 } from "./context.js";
 import { showToast, openDialog, closeDialog, clearSessionMenu, openSessionMenu, positionMenu, renderAgentPicker } from "./ui.js";
-import { renderAll, renderHub, renderDocumentList, renderArtifactsStrip, renderMessages, renderWorkspace, renderWorkspaceChrome } from "./render.js";
+import { renderAll, renderHub, renderDocumentList, renderArtifactsStrip, renderComposerToolbar, renderSourcesPanel, renderMessages, renderWorkspace, renderWorkspaceChrome } from "./render.js";
 
 export async function loadBootstrapData() {
   if (state.loading) return;
@@ -55,6 +55,8 @@ export async function loadBootstrapData() {
       hubSearch: saved.hubSearch || "",
       docSearch: saved.docSearch || "",
       artifactsOpen: Boolean(saved.artifactsOpen),
+      toolbarOpen: Boolean(saved.toolbarOpen),
+      sourcesPanelOpen: saved.sourcesPanelOpen !== undefined ? saved.sourcesPanelOpen : true,
       drafts: saved.drafts && typeof saved.drafts === "object" ? { ...saved.drafts } : {}
     };
     state.hubFilter = state.ui.hubFilter;
@@ -62,6 +64,8 @@ export async function loadBootstrapData() {
     state.hubSearch = state.ui.hubSearch;
     state.docSearch = state.ui.docSearch;
     state.artifactsOpen = state.ui.artifactsOpen;
+    state.toolbarOpen = state.ui.toolbarOpen;
+    state.sourcesPanelOpen = state.ui.sourcesPanelOpen;
     state.drafts = { ...state.ui.drafts };
 
     if (els.sessionSearch) els.sessionSearch.value = state.hubSearch;
@@ -74,6 +78,7 @@ export async function loadBootstrapData() {
     state.sessionArtifacts = [];
     state.agentMenuOpen = false;
     renderAll();
+    renderSourcesPanel();
     setBusy(false, "Ready");
   } catch (error) {
     console.error(error);
@@ -99,6 +104,8 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
     hubSearch: state.hubSearch,
     docSearch: state.docSearch,
     artifactsOpen: state.artifactsOpen,
+    toolbarOpen: state.toolbarOpen,
+    sourcesPanelOpen: state.sourcesPanelOpen,
     drafts: state.drafts
   });
 
@@ -118,6 +125,8 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
     state.sessionArtifacts = Array.isArray(artifacts) ? artifacts : [];
     state.agentMenuOpen = false;
     state.artifactsOpen = Boolean(state.ui.artifactsOpen && state.sessionArtifacts.length > 0);
+    state.toolbarOpen = state.ui.toolbarOpen;
+    state.sourcesPanelOpen = state.ui.sourcesPanelOpen;
     persistUi({
       activeSessionId: id,
       hubFilter: state.hubFilter,
@@ -125,6 +134,8 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
       hubSearch: state.hubSearch,
       docSearch: state.docSearch,
       artifactsOpen: state.artifactsOpen,
+      toolbarOpen: state.toolbarOpen,
+      sourcesPanelOpen: state.sourcesPanelOpen,
       drafts: state.drafts
     });
     upsertSession(state.activeSession);
@@ -159,6 +170,8 @@ export function showHub() {
     hubSearch: state.hubSearch,
     docSearch: state.docSearch,
     artifactsOpen: false,
+    toolbarOpen: false,
+    sourcesPanelOpen: true,
     drafts: state.drafts
   });
   renderAll();
@@ -192,6 +205,8 @@ export async function handleCreateSession() {
           hubSearch: state.hubSearch,
           docSearch: state.docSearch,
           artifactsOpen: false,
+          toolbarOpen: false,
+          sourcesPanelOpen: true,
           drafts: state.drafts
         });
         await openSession(normalized.id);
@@ -256,6 +271,8 @@ export async function deleteSession(sessionId) {
           hubSearch: state.hubSearch,
           docSearch: state.docSearch,
           artifactsOpen: false,
+          toolbarOpen: false,
+          sourcesPanelOpen: true,
           drafts: state.drafts
         });
         renderAll();
@@ -462,6 +479,8 @@ export async function handleRun() {
       hubSearch: state.hubSearch,
       docSearch: state.docSearch,
       artifactsOpen: state.artifactsOpen,
+      toolbarOpen: state.toolbarOpen,
+      sourcesPanelOpen: state.sourcesPanelOpen,
       drafts: state.drafts
     });
 
@@ -647,19 +666,19 @@ export function bindEvents() {
 
   els.sessionSearch?.addEventListener("input", () => {
     state.hubSearch = els.sessionSearch.value;
-    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
+    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, toolbarOpen: state.toolbarOpen, sourcesPanelOpen: state.sourcesPanelOpen, drafts: state.drafts });
     renderHub(); // Only render hub, not entire UI
   });
 
   els.sessionSort?.addEventListener("change", () => {
     state.hubSort = els.sessionSort.value || "recent";
-    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
+    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, toolbarOpen: state.toolbarOpen, sourcesPanelOpen: state.sourcesPanelOpen, drafts: state.drafts });
     renderHub(); // Only render hub, not entire UI
   });
 
   els.docSearch?.addEventListener("input", () => {
     state.docSearch = els.docSearch.value;
-    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
+    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, toolbarOpen: state.toolbarOpen, sourcesPanelOpen: state.sourcesPanelOpen, drafts: state.drafts });
     renderDocumentList();
   });
 
@@ -676,6 +695,50 @@ export function bindEvents() {
   els.selectAllDocsBtn?.addEventListener("click", () => toggleSelectAllDocuments());
   els.manualModeBtn?.addEventListener("click", () => updateSessionModeAndAgent({ routing_mode: "manual" }));
   els.autoModeBtn?.addEventListener("click", () => updateSessionModeAndAgent({ routing_mode: "auto" }));
+  els.artifactsToggleBtn?.addEventListener("click", () => {
+    state.artifactsOpen = !state.artifactsOpen;
+    persistUi({
+      activeSessionId: state.activeSessionId,
+      hubFilter: state.hubFilter,
+      hubSort: state.hubSort,
+      hubSearch: state.hubSearch,
+      docSearch: state.docSearch,
+      artifactsOpen: state.artifactsOpen,
+      toolbarOpen: state.toolbarOpen,
+      drafts: state.drafts
+    });
+    renderArtifactsStrip();
+  });
+  els.toolbarToggleBtn?.addEventListener("click", () => {
+    state.toolbarOpen = !state.toolbarOpen;
+    persistUi({
+      activeSessionId: state.activeSessionId,
+      hubFilter: state.hubFilter,
+      hubSort: state.hubSort,
+      hubSearch: state.hubSearch,
+      docSearch: state.docSearch,
+      artifactsOpen: state.artifactsOpen,
+      toolbarOpen: state.toolbarOpen,
+      sourcesPanelOpen: state.sourcesPanelOpen,
+      drafts: state.drafts
+    });
+    renderComposerToolbar();
+  });
+  els.sourcesPanelToggle?.addEventListener("click", () => {
+    state.sourcesPanelOpen = !state.sourcesPanelOpen;
+    persistUi({
+      activeSessionId: state.activeSessionId,
+      hubFilter: state.hubFilter,
+      hubSort: state.hubSort,
+      hubSearch: state.hubSearch,
+      docSearch: state.docSearch,
+      artifactsOpen: state.artifactsOpen,
+      toolbarOpen: state.toolbarOpen,
+      sourcesPanelOpen: state.sourcesPanelOpen,
+      drafts: state.drafts
+    });
+    renderSourcesPanel();
+  });
   els.runBtn?.addEventListener("click", () => handleRun());
   els.regenerateBtn?.addEventListener("click", () => handleRegenerate());
 
@@ -686,7 +749,7 @@ export function bindEvents() {
     autoResizePrompt();
     updateComposerCharacterCount();
     updateRunControls();
-    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
+    persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, toolbarOpen: state.toolbarOpen, sourcesPanelOpen: state.sourcesPanelOpen, drafts: state.drafts });
   });
 
   els.promptInput?.addEventListener("keydown", (event) => {
@@ -728,7 +791,7 @@ export function bindEvents() {
       state.hubSort = "recent";
       if (els.sessionSearch) els.sessionSearch.value = "";
       if (els.sessionSort) els.sessionSort.value = "recent";
-      persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, drafts: state.drafts });
+      persistUi({ activeSessionId: state.activeSessionId, hubFilter: state.hubFilter, hubSort: state.hubSort, hubSearch: state.hubSearch, docSearch: state.docSearch, artifactsOpen: state.artifactsOpen, toolbarOpen: state.toolbarOpen, sourcesPanelOpen: state.sourcesPanelOpen, drafts: state.drafts });
       renderHub();
       return;
     }

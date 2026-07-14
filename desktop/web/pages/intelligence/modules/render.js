@@ -241,6 +241,24 @@ export function renderArtifactsStrip() {
   }).join("");
 }
 
+export function renderComposerToolbar() {
+  if (!els.toolbarToggleBtn || !els.composerToolbar) return;
+  els.toolbarToggleBtn.setAttribute("aria-expanded", String(state.toolbarOpen));
+  els.composerToolbar.classList.toggle("hidden", !state.toolbarOpen);
+}
+
+export function renderSourcesPanel() {
+  if (!els.sourcesPanelToggle) return;
+  const sourcesPanel = document.querySelector(".sources-panel");
+  if (!sourcesPanel) return;
+  els.sourcesPanelToggle.setAttribute("aria-expanded", String(state.sourcesPanelOpen));
+  sourcesPanel.classList.toggle("collapsed", !state.sourcesPanelOpen);
+  const toggleLabel = els.sourcesPanelToggle.querySelector(".toggle-label");
+  if (toggleLabel) {
+    toggleLabel.textContent = state.sourcesPanelOpen ? "Collapse" : "Expand";
+  }
+}
+
 
 function renderMessageWithCitations(text) {
   return escapeHTML(text)
@@ -260,16 +278,11 @@ function renderMessage(message) {
   const sender = isUser
     ? "You"
     : (message.agent_name ? agentLabel(message.agent_name) : "Assistant");
-  const metaBits = [];
-  if (!isUser && message.agent_name) metaBits.push(escapeHTML(agentLabel(message.agent_name)));
-  if (message.created_at) metaBits.push(escapeHTML(sessionDisplayTime(message.created_at)));
-  const meta = metaBits.length ? `<div class="message-meta">${metaBits.map((bit) => `<span class="message-role">${bit}</span>`).join("")}</div>` : "";
 
   return `
     <article class="message-row ${isUser ? "user" : "assistant"}" aria-label="${escapeHTML(role)} message">
       <div class="message-stack">
         <div class="message-label ${isUser ? "user" : "assistant"}">${escapeHTML(sender)}</div>
-        ${meta}
         <div class="message-bubble">
           <div class="message-text">${body || "<span class='empty-subtle'>No content</span>"}</div>
         </div>
@@ -321,14 +334,11 @@ export function renderWorkspaceChrome() {
 
   els.sessionKicker.textContent = `SESSION ${session.id}`;
   els.sessionTitle.textContent = session.title;
-  els.sessionModePill.textContent = session.routing_mode === "auto" ? "auto-route" : "manual";
-  els.sessionAgentPill.textContent = session.routing_mode === "auto" ? "auto" : agentLabel(session.selected_agent);
   els.manualModeBtn.classList.toggle("active", session.routing_mode === "manual");
   els.autoModeBtn.classList.toggle("active", session.routing_mode === "auto");
 
-  els.routeHint.textContent = session.routing_mode === "auto"
-    ? "Auto-route chooses the specialist when the request is clear."
-    : "Manual mode uses the selected specialist agent.";
+  els.manualModeBtn.title = "Manual mode uses the selected specialist agent";
+  els.autoModeBtn.title = "Auto-route chooses the specialist when the request is clear";
 
   els.promptInput.placeholder = "Ask a question, request a summary, draft a document, or generate a diagram...";
   els.composerState.textContent = session.status === "active" ? "Updated" : "Ready";
@@ -356,6 +366,8 @@ export function renderWorkspace() {
   renderWorkspaceChrome();
   renderDocumentList();
   renderArtifactsStrip();
+  renderComposerToolbar();
+  renderSourcesPanel();
   renderMessages();
   renderAgentPicker();
 }

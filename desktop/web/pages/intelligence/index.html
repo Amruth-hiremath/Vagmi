@@ -65,10 +65,6 @@
               <h2>Session Sources</h2>
               <div class="sidebar-sub mono" id="docs-summary">0 in session</div>
             </div>
-            <div class="sources-actions">
-              <button class="ghost-mini-btn" id="upload-docs-btn" type="button">Upload</button>
-              <button class="ghost-mini-btn" id="select-all-docs-btn" type="button">Select all</button>
-            </div>
           </div>
 
           <input class="hidden" id="upload-docs-input" type="file" accept=".pdf,.docx,.txt" multiple />
@@ -78,6 +74,16 @@
           </label>
 
           <div class="doc-list" id="doc-list"></div>
+
+          <div class="sources-actions">
+            <button class="ghost-mini-btn" id="upload-docs-btn" type="button">Upload</button>
+            <button class="ghost-mini-btn" id="select-all-docs-btn" type="button">Select all</button>
+          </div>
+
+          <button class="sources-panel-toggle" id="sources-panel-toggle" type="button" aria-expanded="true" title="Toggle Sources Panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+            <span class="toggle-label">Collapse</span>
+          </button>
         </aside>
 
         <section class="panel chat-panel">
@@ -92,8 +98,6 @@
               <button class="ghost-mini-btn artifacts-toggle" id="artifacts-toggle-btn" type="button" aria-expanded="false">
                 <span id="session-artifact-count">0</span> artifacts
               </button>
-              <span class="pill mono" id="session-mode-pill">manual</span>
-              <span class="pill mono" id="session-agent-pill">query</span>
             </div>
           </div>
 
@@ -102,18 +106,19 @@
           <div class="conversation" id="output-body"></div>
 
           <div class="composer">
-            <div class="composer-toolbar">
+            <div class="composer-toolbar hidden" id="composer-toolbar">
               <div class="segmented" aria-label="Routing mode">
-                <button type="button" class="segmented-btn active" data-mode="manual" id="manual-mode-btn">Manual</button>
-                <button type="button" class="segmented-btn" data-mode="auto" id="auto-mode-btn">Auto-route</button>
+                <button type="button" class="segmented-btn active" data-mode="manual" id="manual-mode-btn" title="Manual mode uses the selected specialist agent">Manual</button>
+                <button type="button" class="segmented-btn" data-mode="auto" id="auto-mode-btn" title="Auto-route chooses the specialist when the request is clear">Auto-route</button>
               </div>
 
               <div class="agent-picker" id="agent-picker" aria-label="Agent selection"></div>
-
-              <div class="composer-note mono" id="route-hint">Manual mode uses a specialist agent.</div>
             </div>
 
             <div class="composer-input-wrap">
+              <button class="ghost-mini-btn toolbar-toggle-icon" id="toolbar-toggle-btn" type="button" aria-expanded="false" title="Toggle settings">
+                <span aria-hidden="true">⚙</span>
+              </button>
               <textarea
                 id="prompt-input"
                 placeholder="Ask a question, request a summary, draft a document, or generate a diagram..."
