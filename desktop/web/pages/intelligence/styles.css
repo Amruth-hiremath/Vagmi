@@ -460,24 +460,32 @@ button {
 }
 
 .workspace {
-  display: grid;
-  grid-template-columns: minmax(300px, 342px) minmax(0, 1fr);
+  display: flex;
   gap: var(--page-gap);
   min-height: 0;
   align-items: stretch;
 }
 
 .sources-panel {
+  flex: 0 0 330px;
+  flex-shrink: 0;
+
   padding: 16px;
   min-height: 0;
+
   display: flex;
   flex-direction: column;
   gap: 14px;
+
   overflow: hidden;
-  justify-content: flex-start;
+
+  transition:
+    width .3s cubic-bezier(0.16,1,0.3,1),
+    padding .3s cubic-bezier(0.16,1,0.3,1);
+
   height: 100%;
-  max-height: 100vh;
 }
+
 
 .sources-head {
   display: flex;
@@ -496,15 +504,29 @@ button {
 .sources-panel-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
+  justify-content: flex-start;
+
+  gap: 10px;
+
+  min-height: 44px;
+  width: 100%;
+
   padding: 0 12px;
+
   border-radius: 999px;
   border: 1px solid var(--border-subtle);
   background: var(--surface-soft);
   color: var(--text-secondary);
-  font-size: 12px;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+
+  margin-top: auto;
+
+  overflow: hidden;
+
+  transition:
+    width .3s cubic-bezier(0.16,1,0.3,1),
+    transform .2s ease,
+    background .2s ease,
+    border-color .2s ease;
 }
 
 .sources-panel-toggle:hover {
@@ -514,30 +536,40 @@ button {
 }
 
 .sources-panel-toggle svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.3s ease;
+    width:20px;
+    height:20px;
+    transition:transform .3s cubic-bezier(0.16,1,0.3,1);
 }
 
 .sources-panel.collapsed .sources-panel-toggle svg {
   transform: rotate(180deg);
 }
 
+
+.sources-panel.collapsed {
+  flex-basis: 68px;
+
+  padding:12px;
+
+  align-items:stretch;
+}
+
+.sources-head,
+.search-field,
+.doc-list,
+.sources-actions {
+    opacity:1;
+    transition:opacity .15s ease;
+}
+
 .sources-panel.collapsed .sources-head,
 .sources-panel.collapsed .search-field,
 .sources-panel.collapsed .doc-list,
 .sources-panel.collapsed .sources-actions {
-  display: none;
-}
 
-.sources-panel.collapsed {
-  min-width: 60px;
-  max-width: 60px;
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+    opacity:0;
+
+    pointer-events:none;
 }
 
 .sources-panel.collapsed .back-btn {
@@ -545,11 +577,28 @@ button {
 }
 
 .sources-panel.collapsed .back-btn span {
-  display: none;
+    opacity:0;
+    width:0;
+    overflow:hidden;
 }
 
-.sources-panel.collapsed .sources-panel-toggle {
-  margin-top: auto;
+.sources-panel.collapsed .sources-panel-toggle{
+    width:44px;
+    height:44px;
+    min-width:44px;
+    min-height:44px;
+
+    margin-top:auto;
+    margin-left:auto;
+    margin-right:auto;
+
+    padding:0;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    overflow:hidden;
 }
 
 .sources-head h2,
@@ -643,7 +692,9 @@ button {
 }
 
 .chat-panel {
+  flex: 1;
   min-height: 0;
+  min-width: 0;
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -1224,6 +1275,23 @@ button {
   font-size: 14px;
 }
 
+.sources-panel-toggle .toggle-label{
+    white-space:nowrap;
+    opacity:1;
+    transition:opacity .15s ease;
+}
+
+.sources-panel.collapsed .sources-panel-toggle .toggle-label{
+    opacity:0;
+    width:0;
+    max-width:0;
+    overflow:hidden;
+    margin:0;
+    pointer-events:none;
+}
+
+
+
 .toolbar-toggle-icon:hover {
   background: var(--surface-hover);
 }
@@ -1573,14 +1641,6 @@ button {
 
 .session-card-add .session-card-body {
   gap: 10px;
-}
-
-.session-card-add .session-icon {
-  width: 52px;
-  height: 52px;
-  font-size: 26px;
-  margin-bottom: 2px;
-  background: var(--accent-ring);
 }
 
 .session-card-empty {
@@ -2221,4 +2281,28 @@ button, .doc-item, .session-tab, .session-card {
 #toolbar-toggle-btn:hover {
   background: transparent !important; /* Ensure no box appears on hover */
   color: #ffffff; /* Make it brighter on hover */
+}
+
+.sources-head,
+.search-field,
+.doc-list,
+.sources-actions,
+.back-btn{
+    flex-shrink:0;
+}
+
+.back-btn{
+    transition:all .3s cubic-bezier(0.16,1,0.3,1);
+}
+
+.back-btn span:last-child{
+    white-space:nowrap;
+    opacity:1;
+    transition:opacity .15s ease;
+}
+
+.sources-panel.collapsed .back-btn span:last-child{
+    opacity:0;
+    width:0;
+    overflow:hidden;
 }

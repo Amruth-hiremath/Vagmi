@@ -255,7 +255,7 @@ export function renderSourcesPanel() {
   sourcesPanel.classList.toggle("collapsed", !state.sourcesPanelOpen);
   const toggleLabel = els.sourcesPanelToggle.querySelector(".toggle-label");
   if (toggleLabel) {
-    toggleLabel.textContent = state.sourcesPanelOpen ? "Collapse" : "Expand";
+    toggleLabel.textContent = toggleLabel.textContent = "Collapse";
   }
 }
 
