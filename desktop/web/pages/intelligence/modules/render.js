@@ -341,10 +341,7 @@ export function renderWorkspaceChrome() {
   els.autoModeBtn.title = "Auto-route chooses the specialist when the request is clear";
 
   els.promptInput.placeholder = "Ask a question, request a summary, draft a document, or generate a diagram...";
-
-  if (!state.busy) {
-    els.composerState.textContent = session.status === "active" ? "Updated" : "Ready";
-  }
+  els.composerState.textContent = session.status === "active" ? "Updated" : "Ready";
 }
 
 export function renderWorkspace() {

@@ -1,3 +1,5 @@
+import { getDesktopBridge } from "../../services/desktop.js";
+
 const STORAGE_KEY = "vagmi-diagram-studio";
 const SAMPLE_DIAGRAM = `flowchart TD
   A[Start] --> B{Need data?}
@@ -51,7 +53,6 @@ function loadMermaidLibrary() {
   });
   return mermaidLoadPromise;
 }
-
 
 function navigate(page) {
   if (window.parent && window.parent !== window) {
@@ -189,16 +190,57 @@ function persistDraft() {
   }
 }
 
-function downloadText(filename, content, type = "text/plain;charset=utf-8") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+function textToDataUrl(text, mime = "text/plain;charset=utf-8") {
+  const bytes = new TextEncoder().encode(String(text ?? ""));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getDesktopSaveBridge() {
+  return (
+    window.pywebview?.api ??
+    window.parent?.pywebview?.api ??
+    window.top?.pywebview?.api ??
+    getDesktopBridge()
+  );
+}
+
+async function saveDataUrlWithDialog(dataUrl, filename, fallbackDownload = true) {
+  const bridge = getDesktopSaveBridge();
+  const safeName = filename || "diagram";
+
+  if (bridge?.save_chat_download) {
+    try {
+      const savedPath = await bridge.save_chat_download(dataUrl, safeName);
+      if (savedPath === "") return false;
+      setStatus(`Saved ${safeName}`);
+      return true;
+    } catch (error) {
+      console.error("PyWebView save failed:", error);
+    }
+  }
+
+  if (!fallbackDownload) return false;
+
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  return true;
 }
 
 function getSafeFileBaseName(value = "diagram") {
@@ -209,13 +251,15 @@ function getSafeFileBaseName(value = "diagram") {
     .replace(/^-+|-+$/g, "") || "diagram";
 }
 
-function downloadSource() {
-  const name = `diagram-${Date.now().toString(36)}.mmd`;
-  downloadText(name, els.input?.value || SAMPLE_DIAGRAM, "text/plain;charset=utf-8");
+async function downloadSource() {
+  const code = els.input?.value || SAMPLE_DIAGRAM;
+  const name = `${getSafeFileBaseName("mermaid-diagram")}.mmd`;
+  const dataUrl = textToDataUrl(code, "text/plain;charset=utf-8");
+  const saved = await saveDataUrlWithDialog(dataUrl, name);
+  if (saved) setStatus("Saved source");
 }
 
 function copyCode() {
-
   const text = els.input?.value || "";
   if (!text) return;
   if (navigator.clipboard?.writeText) {
@@ -243,8 +287,10 @@ async function exportSvg() {
     await renderDiagram();
     if (!lastRenderedSvg) return;
   }
-  downloadText("diagram.svg", lastRenderedSvg, "image/svg+xml;charset=utf-8");
-  setStatus("SVG exported");
+
+  const svgDataUrl = textToDataUrl(lastRenderedSvg, "image/svg+xml;charset=utf-8");
+  const saved = await saveDataUrlWithDialog(svgDataUrl, `${getSafeFileBaseName("diagram")}.svg`);
+  if (saved) setStatus("SVG exported");
 }
 
 async function exportPng() {
@@ -258,37 +304,36 @@ async function exportPng() {
   const image = new Image();
   const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#111111";
 
-  image.onload = () => {
-    const canvas = document.createElement("canvas");
-    const width = Math.max(1, image.width || 1600);
-    const height = Math.max(1, image.height || 1200);
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      URL.revokeObjectURL(svgUrl);
-      setStatus("PNG export failed", "error");
-      return;
-    }
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(image, 0, 0);
-    canvas.toBlob((blob) => {
+  image.onload = async () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const width = Math.max(1, image.width || 1600);
+      const height = Math.max(1, image.height || 1200);
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(svgUrl);
+        setStatus("PNG export failed", "error");
+        return;
+      }
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       URL.revokeObjectURL(svgUrl);
       if (!blob) {
         setStatus("PNG export failed", "error");
         return;
       }
-      const pngUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = pngUrl;
-      a.download = "diagram.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(pngUrl);
-      setStatus("PNG exported");
-    }, "image/png");
+      const pngDataUrl = await blobToDataUrl(blob);
+      const saved = await saveDataUrlWithDialog(pngDataUrl, `${getSafeFileBaseName("diagram")}.png`);
+      if (saved) setStatus("PNG exported");
+    } catch (error) {
+      URL.revokeObjectURL(svgUrl);
+      console.error(error);
+      setStatus("PNG export failed", "error");
+    }
   };
 
   image.onerror = () => {
@@ -360,7 +405,7 @@ function bootstrap() {
   els.sampleBtn?.addEventListener("click", loadSample);
   els.clearBtn?.addEventListener("click", clearEditor);
   els.copyBtn?.addEventListener("click", copyCode);
-  els.downloadMmdBtn?.addEventListener("click", downloadSource);
+  els.downloadMmdBtn?.addEventListener("click", () => downloadSource().catch(() => {}));
   els.exportSvgBtn?.addEventListener("click", () => exportSvg().catch(() => {}));
   els.exportPngBtn?.addEventListener("click", () => exportPng().catch(() => {}));
   els.openFileBtn?.addEventListener("click", openFilePicker);

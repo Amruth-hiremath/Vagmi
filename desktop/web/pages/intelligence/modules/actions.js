@@ -453,12 +453,9 @@ export async function handleRun() {
       selected_agent: session.selected_agent
     });
 
-    const refreshedSession = await fetchAiSession(session.id)
-      .catch(() => response.session);
-
-    state.activeSession = normalizeSession(refreshedSession);
-    state.activeSessionId = Number(state.activeSession.id);
-    upsertSession(refreshedSession);
+    state.activeSession = normalizeSession(response.session);
+    state.activeSessionId = Number(response.session.id);
+    upsertSession(response.session);
 
     const artifacts = await fetchAiSessionArtifacts(session.id).catch(() => []);
     state.sessionArtifacts = Array.isArray(artifacts) ? artifacts : [];

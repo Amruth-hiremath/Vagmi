@@ -82,9 +82,9 @@ export async function apiRequest(endpoint, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  // FIX: Add a 600-second (10 minute) timeout for slow LLM requests
+  // FIX: Add a 180-second (3 minute) timeout for slow LLM requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 600000);
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
 
   let response;
   try {
