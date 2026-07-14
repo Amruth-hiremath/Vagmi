@@ -16,8 +16,8 @@ _WORKER_LOCK = threading.Lock()
 _INFERENCE_LOCK = threading.Lock()
 
 _MAX_PROMPT_CHARS = int(os.getenv("VAGMI_AI_PROMPT_CHARS", "64000"))  # effectively disabled; token-based truncation in worker
-_WORKER_START_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_START_TIMEOUT", "90"))
-_WORKER_RESPONSE_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_RESPONSE_TIMEOUT", "180"))
+_WORKER_START_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_START_TIMEOUT", "120"))
+_WORKER_RESPONSE_TIMEOUT = int(os.getenv("VAGMI_AI_WORKER_RESPONSE_TIMEOUT", "600"))
 
 _WORKER_PROCESS = None
 _WORKER_CONN = None

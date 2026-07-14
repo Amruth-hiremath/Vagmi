@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+# hewice9030@acoxs.com
 import json
 import base64
 import re
@@ -235,7 +235,7 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
             request.add_header(key, value)
 
         try:
-            with urlopen(request, timeout=300) as response:
+            with urlopen(request, timeout=600) as response:
                 payload = response.read()
                 self.send_response(response.status)
                 self._copy_response_headers(response.headers.items(), len(payload))
