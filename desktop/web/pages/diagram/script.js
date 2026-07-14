@@ -299,29 +299,55 @@ async function exportPng() {
     if (!lastRenderedSvg) return;
   }
 
-  const svgBlob = new Blob([lastRenderedSvg], { type: "image/svg+xml;charset=utf-8" });
-  const svgUrl = URL.createObjectURL(svgBlob);
+  const svgDataUrl = textToDataUrl(lastRenderedSvg, "image/svg+xml;charset=utf-8");
   const image = new Image();
   const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#111111";
 
   image.onload = async () => {
     try {
       const canvas = document.createElement("canvas");
-      const width = Math.max(1, image.width || 1600);
-      const height = Math.max(1, image.height || 1200);
+      
+      // Try to get dimensions from the SVG
+      let width = image.width || 1600;
+      let height = image.height || 1200;
+      
+      // If image dimensions are 0, try to parse from SVG
+      if (width === 0 || height === 0) {
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(lastRenderedSvg, "image/svg+xml");
+        const svgElement = svgDoc.querySelector("svg");
+        if (svgElement) {
+          const viewBox = svgElement.getAttribute("viewBox");
+          if (viewBox) {
+            const parts = viewBox.split(/\s+/).map(Number);
+            if (parts.length === 4) {
+              width = parts[2] || 1600;
+              height = parts[3] || 1200;
+            }
+          }
+          const svgWidth = svgElement.getAttribute("width");
+          const svgHeight = svgElement.getAttribute("height");
+          if (svgWidth && svgHeight) {
+            width = parseFloat(svgWidth) || width;
+            height = parseFloat(svgHeight) || height;
+          }
+        }
+      }
+      
+      width = Math.max(1, width);
+      height = Math.max(1, height);
+      
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        URL.revokeObjectURL(svgUrl);
         setStatus("PNG export failed", "error");
         return;
       }
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(image, 0, 0);
+      ctx.drawImage(image, 0, 0, width, height);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-      URL.revokeObjectURL(svgUrl);
       if (!blob) {
         setStatus("PNG export failed", "error");
         return;
@@ -330,18 +356,16 @@ async function exportPng() {
       const saved = await saveDataUrlWithDialog(pngDataUrl, `${getSafeFileBaseName("diagram")}.png`);
       if (saved) setStatus("PNG exported");
     } catch (error) {
-      URL.revokeObjectURL(svgUrl);
       console.error(error);
       setStatus("PNG export failed", "error");
     }
   };
 
   image.onerror = () => {
-    URL.revokeObjectURL(svgUrl);
     setStatus("PNG export failed", "error");
   };
 
-  image.src = svgUrl;
+  image.src = svgDataUrl;
 }
 
 function loadSample() {
