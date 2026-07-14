@@ -24,6 +24,63 @@ function attachmentLabel(message) {
   return message?.originalFilename || message?.fileMeta || "Attachment";
 }
 
+
+
+function getMessageReceiptState(message) {
+  if (!message || message.sender !== "self") return null;
+
+  if (!message.deliveredAt && !message.delivered_at) {
+    return "pending";
+  }
+
+  if (message.seenAt || message.seen_at) {
+    return "seen";
+  }
+
+  return "delivered";
+}
+
+function messageReceiptIconHTML(state) {
+  if (state === "pending") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 12.5l4 4L19 7"></path>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4.8 12.3l3.7 3.7L15.6 8.9"></path>
+      <path d="M8.8 12.3l3.7 3.7L19.6 8.9"></path>
+    </svg>
+  `;
+}
+
+function messageFooterHTML(message) {
+  const timeHTML = `<span class="message-time mono">${escapeHTML(message.time || "")}</span>`;
+  const state = getMessageReceiptState(message);
+
+  if (!state) {
+    return `<div class="message-footer">${timeHTML}</div>`;
+  }
+
+  const label = state === "pending"
+    ? "Not delivered"
+    : state === "delivered"
+      ? "Delivered and not read"
+      : "Delivered and read";
+
+  return `
+    <div class="message-footer">
+      ${timeHTML}
+      <span class="message-receipt ${state}" aria-label="${label}">
+        ${messageReceiptIconHTML(state)}
+      </span>
+    </div>
+  `;
+}
+
 export function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
   const senderLine =
@@ -40,95 +97,78 @@ export function messageHTML(thread, message) {
           ${messageMenuButtonHTML(message)}
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          ${messageFooterHTML(message)}
         </div>
       </div>
     `;
   }
 
-    if (message.type === "VOICE") {
-      const audioUrl = message.attachmentUrl || buildAttachmentUrl(thread, message);
-      const subtitleParts = [];
-      if (message.fileSize) subtitleParts.push(formatFileSize(message.fileSize));
-      if (message.time) subtitleParts.push(message.time);
+  if (message.type === "VOICE") {
+    const audioUrl = message.attachmentUrl || buildAttachmentUrl(thread, message);
+    const subtitleParts = [];
+    if (message.fileSize) subtitleParts.push(formatFileSize(message.fileSize));
+    if (message.time) subtitleParts.push(message.time);
 
-      return `
-        <div class="message-row ${sideClass}">
-          <div class="message-bubble voice-message-bubble">
-            ${messageMenuButtonHTML(message)}
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble voice-message-bubble">
+          ${messageMenuButtonHTML(message)}
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
 
-            ${
-              senderLine
-                ? `<div class="message-meta">${senderLine}</div>`
-                : ""
-            }
-
-            <div class="voice-card">
-              <div class="voice-card-top">
-                <div class="voice-card-icon" aria-hidden="true">
-                  <span class="icon" data-icon="mic"></span>
-                </div>
-                <div class="voice-card-copy">
-                  <div class="voice-card-title">Voice message</div>
-                  <div class="voice-card-subtitle">${escapeHTML(subtitleParts.join(" • "))}</div>
-                </div>
+          <div class="voice-card">
+            <div class="voice-card-top">
+              <div class="voice-card-icon" aria-hidden="true">
+                <span class="icon" data-icon="mic"></span>
               </div>
-
-              <audio
-                controls
-                preload="metadata"
-                class="voice-player"
-              >
-                <source
-                  src="${audioUrl}"
-                  type="audio/wav"
-                >
-              </audio>
+              <div class="voice-card-copy">
+                <div class="voice-card-title">Voice message</div>
+                <div class="voice-card-subtitle">${escapeHTML(subtitleParts.join(" • "))}</div>
+              </div>
             </div>
 
-            <div class="message-time mono">
-              ${escapeHTML(message.time)}
-            </div>
-
+            <audio controls preload="metadata" class="voice-player">
+              <source src="${audioUrl}" type="audio/wav">
+            </audio>
           </div>
-        </div>
-      `;
-    }
 
+          ${messageFooterHTML(message)}
+        </div>
+      </div>
+    `;
+  }
 
   if (message.type === "IMAGE") {
-  const imageUrl = buildAttachmentUrl(thread, message);
-  const caption = message.caption ? escapeHTML(message.caption) : "";
+    const caption = message.caption ? escapeHTML(message.caption) : "";
 
-  return `
-    <div class="message-row ${sideClass}">
-      <div class="message-bubble">
-        ${messageMenuButtonHTML(message)}
-        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble">
+          ${messageMenuButtonHTML(message)}
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
 
-        <img
-    class="chat-image-preview"
-    data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
-    data-message-id="${message.id}"
-    data-attachment-url="${escapeHTML(buildAttachmentUrl(thread, message))}"
-    data-attachment-filename="${escapeHTML(attachmentLabel(message) || "Image")}"
-    alt="${escapeHTML(attachmentLabel(message) || "Image")}"
-    style="
-        max-width:240px;
-        max-height:240px;
-        width:auto;
-        height:auto;
-        border-radius:10px;
-        cursor:pointer;
-        display:block;
-        object-fit:cover;
-    "
-/>
-        ${caption ? `<div class="message-caption">${caption}</div>` : ""}
-        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          <img
+            class="chat-image-preview"
+            data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
+            data-message-id="${message.id}"
+            data-attachment-url="${escapeHTML(buildAttachmentUrl(thread, message))}"
+            data-attachment-filename="${escapeHTML(attachmentLabel(message) || "Image")}"
+            alt="${escapeHTML(attachmentLabel(message) || "Image")}"
+            style="
+              max-width:240px;
+              max-height:240px;
+              width:auto;
+              height:auto;
+              border-radius:10px;
+              cursor:pointer;
+              display:block;
+              object-fit:cover;
+            "
+          />
+          ${caption ? `<div class="message-caption">${caption}</div>` : ""}
+          ${messageFooterHTML(message)}
+        </div>
       </div>
-    </div>
-  `;
+    `;
   }
 
   if (message.type === "FILE") {
@@ -140,14 +180,14 @@ export function messageHTML(thread, message) {
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           ${buildAttachmentCard(thread, message)}
           ${caption ? `<div class="message-caption">${caption}</div>` : ""}
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          ${messageFooterHTML(message)}
         </div>
       </div>
     `;
   }
+
   return "";
 }
-
 
 function messageMenuButtonHTML(message) {
   return `
@@ -420,6 +460,8 @@ export async function loadMessages(conversationId, loadToken = 0) {
           fileSize: message.file_size || null,
           caption: message.caption || "",
           createdAt: message.created_at,
+          deliveredAt: message.delivered_at || message.deliveredAt || null,
+          seenAt: message.seen_at || message.seenAt || null,
           time: formatTime(message.created_at)
       };
       if (mapped.type === "VOICE") {

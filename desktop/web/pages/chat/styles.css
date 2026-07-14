@@ -939,11 +939,12 @@ button {
 .message-bubble {
   max-width: min(68%, 640px);
   min-width: 120px;
-  padding: 10px 42px 10px 12px;
+  padding: 10px 12px 8px 12px;
   border-radius: 18px;
   border: 1px solid var(--border-subtle);
   background: rgba(18, 18, 18, 0.96);
   position: relative;
+  display: flow-root;
 }
 
 .message-row.self .message-bubble {
@@ -1011,13 +1012,62 @@ button {
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
+  display: inline;
 }
 
 .message-time {
-  margin-top: 8px;
-  text-align: right;
+  margin-top: 0;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.message-footer {
+  float: right;
+  margin: 4px 0 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 14px;
+}
+
+.message-footer .message-time {
+  margin-top: 0;
+}
+
+.message-receipt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.message-receipt svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message-receipt.pending {
+  color: var(--text-muted);
+}
+
+.message-receipt.delivered {
+  color: var(--text-secondary);
+}
+
+.message-receipt.seen {
+  color: var(--branding-orange);
 }
 
 .message-caption {

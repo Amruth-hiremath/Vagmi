@@ -211,7 +211,7 @@ def send_image_dm(
         attachment_path=image_path,
         original_filename=original_name,
         caption=caption,
-        delivered_at=datetime.now(timezone.utc)
+        delivered_at=None
     )
 
     db.add(message)
@@ -291,7 +291,7 @@ def send_attachment_dm(
         attachment_path=file_path,
         original_filename=original_name,
         caption=caption,
-        delivered_at=datetime.now(timezone.utc)
+        delivered_at=None
     )
 
     db.add(message)
@@ -368,7 +368,7 @@ def send_voice_dm(
         message_type="VOICE",
         attachment_path=voice_path,
         original_filename=original_name,
-        delivered_at=datetime.now(timezone.utc)
+        delivered_at=None
     )
 
     db.add(message)
@@ -472,6 +472,17 @@ def get_messages(
         )
         .all()
     )
+
+    now = datetime.now(timezone.utc)
+    delivered_updated = False
+
+    for message in messages:
+        if message.sender_id != current_user.id and message.delivered_at is None:
+            message.delivered_at = now
+            delivered_updated = True
+
+    if delivered_updated:
+        db.commit()
 
     result = []
 
@@ -691,10 +702,11 @@ def mark_conversation_read(
     now = datetime.now(timezone.utc)
 
     for message in unread_messages:
+        if message.delivered_at is None:
+            message.delivered_at = now
         message.seen_at = now
 
     db.commit()
-
     return {
         "updated": len(unread_messages)
     }
