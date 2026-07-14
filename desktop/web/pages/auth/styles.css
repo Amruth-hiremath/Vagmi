@@ -1,3 +1,4 @@
+/* desktop/web/pages/auth/styles.css */
 :root {
   --branding-orange: #E85002;
   --primary-black: #000;
@@ -120,7 +121,7 @@ input{
 
 .auth-tab.active{
   background:rgba(232,80,2,.18);
-  color:white;
+  color:var(--text-on-accent);
 }
 
 .auth-form{
@@ -148,7 +149,7 @@ input{
   border-radius:12px;
   padding:0 16px;
   background: #171a22;
-  color:white;
+  color:var(--text-primary);
 }
 
 .field input:focus{
@@ -160,7 +161,7 @@ input{
   border:none;
   border-radius:12px;
   cursor:pointer;
-  color:white;
+  color:var(--text-on-accent);
   background:var(--branding-gradient);
   font-weight:600;
   transition:.2s;

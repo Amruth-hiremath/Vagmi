@@ -1,3 +1,4 @@
+/* desktop/web/pages/chat/styles.css */
 :root {
   --branding-orange: #E85002;
   --primary-black: #000000;
@@ -969,7 +970,7 @@ button {
   border: none;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
-  color: #ffffff;
+  color: var(--text-on-accent);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -996,7 +997,7 @@ button {
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
-  color: white;
+  color: var(--text-secondary);
   font-size: 11px;
 }
 
