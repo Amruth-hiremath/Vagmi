@@ -292,6 +292,9 @@ def _worker_main(conn, model_path: str, n_ctx: int, n_threads: int) -> None:
                     top_p=top_p,
                     repeat_penalty=repeat_penalty,
                     stop=stop_tokens,
+                    chat_template_kwargs={
+                        "enable_thinking":False,
+                    }
                 )
             else:
                 prompt = "\n\n".join(f"{item['role'].title()}: {item['content']}" for item in prompt_messages)
