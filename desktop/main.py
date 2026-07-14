@@ -68,20 +68,20 @@ voice_recorder = VoiceRecorder()
 
 class DesktopBridge:
     def save_chat_download(self, data_url: str, filename: str) -> str:
-        print("Bridge called")
+        
         match = re.match(r"^data:.*?;base64,(.*)$", data_url, flags=re.DOTALL)
         if not match:
             raise ValueError("Invalid download payload")
 
         payload = base64.b64decode(match.group(1))
         safe_name = Path(filename or "attachment").name
-        print("Decoded")
+        
 
         chosen_path = _save_dialog(safe_name)
         if not chosen_path:
             return ""
         
-        print("Chosen:", chosen_path)
+        
 
         target_path = Path(chosen_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -97,9 +97,9 @@ class DesktopBridge:
                     break
                 counter += 1
 
-        print("Writing file")
+        
         target_path.write_bytes(payload)
-        print("Finished")
+        
         return str(target_path)
     def show_notification(
         self,
