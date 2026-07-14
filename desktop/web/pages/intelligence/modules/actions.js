@@ -128,6 +128,7 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
     state.artifactsOpen = Boolean(state.ui.artifactsOpen && state.sessionArtifacts.length > 0);
     state.toolbarOpen = state.ui.toolbarOpen;
     state.sourcesPanelOpen = state.ui.sourcesPanelOpen;
+    upsertSession(state.activeSession);
     persistUi({
       activeSessionId: id,
       hubFilter: state.hubFilter,
@@ -139,7 +140,6 @@ export async function openSession(sessionId, { fromBootstrap = false } = {}) {
       sourcesPanelOpen: state.sourcesPanelOpen,
       drafts: state.drafts
     });
-    upsertSession(state.activeSession);
     renderAll();
     setBusy(false, "Ready");
   } catch (error) {

@@ -2,11 +2,15 @@
   width: 100%;
   height: 100%;
   overflow: auto;
-  padding: 24px;
+  padding: 22px;
   background:
     radial-gradient(circle at top right, rgba(232, 80, 2, 0.06), transparent 24%),
     linear-gradient(180deg, rgba(255,255,255,0.01), transparent 18%),
     var(--primary-black);
+}
+
+.diagram-page {
+  font-family: Inter, "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .page-head {
@@ -14,17 +18,25 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .page-copy {
-  max-width: 760px;
+  max-width: 780px;
+}
+
+.section-kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .page-copy h1 {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: clamp(28px, 3vw, 44px);
-  line-height: 1.03;
+  line-height: 1.02;
   letter-spacing: -0.055em;
 }
 
@@ -38,22 +50,24 @@
 
 .head-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .ghost-btn,
 .primary-btn {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
 }
 
 .ghost-btn {
   color: var(--text-primary);
-  border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
 }
 
 .ghost-btn:hover,
@@ -88,7 +102,7 @@
 .panel-head h2 {
   margin: 0;
   font-size: 18px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 .panel-sub {
@@ -100,13 +114,15 @@
 .pill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  min-height: 24px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--chip-border);
   background: var(--surface-hover);
   color: var(--text-secondary);
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .editor-toolbar,
@@ -202,7 +218,7 @@
 }
 
 .empty-title {
-  font-size: 18px;
+  font-size: 19px;
   color: var(--text-primary);
   letter-spacing: -0.03em;
 }
@@ -210,28 +226,22 @@
 .empty-sub {
   font-size: 14px;
   line-height: 1.5;
-  max-width: 360px;
+  max-width: 440px;
+  color: var(--text-secondary);
 }
 
-@media (max-width: 1100px) {
-  .studio-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .preview-surface,
-  #diagram-input {
-    min-height: 260px;
-  }
-}
-
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .diagram-page {
-    padding: 14px;
+    padding: 16px;
   }
 
   .page-head {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .head-actions {
+    justify-content: flex-start;
   }
 
   .studio-panel {

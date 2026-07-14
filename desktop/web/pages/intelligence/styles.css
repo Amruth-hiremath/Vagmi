@@ -392,21 +392,31 @@ button {
   background: var(--accent-soft);
   color: var(--text-primary);
   flex: 0 0 auto;
+  line-height: 1;
 }
 
-.session-card-add .session-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  font-size: 30px;
-  margin-bottom: 8px;
-  background: var(--accent-ring);
+.session-card-add .session-icon{
+    width:58px;
+    height:58px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    padding:0;
+
+    border-radius:50%;
+    transform:translateY(-1px);
+
+    font-size:34px;
+    line-height:1;
 }
 
 .session-card-body {
   display: grid;
   gap: 8px;
 }
+
 
 .session-meta,
 .editor-badges,
@@ -543,6 +553,7 @@ button {
 
 .sources-panel.collapsed .sources-panel-toggle svg {
   transform: rotate(180deg);
+  margin:0;
 }
 
 
@@ -572,14 +583,24 @@ button {
     pointer-events:none;
 }
 
-.sources-panel.collapsed .back-btn {
-  justify-content: center;
+.sources-panel.collapsed .back-btn{
+    width:44px;
+    height:44px;
+
+    padding:0;
+    margin:0 auto;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:50%;
 }
 
-.sources-panel.collapsed .back-btn span {
-    opacity:0;
-    width:0;
-    overflow:hidden;
+.sources-panel.collapsed .back-btn-text {
+  opacity:0;
+  width:0;
+  overflow:hidden;
 }
 
 .sources-panel.collapsed .sources-panel-toggle{
@@ -593,6 +614,7 @@ button {
     margin-right:auto;
 
     padding:0;
+    gap:0;
 
     display:flex;
     justify-content:center;
@@ -883,8 +905,10 @@ button {
 }
 
 .message-row.user .message-stack {
-  align-items: flex-end;
-  margin-left: auto;
+    align-items: flex-end;
+    margin-left: auto;
+    width: fit-content;
+    max-width: 78%;
 }
 
 .message-row.assistant {
@@ -937,6 +961,9 @@ button {
   background: linear-gradient(135deg, rgba(232, 80, 2, 0.18), rgba(232, 80, 2, 0.1));
   border-color: rgba(232, 80, 2, 0.38);
   border-bottom-right-radius: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
   box-shadow: 0 12px 24px rgba(232, 80, 2, 0.14);
 }
 
@@ -1058,6 +1085,7 @@ button {
 
 .message-row.user .message-text {
   color: var(--text-primary);
+  text-align: right;
 }
 
 .bubble {
@@ -2259,9 +2287,7 @@ button, .doc-item, .session-tab, .session-card {
   word-break: break-word;
 }
 
-.message-row.user .message-bubble {
-  border-bottom-right-radius: 8px;
-}
+
 
 .message-row.assistant .message-bubble {
   border-bottom-left-radius: 8px;

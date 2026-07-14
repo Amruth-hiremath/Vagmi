@@ -38,10 +38,7 @@ export function renderHub() {
         <div class="session-card-body">
           <div>
             <div class="session-name">${escapeHTML(session.title)}</div>
-            <div class="session-meta">
-              <span class="pill mono">${escapeHTML(modeLabel(session.routing_mode))}</span>
-              <span class="pill mono">${escapeHTML(agentText)}</span>
-            </div>
+            
           </div>
           <div class="session-meta">
             <span class="pill mono">${session.selected_document_count || 0} docs</span>
