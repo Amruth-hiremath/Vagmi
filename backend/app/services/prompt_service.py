@@ -22,15 +22,15 @@ def _answer_rules(routed_agent: str) -> str:
     if routed_agent == "query":
         return (
             "- Query mode: answer the user directly and stay focused on the question.\n"
-            "- Prefer 1-4 short paragraphs or bullets.\n"
+            "- Prefer 1-4 short paragraphs or bullets, with line breaks between distinct points.\n"
             "- Do not wander into document drafting, diagrams, or meta commentary."
         )
 
     if routed_agent == "summary":
         return (
             "- Summary mode: condense the material into a clean overview.\n"
-            "- Use a small structure such as key idea, important details, and takeaways.\n"
-            "- Keep it complete, but avoid raw excerpt dumping."
+            "- Use markdown headings or bullets, with each section on its own line.\n"
+            "- Separate sections with blank lines and avoid raw excerpt dumping."
         )
 
     if routed_agent == "diagram":
@@ -43,8 +43,8 @@ def _answer_rules(routed_agent: str) -> str:
     if routed_agent == "document":
         return (
             "- Document mode: draft a polished markdown document with headings and sections.\n"
-            "- Make it look like a real document draft, not a chat reply.\n"
-            "- Include clear structure and concise prose."
+            "- Put each heading on its own line and leave a blank line between sections.\n"
+            "- Use bullets where helpful and keep the structure professional."
         )
 
     return (

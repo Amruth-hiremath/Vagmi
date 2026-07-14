@@ -978,6 +978,84 @@ button {
   overflow-wrap: anywhere;
 }
 
+
+.message-text h1,
+.message-text h2,
+.message-text h3,
+.message-text h4,
+.message-text h5,
+.message-text h6 {
+  margin: 0 0 0.55em;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.message-text h1 { font-size: 1.55em; }
+.message-text h2 { font-size: 1.32em; }
+.message-text h3 { font-size: 1.14em; }
+.message-text h4,
+.message-text h5,
+.message-text h6 { font-size: 1.02em; }
+
+.message-text p {
+  margin: 0 0 0.85em;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.35em;
+}
+
+.message-text ul:last-child,
+.message-text ol:last-child {
+  margin-bottom: 0;
+}
+
+.message-text li + li {
+  margin-top: 0.35em;
+}
+
+.message-text blockquote {
+  margin: 0 0 0.85em;
+  padding-left: 12px;
+  border-left: 3px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.message-text pre {
+  margin: 0 0 0.85em;
+  padding: 12px 14px;
+  border-radius: 14px;
+  overflow-x: auto;
+  background: var(--surface-hover);
+  white-space: pre-wrap;
+}
+
+.message-text code {
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+  font-size: 0.92em;
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: var(--surface-hover);
+}
+
+.message-text a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.message-text hr {
+  margin: 0.9em 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .message-row.user .message-text {
   color: var(--text-primary);
 }

@@ -28,6 +28,7 @@ import {
   truncate
 } from "./context.js";
 import { showToast, openDialog, closeDialog, clearSessionMenu, openSessionMenu, positionMenu, renderAgentPicker } from "./ui.js";
+import { getDesktopBridge } from "../../../services/desktop.js";
 import { renderAll, renderHub, renderDocumentList, renderArtifactsStrip, renderComposerToolbar, renderSourcesPanel, renderMessages, renderWorkspace, renderWorkspaceChrome } from "./render.js";
 
 export async function loadBootstrapData() {
@@ -371,6 +372,51 @@ function artifactFileName(artifact) {
   return `${base}.${ext}`;
 }
 
+
+function artifactMimeType(artifact) {
+  const type = String(artifact?.artifact_type || "").toLowerCase();
+  if (type.includes("document") || type.includes("summary")) return "text/markdown;charset=utf-8";
+  return "text/plain;charset=utf-8";
+}
+
+function textToDataUrl(text, mime = "text/plain;charset=utf-8") {
+  const bytes = new TextEncoder().encode(String(text ?? ""));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+async function saveArtifactWithDialog(artifact) {
+  const bridge = getDesktopBridge();
+  const filename = artifactFileName(artifact);
+  const text = String(artifact?.content || "");
+
+  if (bridge?.save_chat_download) {
+    const savedPath = await bridge.save_chat_download(
+      textToDataUrl(text, artifactMimeType(artifact)),
+      filename
+    );
+
+    if (savedPath !== "") {
+      showToast("Artifact saved");
+    }
+    return;
+  }
+
+  const blob = new Blob([text], { type: artifactMimeType(artifact) });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast("Download started");
+}
+
 export async function copyArtifactContent(artifactId) {
   const artifact = getArtifactById(artifactId);
   if (!artifact) return;
@@ -400,16 +446,7 @@ export async function downloadArtifact(artifactId) {
   const artifact = getArtifactById(artifactId);
   if (!artifact) return;
   try {
-    const blob = new Blob([String(artifact.content || "")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = artifactFileName(artifact);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    showToast("Download started");
+    await saveArtifactWithDialog(artifact);
   } catch (error) {
     console.error(error);
     showToast("Download failed", "error");

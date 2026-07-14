@@ -84,6 +84,9 @@ class DesktopBridge:
         
 
         target_path = Path(chosen_path)
+        if safe_name and Path(safe_name).suffix and target_path.suffix.lower() != Path(safe_name).suffix.lower():
+            target_path = target_path.with_suffix(Path(safe_name).suffix)
+
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
         if target_path.exists():

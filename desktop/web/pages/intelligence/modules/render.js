@@ -260,8 +260,157 @@ export function renderSourcesPanel() {
 }
 
 
+
+function renderInlineMarkdown(text) {
+  let html = escapeHTML(String(text || ""));
+
+  const codeSpans = [];
+  html = html.replace(/`([^`\n]+)`/g, (_, code) => {
+    const token = `__VAGMI_CODE_SPAN_${codeSpans.length}__`;
+    codeSpans.push(`<code>${code}</code>`);
+    return token;
+  });
+
+  html = html
+    .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_\n]+?)__/g, "<strong>$1</strong>")
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/(?<!_)_([^_\n]+?)_(?!_)/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  html = html.replace(/\[(\d+)\]/g, (_, number) => `
+    <button class="citation-chip" data-citation="${number}" type="button">[${number}]</button>
+  `);
+
+  html = html.replace(/__VAGMI_CODE_SPAN_(\d+)__/g, (_, index) => codeSpans[Number(index)] || "");
+  return html;
+}
+
+function renderMarkdownBlocks(text) {
+  const source = String(text || "").replace(/\r\n?/g, "\n").trim();
+  if (!source) return "";
+
+  const lines = source.split("\n");
+  const blocks = [];
+  let paragraph = [];
+  let listType = null;
+  let listItems = [];
+  let inCodeBlock = false;
+  let codeLines = [];
+  let quoteLines = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${paragraph.map(renderInlineMarkdown).join("<br>")}</p>`);
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    const tag = listType === "ol" ? "ol" : "ul";
+    blocks.push(`<${tag}>${listItems.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</${tag}>`);
+    listItems = [];
+    listType = null;
+  };
+
+  const flushQuote = () => {
+    if (!quoteLines.length) return;
+    blocks.push(`<blockquote>${quoteLines.map((item) => renderInlineMarkdown(item)).join("<br>")}</blockquote>`);
+    quoteLines = [];
+  };
+
+  const flushCode = () => {
+    if (!codeLines.length) return;
+    blocks.push(`<pre><code>${escapeHTML(codeLines.join("\n"))}</code></pre>`);
+    codeLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine;
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
+      if (inCodeBlock) {
+        flushCode();
+        inCodeBlock = false;
+      } else {
+        flushParagraph();
+        flushList();
+        flushQuote();
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      flushQuote();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      flushQuote();
+      const level = headingMatch[1].length;
+      blocks.push(`<h${level}>${renderInlineMarkdown(headingMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    const quoteMatch = line.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      flushList();
+      quoteLines.push(quoteMatch[1]);
+      continue;
+    }
+
+    const ulMatch = line.match(/^\s*[-*+]\s+(.*)$/);
+    if (ulMatch) {
+      flushParagraph();
+      flushQuote();
+      if (listType && listType !== "ul") {
+        flushList();
+      }
+      listType = "ul";
+      listItems.push(ulMatch[1]);
+      continue;
+    }
+
+    const olMatch = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (olMatch) {
+      flushParagraph();
+      flushQuote();
+      if (listType && listType !== "ol") {
+        flushList();
+      }
+      listType = "ol";
+      listItems.push(olMatch[1]);
+      continue;
+    }
+
+    flushQuote();
+    flushList();
+    paragraph.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  flushQuote();
+  flushCode();
+
+  return blocks.join("\n");
+}
+
 function renderMessageWithCitations(text) {
-  return escapeHTML(text)
+  return renderMarkdownBlocks(text)
     .replace(
       /\[(\d+)\]/g,
       (_, number) => `

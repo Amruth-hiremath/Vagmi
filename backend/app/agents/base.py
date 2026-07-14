@@ -37,12 +37,12 @@ class AgentSpec:
         if self.name == "document":
             return (
                 "Draft a polished markdown document with clear headings and readable sections. "
-                "Use short paragraphs, bullet lists where helpful, and keep the structure professional."
+                "Use short paragraphs, bullet lists where helpful, put headings on their own lines, and leave blank lines between sections."
             )
         if self.name == "summary":
             return (
                 "Summarize the content in a structured way: key idea, important details, and takeaways. "
-                "Use bullets if they help clarity."
+                "Use bullets or headings with each section on its own line and blank lines between sections."
             )
         if self.name == "query":
             return (
