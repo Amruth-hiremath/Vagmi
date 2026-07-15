@@ -327,13 +327,13 @@ export async function loadInlineImages() {
 }
 
 
-export function renderMessages(thread, { scrollToBottom = true } = {}) {
+export function renderMessages(thread) {
   const state = window.chatState;
   const messagesScroll = document.getElementById("messages-scroll");
   const dayChip = document.getElementById("day-chip");
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
   const loadInlineImages = window.loadInlineImages;
-
+  
   if (!thread || state.activeThreadKey !== thread.key) {
     clearConversationCanvas(messagesScroll, dayChip);
     return;
@@ -385,35 +385,35 @@ export function renderMessages(thread, { scrollToBottom = true } = {}) {
   if (dayChip) {
     dayChip.hidden = true;
   }
-
+  
   if (messagesScroll) {
     // Group messages by date and insert date chips
     let html = "";
     let lastDateKey = "";
-
+    
     for (const message of filtered) {
       const currentDateKey = getDateKey(message);
-
+      
       if (currentDateKey !== lastDateKey) {
         const timestamp = message?.createdAt || message?.created_at || message?.timestamp || message?.sentAt;
         const dateLabel = formatDate(timestamp) || "";
         html += `<div class="day-chip">${dateLabel}</div>`;
         lastDateKey = currentDateKey;
       }
-
+      
       html += messageHTML(thread, message);
     }
-
+    
     messagesScroll.innerHTML = html;
   }
 
   loadInlineImages();
   decorateAvatars(messagesScroll);
 
-  if (scrollToBottom) {
-    scrollMessagesToBottom();
-  }
+  scrollMessagesToBottom();
 }
+
+
 async function loadVoiceBlobUrl(thread, message) {
 
   const endpoint =
@@ -451,8 +451,18 @@ export async function loadMessages(conversationId, loadToken = 0, options = {}) 
   const currentUser = window.currentUser;
   const formatTime = window.formatTime;
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
+  const preserveScroll = Boolean(options?.preserveScroll);
+  const autoScroll = options?.autoScroll !== false;
 
   try {
+    const messagesScroll = document.getElementById("messages-scroll");
+    const previousScrollTop = messagesScroll ? messagesScroll.scrollTop : 0;
+    const previousScrollHeight = messagesScroll ? messagesScroll.scrollHeight : 0;
+    const previousClientHeight = messagesScroll ? messagesScroll.clientHeight : 0;
+    const wasNearBottom = messagesScroll
+      ? (previousScrollHeight - (previousScrollTop + previousClientHeight)) < 96
+      : true;
+
     const lookupKey = typeof conversationId === "string" && conversationId.includes(":")
       ? conversationId
       : null;
@@ -482,7 +492,7 @@ export async function loadMessages(conversationId, loadToken = 0, options = {}) 
         message.original_filename ||
         message.originalFilename ||
         (typeof message.attachment_path === "string"
-          ? message.attachment_path.split(/[\/]/).pop()
+          ? message.attachment_path.split(/[\\/]/).pop()
           : "") ||
         "";
 
@@ -519,20 +529,30 @@ export async function loadMessages(conversationId, loadToken = 0, options = {}) 
 
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
-    renderMessages(thread, {
-      scrollToBottom: options.scrollToBottom !== false
+
+    state.autoScrollMessages = autoScroll;
+    renderMessages(thread);
+
+    requestAnimationFrame(() => {
+      const messagesScrollEl = document.getElementById("messages-scroll");
+      if (preserveScroll && messagesScrollEl) {
+        const nextScrollHeight = messagesScrollEl.scrollHeight;
+        const nextTarget = wasNearBottom
+          ? nextScrollHeight
+          : Math.max(0, previousScrollTop + (nextScrollHeight - previousScrollHeight));
+        messagesScrollEl.scrollTop = nextTarget;
+      } else if (autoScroll) {
+        scrollMessagesToBottom();
+      }
+      state.autoScrollMessages = false;
     });
 
-    if (options.scrollToBottom !== false) {
-      requestAnimationFrame(() => {
-        scrollMessagesToBottom();
-      });
-    }
-
   } catch (error) {
+    state.autoScrollMessages = false;
     console.error("Failed loading messages", error);
   }
 }
+
 export async function handleSend() {
   const state = window.chatState;
   const inputField = document.getElementById("message-input");

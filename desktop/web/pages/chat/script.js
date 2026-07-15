@@ -108,7 +108,8 @@ document.addEventListener("DOMContentLoaded", () => {
     threads: [],
     rooms: [],
     activeRoomId: null,
-    chatMode: "direct"
+    chatMode: "direct",
+    autoScrollMessages: false
   };
 
   let mediaRecorder = null;
@@ -630,7 +631,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
   if (messagesScroll && "MutationObserver" in window) {
     messagesObserver = new MutationObserver(() => {
-      if (state.activeThreadKey !== null) {
+      if (state.activeThreadKey !== null && state.autoScrollMessages) {
         scrollMessagesToBottom();
       }
     });
@@ -1819,7 +1820,6 @@ function hideDownloadProgress() {
 window.showDownloadProgress = showDownloadProgress;
 window.hideDownloadProgress = hideDownloadProgress;
 
-
 function startConversationPolling() {
 
   if (refreshTimer) {
@@ -1828,18 +1828,15 @@ function startConversationPolling() {
 
   refreshTimer = setInterval(async () => {
 
+    
+
     try {
+
       await loadConversations({
-        preserveSelection: true
+        preserveSelection: true,
+        preserveMessageScroll: true
       });
 
-      const state = window.chatState;
-      const active = state?.threads?.find((thread) => thread.key === state.activeThreadKey);
-
-      if (active && active.type === "dm" && typeof loadMessages === "function") {
-        const pollToken = window.loadSequence;
-        await loadMessages(active.key, pollToken, { scrollToBottom: false });
-      }
     } catch (error) {
 
       console.error(
@@ -1852,5 +1849,4 @@ function startConversationPolling() {
   }, 2000);
 
 }
-
 
