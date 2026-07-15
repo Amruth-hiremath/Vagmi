@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.attachment import Attachment
 
 
-MAX_GENERIC_ATTACHMENT_SIZE = 50 * 1024 * 1024
+MAX_GENERIC_ATTACHMENT_SIZE = 2 *1024 * 1024 * 1024
 
 
 def save_upload_file(

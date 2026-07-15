@@ -143,7 +143,9 @@ export function messageHTML(thread, message) {
     return `
       <div class="message-row ${sideClass}">
         <div class="message-bubble">
+
           ${messageMenuButtonHTML(message)}
+
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
 
           <img
@@ -164,8 +166,11 @@ export function messageHTML(thread, message) {
               object-fit:cover;
             "
           />
+
           ${caption ? `<div class="message-caption">${caption}</div>` : ""}
+
           ${messageFooterHTML(message)}
+
         </div>
       </div>
     `;
@@ -196,9 +201,7 @@ export function messageHTML(thread, message) {
 
                     ${caption ? `<div class="message-caption">${caption}</div>` : ""}
 
-                    <div class="message-time mono">
-                        ${escapeHTML(message.time || "")}
-                    </div>
+                    ${messageFooterHTML(message)}
 
                 </div>
             </div>
