@@ -342,7 +342,7 @@ def main() -> None:
             url=f"http://{HOST}:{server_port}/splash.html",
             width=1600,
             height=1000,
-            min_size=(1280, 840),
+            min_size=(800, 600),
             background_color="#000000",
             resizable=True,
             js_api=DesktopBridge(),
