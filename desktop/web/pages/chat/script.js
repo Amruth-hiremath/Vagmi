@@ -1831,18 +1831,45 @@ function startConversationPolling() {
   refreshTimer = setInterval(async () => {
 
     try {
-      state.receiptChanged = false;
 
       await loadConversations({
         preserveSelection: true,
         preserveMessageScroll: true
       });
 
-      // Surgically update receipt icons if any statuses changed
-      if (state.receiptChanged) {
-        const thread = activeThread(state);
-        if (thread) {
-          patchMessageReceipts(thread);
+      // Directly fetch active thread's messages and patch receipt icons.
+      // This is independent of loadConversations to guarantee fresh
+      // delivered_at / seen_at data reaches the DOM.
+      const chatState = window.chatState;
+      const thread = activeThread(chatState);
+      if (thread && thread.messages.length > 0) {
+        try {
+          const fetchMsgs = thread.type === "room" ? getRoomMessages : getMessages;
+          const freshMessages = await fetchMsgs(thread.id);
+
+          const freshMap = new Map(
+            (freshMessages || []).map(m => [Number(m.id ?? m.message_id), m])
+          );
+
+          let changed = false;
+          for (const msg of thread.messages) {
+            if (msg.sender !== "self") continue;
+            const fresh = freshMap.get(Number(msg.id));
+            if (!fresh) continue;
+            const newD = fresh.delivered_at || fresh.deliveredAt || null;
+            const newS = fresh.seen_at || fresh.seenAt || null;
+            if (msg.deliveredAt !== newD || msg.seenAt !== newS) {
+              msg.deliveredAt = newD;
+              msg.seenAt = newS;
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            patchMessageReceipts(thread);
+          }
+        } catch (e) {
+          // Receipt polling must never break the main poll loop
         }
       }
 

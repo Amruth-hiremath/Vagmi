@@ -582,15 +582,22 @@ export async function handleSend() {
     thread.lastMessage = text;
     thread.lastMessageType = "TEXT";
     thread.lastMessageTime = formatTime(new Date());
+    thread.lastMessageTimestamp = new Date().toISOString();
     thread.unread = 0;
 
     await loadMessages(thread.key);
 
     renderThreads(state);
 
-    requestAnimationFrame(() => {
-      scrollMessagesToBottom();
-    });
+    // Scroll immediately, then again after layout settles
+    // (loadInlineImages is async and not awaited — images can push
+    //  scroll height after the rAF-based scroll fires).
+    scrollMessagesToBottom();
+    setTimeout(() => {
+      if (window.chatState?.activeThreadKey) {
+        window.scrollMessagesToBottom?.();
+      }
+    }, 300);
 
   } catch (error) {
     console.error("Message send failed", error);
@@ -681,4 +688,3 @@ export async function handleAttachment(file, forceType = null, caption = null) {
     alert(error?.message || "Failed to send attachment.");
   }
 }
-
