@@ -91,7 +91,9 @@ export function renderThreadEmptyState(threadList, title, copy, actionLabel = "N
   `;
 
   const actionBtn = document.getElementById("thread-empty-action");
-  actionBtn?.addEventListener("click", () => {
+  actionBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+
     if (actionKind === "clear-search") {
       const state = window.chatState;
       state.chatSearch = "";
@@ -208,7 +210,7 @@ export function updateConversationMeta(thread) {
 
       if (thread.is_online) {
 
-        conversationStatus.textContent = "🟢 Online";
+        conversationStatus.textContent = " Online";
 
       } else if (thread.last_seen) {
 
@@ -269,7 +271,7 @@ export function updateInfoDrawer(thread) {
   const infoParticipants = document.getElementById("info-participants");
   const infoType = document.getElementById("info-type");
   const infoFiles = document.getElementById("info-files");
-  
+
   if (infoParticipants) infoParticipants.textContent = String(thread.members?.length || 1);
   if (infoType) infoType.textContent = thread.kind === "room" ? "Room" : "DM";
   if (infoFiles) infoFiles.textContent = String(
@@ -295,7 +297,7 @@ export function closeOverlays(state) {
   const infoDrawer = document.getElementById("info-drawer");
   const attachmentModal = document.getElementById("attachment-modal");
   const conversationSearchRow = document.getElementById("conversation-search-row");
-  
+
   menuPopover.classList.add("hidden");
   infoDrawer.classList.add("hidden");
   attachmentModal?.classList.add("hidden");

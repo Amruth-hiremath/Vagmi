@@ -980,7 +980,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest("#room-member-picker") ||
       target.closest("#room-member-results") ||
       target.closest(".message-menu-btn") ||
-      target.closest(".message-menu-item")
+      target.closest(".message-menu-item") ||
+      target.closest("#thread-empty-action") ||
+      target.closest(".thread-empty-btn")
     ) {
       return;
     }

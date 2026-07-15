@@ -31,7 +31,7 @@ let renderTimer = null;
 let lastRenderedSvg = "";
 let lastRenderedCode = "";
 
-const MERMAID_SRC = "https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js";
+const MERMAID_SRC = "mermaid.min.js";
 let mermaidLoadPromise = null;
 
 function loadMermaidLibrary() {
