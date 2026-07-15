@@ -327,13 +327,13 @@ export async function loadInlineImages() {
 }
 
 
-export function renderMessages(thread) {
+export function renderMessages(thread, { scrollToBottom = true } = {}) {
   const state = window.chatState;
   const messagesScroll = document.getElementById("messages-scroll");
   const dayChip = document.getElementById("day-chip");
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
   const loadInlineImages = window.loadInlineImages;
-  
+
   if (!thread || state.activeThreadKey !== thread.key) {
     clearConversationCanvas(messagesScroll, dayChip);
     return;
@@ -385,35 +385,35 @@ export function renderMessages(thread) {
   if (dayChip) {
     dayChip.hidden = true;
   }
-  
+
   if (messagesScroll) {
     // Group messages by date and insert date chips
     let html = "";
     let lastDateKey = "";
-    
+
     for (const message of filtered) {
       const currentDateKey = getDateKey(message);
-      
+
       if (currentDateKey !== lastDateKey) {
         const timestamp = message?.createdAt || message?.created_at || message?.timestamp || message?.sentAt;
         const dateLabel = formatDate(timestamp) || "";
         html += `<div class="day-chip">${dateLabel}</div>`;
         lastDateKey = currentDateKey;
       }
-      
+
       html += messageHTML(thread, message);
     }
-    
+
     messagesScroll.innerHTML = html;
   }
 
   loadInlineImages();
   decorateAvatars(messagesScroll);
 
-  scrollMessagesToBottom();
+  if (scrollToBottom) {
+    scrollMessagesToBottom();
+  }
 }
-
-
 async function loadVoiceBlobUrl(thread, message) {
 
   const endpoint =
@@ -444,7 +444,7 @@ async function loadVoiceBlobUrl(thread, message) {
 }
 
 
-export async function loadMessages(conversationId, loadToken = 0) {
+export async function loadMessages(conversationId, loadToken = 0, options = {}) {
   const state = window.chatState;
   const getMessages = window.getMessages;
   const getRoomMessages = window.getRoomMessages;
@@ -482,7 +482,7 @@ export async function loadMessages(conversationId, loadToken = 0) {
         message.original_filename ||
         message.originalFilename ||
         (typeof message.attachment_path === "string"
-          ? message.attachment_path.split(/[\\/]/).pop()
+          ? message.attachment_path.split(/[\/]/).pop()
           : "") ||
         "";
 
@@ -519,17 +519,20 @@ export async function loadMessages(conversationId, loadToken = 0) {
 
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
-    renderMessages(thread);
-
-    requestAnimationFrame(() => {
-      scrollMessagesToBottom();
+    renderMessages(thread, {
+      scrollToBottom: options.scrollToBottom !== false
     });
+
+    if (options.scrollToBottom !== false) {
+      requestAnimationFrame(() => {
+        scrollMessagesToBottom();
+      });
+    }
 
   } catch (error) {
     console.error("Failed loading messages", error);
   }
 }
-
 export async function handleSend() {
   const state = window.chatState;
   const inputField = document.getElementById("message-input");

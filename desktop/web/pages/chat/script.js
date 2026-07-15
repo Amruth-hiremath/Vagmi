@@ -1819,6 +1819,7 @@ function hideDownloadProgress() {
 window.showDownloadProgress = showDownloadProgress;
 window.hideDownloadProgress = hideDownloadProgress;
 
+
 function startConversationPolling() {
 
   if (refreshTimer) {
@@ -1827,14 +1828,18 @@ function startConversationPolling() {
 
   refreshTimer = setInterval(async () => {
 
-    
-
     try {
-
       await loadConversations({
         preserveSelection: true
       });
 
+      const state = window.chatState;
+      const active = state?.threads?.find((thread) => thread.key === state.activeThreadKey);
+
+      if (active && active.type === "dm" && typeof loadMessages === "function") {
+        const pollToken = window.loadSequence;
+        await loadMessages(active.key, pollToken, { scrollToBottom: false });
+      }
     } catch (error) {
 
       console.error(
@@ -1847,4 +1852,5 @@ function startConversationPolling() {
   }, 2000);
 
 }
+
 
