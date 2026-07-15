@@ -161,6 +161,8 @@ async function renderDiagram({ silent = false } = {}) {
     lastRenderedCode = code;
     if (els.previewSurface) {
       els.previewSurface.innerHTML = result.svg;
+      els.previewSurface.scrollTop = 0;
+      els.previewSurface.scrollLeft = 0;
       if (typeof result.bindFunctions === "function") {
         result.bindFunctions(els.previewSurface);
       }

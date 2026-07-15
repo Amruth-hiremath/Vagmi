@@ -295,7 +295,7 @@ button {
   overflow: auto;
   padding: 18px;
   display: grid;
-  place-items: center;
+  place-items: start center;
   align-content: start;
 }
 
