@@ -163,6 +163,8 @@ export async function loadConversations({ preserveSelection = true, preserveMess
     typeof getRooms === "function" ? getRooms() : Promise.resolve([])
   ]);
 
+  let receiptStatusChanged = false;
+
   const dmThreads = await Promise.all((conversations || []).map(async (conversation) => {
     const key = makeThreadKey("dm", conversation.conversation_id);
     const previous = previousThreadMap.get(key);
@@ -181,6 +183,23 @@ export async function loadConversations({ preserveSelection = true, preserveMess
       }
     } catch (error) {
       console.error(`Failed loading DM preview for conversation ${conversation.conversation_id}`, error);
+    }
+
+    // For the active thread, update receipt statuses from fresh API data
+    if (key === activeKey && Array.isArray(previous?.messages) && Array.isArray(messages)) {
+      const freshMap = new Map(messages.map(m => [Number(m.id ?? m.message_id), m]));
+      for (const msg of previous.messages) {
+        if (msg.sender !== "self") continue;
+        const fresh = freshMap.get(Number(msg.id));
+        if (!fresh) continue;
+        const newDelivered = fresh.delivered_at || fresh.deliveredAt || null;
+        const newSeen = fresh.seen_at || fresh.seenAt || null;
+        if (msg.deliveredAt !== newDelivered || msg.seenAt !== newSeen) {
+          msg.deliveredAt = newDelivered;
+          msg.seenAt = newSeen;
+          receiptStatusChanged = true;
+        }
+      }
     }
 
     if (Array.isArray(messages) && messages.length > 0) {
@@ -245,6 +264,23 @@ export async function loadConversations({ preserveSelection = true, preserveMess
       }
     } catch (error) {
       console.error(`Failed loading room preview for room ${room.id}`, error);
+    }
+
+    // For the active thread, update receipt statuses from fresh API data
+    if (roomKey === activeKey && Array.isArray(previous?.messages) && Array.isArray(messages)) {
+      const freshMap = new Map(messages.map(m => [Number(m.id ?? m.message_id), m]));
+      for (const msg of previous.messages) {
+        if (msg.sender !== "self") continue;
+        const fresh = freshMap.get(Number(msg.id));
+        if (!fresh) continue;
+        const newDelivered = fresh.delivered_at || fresh.deliveredAt || null;
+        const newSeen = fresh.seen_at || fresh.seenAt || null;
+        if (msg.deliveredAt !== newDelivered || msg.seenAt !== newSeen) {
+          msg.deliveredAt = newDelivered;
+          msg.seenAt = newSeen;
+          receiptStatusChanged = true;
+        }
+      }
     }
 
     if (Array.isArray(messages) && messages.length > 0) {
@@ -368,6 +404,7 @@ export async function loadConversations({ preserveSelection = true, preserveMess
     );
   })();
 
+  state.receiptChanged = receiptStatusChanged;
   renderThreads(state);
   broadcastUnreadCount(state.threads);
 

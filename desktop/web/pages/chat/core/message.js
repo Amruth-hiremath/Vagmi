@@ -605,6 +605,45 @@ export function setComposerText(inputField, text) {
   }
 }
 
+/**
+ * Surgically patch receipt icons in the DOM without a full re-render.
+ * Only updates message-row.self elements whose receipt state has changed,
+ * avoiding scroll jumps, image reloads, and layout shifts.
+ */
+export function patchMessageReceipts(thread) {
+  if (!thread?.messages) return;
+
+  const rows = document.querySelectorAll(".message-row.self");
+  for (const row of rows) {
+    const menuBtn = row.querySelector(".message-menu-btn");
+    if (!menuBtn) continue;
+    const messageId = Number(menuBtn.dataset.messageId);
+    const message = thread.messages.find((m) => Number(m.id) === messageId);
+    if (!message) continue;
+
+    const receiptEl = row.querySelector(".message-receipt");
+    if (!receiptEl) continue;
+
+    const newState = getMessageReceiptState(message);
+    if (!newState) continue;
+
+    const currentClass = receiptEl.classList.contains("seen") ? "seen"
+      : receiptEl.classList.contains("delivered") ? "delivered"
+      : "pending";
+
+    if (currentClass !== newState) {
+      const label = newState === "pending"
+        ? "Not delivered"
+        : newState === "delivered"
+          ? "Delivered and not read"
+          : "Delivered and read";
+      receiptEl.className = `message-receipt ${newState}`;
+      receiptEl.setAttribute("aria-label", label);
+      receiptEl.innerHTML = messageReceiptIconHTML(newState);
+    }
+  }
+}
+
 export async function handleAttachment(file, forceType = null, caption = null) {
   const state = window.chatState;
   const sendImage = window.sendImage;

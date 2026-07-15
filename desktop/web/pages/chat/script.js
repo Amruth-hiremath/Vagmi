@@ -56,7 +56,8 @@ import {
   loadMessages,
   handleSend,
   setComposerText,
-  handleAttachment
+  handleAttachment,
+  patchMessageReceipts
 } from "./core/message.js";
 import {
   clearAttachmentPreview,
@@ -598,6 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.loadMessages = loadMessages;
   window.getMessages = getMessages;
   window.getRoomMessages = getRoomMessages;
+  window.patchMessageReceipts = patchMessageReceipts;
   window.getRoomMembers = getRoomMembers;
 window.fetchAttachmentBlob = fetchAttachmentBlob;
 window.openImageViewer = openImageViewer;
@@ -1828,14 +1830,21 @@ function startConversationPolling() {
 
   refreshTimer = setInterval(async () => {
 
-    
-
     try {
+      state.receiptChanged = false;
 
       await loadConversations({
         preserveSelection: true,
         preserveMessageScroll: true
       });
+
+      // Surgically update receipt icons if any statuses changed
+      if (state.receiptChanged) {
+        const thread = activeThread(state);
+        if (thread) {
+          patchMessageReceipts(thread);
+        }
+      }
 
     } catch (error) {
 
@@ -1849,4 +1858,3 @@ function startConversationPolling() {
   }, 2000);
 
 }
-
