@@ -17,6 +17,7 @@ import mimetypes
 import subprocess
 import platform
 import webbrowser
+import time
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("application/javascript", ".mjs")
@@ -28,6 +29,17 @@ BACKEND_BASE_URL = "http://127.0.0.1:8000"
 HOST = "127.0.0.1"
 
 PORT = 0
+
+APP_WINDOW = None
+SERVER_PORT = None
+
+# Background color for the floating mini-dock window. Deliberately NOT pure
+# black (#000000) — the main window uses pure black, which is what made the
+# old in-window mini-dock look like a black square. This themed dark surface
+# matches the app's `--surface` token so the floating panel reads as a card.
+MINI_WINDOW_BG = "#0f1117"
+MINI_DEFAULT_WIDTH = 320
+MINI_DEFAULT_HEIGHT = 460
 
 
 def _save_dialog(filename: str) -> str | None:
@@ -156,6 +168,152 @@ class DesktopBridge:
        
     
 
+
+    # ------------------------------------------------------------------
+    # Compact / floating mode
+    # ------------------------------------------------------------------
+    #
+    # The mini-dock is a *separate* pywebview window that is created at
+    # startup (hidden=True) and toggled with show()/hide(). This is far more
+    # reliable than calling webview.create_window() from inside a JS API
+    # callback (which runs in a worker thread and can silently fail on some
+    # platforms).
+    #
+    # Lifecycle:
+    #   - Startup: both main + mini windows are created before
+    #     webview.start(). The mini window starts hidden.
+    #   - enter_compact_mode(): show mini, hide main.
+    #   - exit_compact_mode():  show main, hide mini.
+    #   - User force-closes mini (Alt+F4): the `closed` event restores
+    #     the main window so they aren't stranded.
+
+    def __init__(self) -> None:
+        self._mini_window = None
+        self._main_window_ref = None
+
+    def _set_windows(self, main_window, mini_window) -> None:
+        """Called from main() to inject the pre-created window objects."""
+        self._main_window_ref = main_window
+        self._mini_window = mini_window
+
+    def _main_window(self):
+        return self._main_window_ref or globals().get("APP_WINDOW") or webview.active_window()
+
+    def ping(self) -> str:
+        """Health-check method. Call from JS console:
+        `await window.pywebview.api.ping()` should return "pong".
+        """
+        return "pong"
+
+    def bridge_status(self) -> str:
+        """Return a JSON-ish status string for debugging from the JS console."""
+        has_enter = hasattr(self, "enter_compact_mode")
+        has_exit = hasattr(self, "exit_compact_mode")
+        has_restore = hasattr(self, "restore_with_page")
+        has_mini = self._mini_window is not None
+        has_main = self._main_window() is not None
+        return (
+            f"ping=pong "
+            f"enter_compact_mode={has_enter} "
+            f"exit_compact_mode={has_exit} "
+            f"restore_with_page={has_restore} "
+            f"mini_window_ready={has_mini} "
+            f"main_window_ready={has_main}"
+        )
+
+    def set_workspace_compact(self, enabled: bool, width: int = 380, height: int = 260, x: int | None = None, y: int | None = None) -> bool:
+        """Backward-compatible shim — delegates to the new methods."""
+        if enabled:
+            return self.enter_compact_mode()
+        return self.exit_compact_mode()
+
+    def enter_compact_mode(self) -> bool:
+        """Show the floating mini-dock and hide the main window."""
+        try:
+            main_window = self._main_window()
+            mini_window = self._mini_window
+
+            if main_window is None or mini_window is None:
+                return False
+
+            # Show the floating dock first, then hide the main window —
+            # this way the user never sees a "no window at all" flash.
+            try:
+                mini_window.show()
+            except Exception:
+                pass
+
+            try:
+                main_window.hide()
+            except Exception:
+                pass
+
+            return True
+        except Exception:
+            return False
+
+    def exit_compact_mode(self) -> bool:
+        """Show the main window and hide the floating mini-dock."""
+        try:
+            main_window = self._main_window()
+
+            if main_window is not None:
+                try:
+                    main_window.show()
+                except Exception:
+                    pass
+                try:
+                    main_window.restore()
+                except Exception:
+                    pass
+
+            if self._mini_window is not None:
+                try:
+                    self._mini_window.hide()
+                except Exception:
+                    pass
+
+            return True
+        except Exception:
+            return False
+
+    def restore_with_page(self, page: str | None = None) -> bool:
+        """Restore the main window and navigate its iframe to `page`.
+
+        Used by the floating mini-dock's quick-action buttons.
+        """
+        try:
+            main_window = self._main_window()
+            if main_window is not None:
+                try:
+                    main_window.show()
+                except Exception:
+                    pass
+                try:
+                    main_window.restore()
+                except Exception:
+                    pass
+
+                if page:
+                    safe_page = json.dumps(str(page))
+                    js = (
+                        "window.vagmiMiniRestore && "
+                        f"window.vagmiMiniRestore({safe_page});"
+                    )
+                    try:
+                        main_window.evaluate_js(js)
+                    except Exception:
+                        pass
+
+            if self._mini_window is not None:
+                try:
+                    self._mini_window.hide()
+                except Exception:
+                    pass
+
+            return True
+        except Exception:
+            return False
 
 class VagmiRequestHandler(SimpleHTTPRequestHandler):
 
@@ -331,13 +489,16 @@ def main() -> None:
 
     server = ThreadingHTTPServer((HOST, PORT), handler)
     server_port = server.server_address[1]
+    globals()["SERVER_PORT"] = server_port
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
     try:
-        print(f"Starting single window on port {server_port}")
-        window = webview.create_window(
+        bridge = DesktopBridge()
+
+        # Main window — normal, resizable, maximized on start.
+        main_window = webview.create_window(
             title="Vāgmi - Secure Workspace",
             url=f"http://{HOST}:{server_port}/splash.html",
             width=1600,
@@ -345,9 +506,64 @@ def main() -> None:
             min_size=(800, 600),
             background_color="#000000",
             resizable=True,
-            js_api=DesktopBridge(),
+            js_api=bridge,
         )
-        webview.start(window.maximize, debug=True)
+        globals()["APP_WINDOW"] = main_window
+
+        # Mini-dock window — frameless, always-on-top, starts HIDDEN.
+        # Pre-creating it (instead of calling create_window from a JS API
+        # callback) avoids worker-thread / dispatch issues that can silently
+        # swallow window creation on some platforms.
+        mini_window = webview.create_window(
+            title="Vāgmi Mini",
+            url=f"http://{HOST}:{server_port}/mini-dock.html",
+            width=MINI_DEFAULT_WIDTH,
+            height=MINI_DEFAULT_HEIGHT,
+            resizable=False,
+            frameless=True,
+            on_top=True,
+            hidden=True,
+            background_color=MINI_WINDOW_BG,
+            js_api=bridge,
+        )
+
+        # Inject both window handles into the bridge so enter/exit_compact_mode
+        # can simply show()/hide() them.
+        bridge._set_windows(main_window, mini_window)
+
+        # If the user force-closes the mini window (Alt+F4 / Task Manager),
+        # restore the main window so they aren't stranded.
+        def _on_mini_closed():
+            try:
+                main_window.show()
+            except Exception:
+                pass
+            try:
+                main_window.restore()
+            except Exception:
+                pass
+
+        try:
+            mini_window.events.closed += _on_mini_closed
+        except Exception:
+            pass
+
+        # If the main window is closed directly, tear down the mini window
+        # so the process can exit cleanly.
+        def _on_main_closed():
+            try:
+                mini_window.destroy()
+            except Exception:
+                pass
+
+        try:
+            main_window.events.closed += _on_main_closed
+        except Exception:
+            pass
+
+        # debug=False: with two windows, debug=True would spawn devtools for
+        # each window on some backends. Keep it off for clean production use.
+        webview.start(main_window.maximize, debug=True)
     finally:
         server.shutdown()
         server.server_close()
