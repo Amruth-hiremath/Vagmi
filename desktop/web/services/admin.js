@@ -1,4 +1,5 @@
 import { apiRequest } from "./api.js";
+import { getUser, saveUser } from "./auth.js";
 
 async function parseJson(response) {
   const data = await response.json();
@@ -74,7 +75,7 @@ export async function removeAdmin(userId) {
 }
 
 export async function transferOwnership(userId) {
-  return parseJson(
+  const result = await parseJson(
     await apiRequest(
       `/admin/users/${userId}/transfer-ownership`,
       {
@@ -82,4 +83,14 @@ export async function transferOwnership(userId) {
       }
     )
   );
+
+  if (result.current_user) {
+    const existingUser = getUser() || {};
+    saveUser({
+      ...existingUser,
+      ...result.current_user
+    });
+  }
+
+  return result;
 }

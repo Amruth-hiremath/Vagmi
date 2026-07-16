@@ -330,29 +330,37 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
 
         try:
             self.wfile.write(payload)
-        except (BrokenPipeError, ConnectionAbortedError):
+        except (
+            BrokenPipeError,
+            ConnectionAbortedError,
+            ConnectionResetError,
+            OSError,
+        ):
             pass
 
-    def _copy_response_headers(self, headers, payload_length: int) -> None:
-        for key, value in headers:
-            lower_key = key.lower()
+    def _copy_response_headers(self, headers) -> None:
+        """
+        Copy backend response headers while removing hop-by-hop headers.
 
-            if lower_key in {
-                "connection",
-                "keep-alive",
-                "proxy-authenticate",
-                "proxy-authorization",
-                "te",
-                "trailer",
-                "transfer-encoding",
-                "upgrade",
-                "content-length",
-            }:
+        Preserves Content-Length, Content-Type, Accept-Ranges, etc.
+        """
+
+        excluded = {
+            "connection",
+            "keep-alive",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",
+            "trailer",
+            "transfer-encoding",
+            "upgrade",
+        }
+
+        for key, value in headers:
+            if key.lower() in excluded:
                 continue
 
             self.send_header(key, value)
-
-        self.send_header("Content-Length", str(payload_length))
 
     def _proxy_api_request(self) -> None:
         parsed = urlsplit(self.path)
@@ -397,18 +405,28 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
 
         try:
             with urlopen(request, timeout=600) as response:
-                payload = response.read()
+
                 self.send_response(response.status)
-                self._copy_response_headers(response.headers.items(), len(payload))
+                self._copy_response_headers(response.headers.items())
                 self.end_headers()
-                self._safe_write(payload)
+
+                while True:
+                    chunk = response.read(64 * 1024)  # 64 KB
+                    if not chunk:
+                        break
+                    self._safe_write(chunk)
 
         except HTTPError as error:
-            payload = error.read()
             self.send_response(error.code)
-            self._copy_response_headers(error.headers.items(), len(payload))
+            self._copy_response_headers(error.headers.items())
             self.end_headers()
-            self._safe_write(payload)
+
+            while True:
+                chunk = error.read(64 * 1024)  # 64 KB
+                if not chunk:
+                    break
+
+                self._safe_write(chunk)
 
         except URLError as error:
             payload = json.dumps({
@@ -423,7 +441,12 @@ class VagmiRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 self._safe_write(payload)
-            except (BrokenPipeError, ConnectionAbortedError):
+            except (
+                BrokenPipeError,
+                ConnectionAbortedError,
+                ConnectionResetError,
+                OSError,
+            ):
                 pass
 
     def do_GET(self) -> None:

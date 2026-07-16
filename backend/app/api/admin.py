@@ -336,5 +336,12 @@ def transfer_ownership(
     db.commit()
 
     return {
-        "message": f"{user.username} is now the Owner."
+        "message": f"{user.username} is now the Owner.",
+        "current_user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "is_admin": current_user.is_admin,
+            "is_approved": current_user.is_approved,
     }
+}
