@@ -259,6 +259,7 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
   const isImage = contentType.startsWith("image/") || message.type === "IMAGE";
 
   const isVideo = contentType.startsWith("video/");
+  
 
   const isPdf =
       contentType.includes("pdf") ||
@@ -267,6 +268,9 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
   const isText =
       contentType.startsWith("text/") ||
       /\.(txt|md|json|csv|log)$/i.test(title);
+  
+  const previewSupported =
+    isImage || isVideo || isPdf || isText;    
 
   if (!attachmentModalBody) return;
 
@@ -287,15 +291,10 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
           <div class="attachment-preview">
 
               <video
+                  id="attachment-video-preview"
+                  class="attachment-preview-video"
                   controls
                   autoplay
-                  style="
-                        width:100%;
-                        height:100%;
-                        object-fit:contain;
-                        border-radius:12px;
-                        background:#000;
-                    "
               >
                   <source
                       src="${objectUrl}"
@@ -303,9 +302,55 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
                   >
               </video>
 
+              <div
+                  id="video-preview-error"
+                  class="attachment-preview-card"
+                  style="display:none;"
+              >
+                  <div class="avatar-large" style="margin:0 auto;">
+                      ${iconMap.file}
+                  </div>
+
+                  <div class="attachment-preview-name">
+                      ${escapeHTML(title)}
+                  </div>
+
+                  <div class="attachment-preview-copy">
+                      This video format isn't supported for preview.<br>
+                      Please download it to view it in an external player.
+                  </div>
+              </div>
+
           </div>
       `;
 
+      const video = attachmentModalBody.querySelector("#attachment-video-preview");
+      const errorCard = attachmentModalBody.querySelector("#video-preview-error");
+
+      video.addEventListener("error", () => {
+          video.style.display = "none";
+          errorCard.style.display = "block";
+      });
+
+      video.addEventListener("stalled", () => {
+          video.style.display = "none";
+          errorCard.style.display = "block";
+      });
+
+      video.addEventListener("abort", () => {
+          video.style.display = "none";
+          errorCard.style.display = "block";
+      });
+
+      setTimeout(() => {
+          if (
+              video.readyState < HTMLMediaElement.HAVE_METADATA &&
+              !video.error
+          ) {
+              video.style.display = "none";
+              errorCard.style.display = "block";
+          }
+      }, 3000);
   } else if (isText) {
       attachmentModalBody.innerHTML = `
         <div class="attachment-preview">
@@ -334,9 +379,19 @@ export function renderAttachmentModalView(thread, message, blob, contentType) {
   }
 
   if (attachmentModalOpen) {
-    attachmentModalOpen.onclick = () => {
-      if (!attachmentPreview?.objectUrl) return;
-      window.open(attachmentPreview.objectUrl, "_blank", "noopener,noreferrer");
+    attachmentModalOpen.onclick = async () => {
+        if (!attachmentPreview) return;
+
+        if (!previewSupported) {
+            await saveBlobToDownloads(blob, attachmentPreview.filename);
+            return;
+        }
+
+        window.open(
+            attachmentPreview.objectUrl,
+            "_blank",
+            "noopener,noreferrer"
+        );
     };
   }
 
