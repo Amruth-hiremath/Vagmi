@@ -127,7 +127,6 @@ button {
 
 .mini-header {
   -webkit-app-region: drag;
-  app-region: drag;
 
   flex-shrink: 0;
 
@@ -178,7 +177,6 @@ button {
 
 .header-actions {
   -webkit-app-region: no-drag;
-  app-region: no-drag;
 
   display: flex;
   align-items: center;
