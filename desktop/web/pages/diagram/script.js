@@ -295,6 +295,38 @@ async function exportSvg() {
   if (saved) setStatus("SVG exported");
 }
 
+function getSvgExportDimensions(svgText) {
+  const fallback = { width: 1600, height: 1200 };
+  try {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+    const svgElement = svgDoc.querySelector("svg");
+    if (!svgElement) return fallback;
+
+    const viewBox = svgElement.getAttribute("viewBox");
+    if (viewBox) {
+      const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+        const width = Math.max(1, Math.ceil(Math.abs(parts[2])));
+        const height = Math.max(1, Math.ceil(Math.abs(parts[3])));
+        return { width, height };
+      }
+    }
+
+    const parseLen = (value) => {
+      if (!value) return null;
+      const num = Number.parseFloat(String(value).replace(/px$/i, ""));
+      return Number.isFinite(num) && num > 0 ? Math.ceil(num) : null;
+    };
+
+    const width = parseLen(svgElement.getAttribute("width")) ?? fallback.width;
+    const height = parseLen(svgElement.getAttribute("height")) ?? fallback.height;
+    return { width, height };
+  } catch {
+    return fallback;
+  }
+}
+
 async function exportPng() {
   if (!lastRenderedSvg) {
     await renderDiagram();
@@ -305,38 +337,14 @@ async function exportPng() {
   const image = new Image();
   const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#111111";
   const exportScale = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
+  const exportDimensions = getSvgExportDimensions(lastRenderedSvg);
 
   image.onload = async () => {
     try {
       const canvas = document.createElement("canvas");
 
-      let width = image.width || 1600;
-      let height = image.height || 1200;
-
-      if (width === 0 || height === 0) {
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(lastRenderedSvg, "image/svg+xml");
-        const svgElement = svgDoc.querySelector("svg");
-        if (svgElement) {
-          const viewBox = svgElement.getAttribute("viewBox");
-          if (viewBox) {
-            const parts = viewBox.split(/\s+/).map(Number);
-            if (parts.length === 4) {
-              width = parts[2] || 1600;
-              height = parts[3] || 1200;
-            }
-          }
-          const svgWidth = svgElement.getAttribute("width");
-          const svgHeight = svgElement.getAttribute("height");
-          if (svgWidth && svgHeight) {
-            width = parseFloat(svgWidth) || width;
-            height = parseFloat(svgHeight) || height;
-          }
-        }
-      }
-
-      width = Math.max(1, width);
-      height = Math.max(1, height);
+      const width = Math.max(1, exportDimensions.width);
+      const height = Math.max(1, exportDimensions.height);
 
       canvas.width = Math.round(width * exportScale);
       canvas.height = Math.round(height * exportScale);
@@ -349,7 +357,7 @@ async function exportPng() {
         return;
       }
 
-      ctx.setTransform(exportScale, 0, 0, exportScale, 0, 0);
+      ctx.scale(exportScale, exportScale);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.fillStyle = bg;
