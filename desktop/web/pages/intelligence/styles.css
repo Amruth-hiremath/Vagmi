@@ -1044,6 +1044,18 @@ button {
   background: var(--surface-hover);
 }
 
+.message-text strong,
+.message-text b {
+  color: var(--branding-orange);
+  font-weight: 700;
+}
+
+.message-text strong::selection,
+.message-text b::selection {
+  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--branding-orange) 36%, transparent);
+}
+
 .message-text a {
   color: var(--accent);
   text-decoration: underline;

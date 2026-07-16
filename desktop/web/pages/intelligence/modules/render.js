@@ -283,9 +283,14 @@ function renderInlineMarkdown(text) {
   return html;
 }
 
+
 function renderMarkdownBlocks(text) {
-  const source = String(text || "").replace(/\r\n?/g, "\n").trim();
-  if (!source) return "";
+  const rawSource = String(text || "").replace(/\r\n?/g, "\n").trim();
+  if (!rawSource) return "";
+
+  const source = rawSource
+    .replace(/([^\n])\s+(#{1,6}\s+)/g, "$1\n$2")
+    .replace(/([^\n])\s+(?=(?:[-*+]\s+|\d+\.\s+))/g, "$1\n");
 
   const lines = source.split("\n");
   const blocks = [];
@@ -405,7 +410,6 @@ function renderMarkdownBlocks(text) {
 
   return blocks.join("\n");
 }
-
 function renderMessageWithCitations(text) {
   return renderMarkdownBlocks(text)
     .replace(

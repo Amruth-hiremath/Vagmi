@@ -22,7 +22,8 @@ def _answer_rules(routed_agent: str) -> str:
     if routed_agent == "query":
         return (
             "- Query mode: answer the user directly and stay focused on the question.\n"
-            "- Prefer 1-4 short paragraphs or bullets, with line breaks between distinct points.\n"
+            "- Prefer 1-4 short paragraphs or bullets. Put each distinct point on its own line or separate paragraph.\n"
+            "- Never collapse the whole answer into a single wall of text.\n"
             "- Do not wander into document drafting, diagrams, or meta commentary."
         )
 
@@ -30,21 +31,24 @@ def _answer_rules(routed_agent: str) -> str:
         return (
             "- Summary mode: condense the material into a clean overview.\n"
             "- Use markdown headings or bullets, with each section on its own line.\n"
-            "- Separate sections with blank lines and avoid raw excerpt dumping."
+            "- Leave a blank line between sections and avoid raw excerpt dumping.\n"
+            "- Never return the response as one long paragraph."
         )
 
     if routed_agent == "diagram":
         return (
             "- Diagram mode: produce a Mermaid diagram first when structure helps.\n"
             "- Follow it with a short explanation only if needed.\n"
-            "- Keep the diagram valid, compact, and readable."
+            "- Keep the diagram valid, compact, and readable.\n"
+            "- If you explain anything, keep the explanation in short paragraphs with blank lines."
         )
 
     if routed_agent == "document":
         return (
             "- Document mode: draft a polished markdown document with headings and sections.\n"
             "- Put each heading on its own line and leave a blank line between sections.\n"
-            "- Use bullets where helpful and keep the structure professional."
+            "- Use bullets where helpful and keep the structure professional.\n"
+            "- Never merge the whole document into a single paragraph."
         )
 
     return (
@@ -112,6 +116,7 @@ def build_prompt_messages(context: dict, routed_agent: str, routing_reason: str)
         - Do not echo passages verbatim or dump raw excerpts.
         - If the answer is not fully supported, say what is missing instead of inventing facts.
         - Keep the tone professional and production-ready.
+        - Use markdown structure and blank lines so separate ideas do not collapse into one paragraph.
         """
     ).strip()
 
