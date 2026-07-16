@@ -50,6 +50,21 @@ export async function sendImage(conversationId, file, caption = null) {
   );
 }
 
+
+export async function sendAttachment(conversationId, file, caption = null) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+  return parseJson(
+    await apiRequest(`/dm/${conversationId}/attachment`, {
+      method: "POST",
+      body: formData
+    })
+  );
+}
+
 export async function sendVoice(conversationId, file) {
   const formData = new FormData();
 

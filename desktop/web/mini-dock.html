@@ -1,499 +1,200 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vāgmi Mini</title>
+  <title>Vāgmi Mini Chat</title>
   <link rel="icon" type="image/png" href="./assets/logo_dark.png" />
   <script src="./core/theme.js"></script>
   <link rel="stylesheet" href="./theme.css" />
-  <style>
-    /* =========================================================
-       Mini-dock floating window
-       - Frameless pywebview window (no OS title bar)
-       - Draggable header via -webkit-app-region: drag
-       - Themed background (NOT pure black)
-       - Buttons are no-drag so they stay clickable
-       - Layout fills the whole window — no dead space at the bottom
-    ========================================================= */
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-        Roboto, "Helvetica Neue", Arial, sans-serif;
-      color: var(--text-primary);
-      background: var(--surface);
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    html[data-theme="claude-light"] body,
-    body[data-theme="claude-light"] {
-      background: #fbf7f1;
-    }
-
-    html[data-theme="midnight-slate"] body,
-    body[data-theme="midnight-slate"] {
-      background: #111827;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at top right, rgba(232, 80, 2, 0.08), transparent 55%),
-        radial-gradient(circle at bottom left, rgba(193, 8, 1, 0.05), transparent 55%);
-      z-index: 0;
-    }
-
-    /* ---- Outer shell: fills the window, column flex, spaced evenly ---- */
-    .mini-dock-window {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      height: 100%;
-      padding: 14px;
-      gap: 10px;
-      border: 1px solid var(--border-subtle);
-      border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
-        var(--surface);
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
-      backdrop-filter: blur(18px);
-      overflow: hidden;
-    }
-
-    html[data-theme="claude-light"] .mini-dock-window {
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(249, 244, 235, 0.95));
-      border-color: rgba(15, 17, 23, 0.08);
-    }
-
-    html[data-theme="midnight-slate"] .mini-dock-window {
-      background:
-        linear-gradient(180deg, rgba(27, 35, 52, 0.95), rgba(19, 26, 40, 0.95));
-    }
-
-    /* ---- Header (drag handle) ---- */
-    .mini-dock-header {
-      -webkit-app-region: drag;
-      app-region: drag;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      cursor: grab;
-      flex-shrink: 0;
-    }
-
-    .mini-dock-header:active {
-      cursor: grabbing;
-    }
-
-    .no-drag {
-      -webkit-app-region: no-drag;
-      app-region: no-drag;
-    }
-
-    .mini-dock-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .mini-dock-logo {
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-      border-radius: 8px;
-      flex-shrink: 0;
-    }
-
-    .mini-dock-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      min-width: 0;
-    }
-
-    .mini-dock-kicker {
-      font-size: 9px;
-      color: var(--text-muted);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      line-height: 1;
-    }
-
-    .mini-dock-title {
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.1;
-      color: var(--text-primary);
-    }
-
-    .mini-dock-close {
-      width: 32px;
-      height: 32px;
-      border-radius: 10px;
-      display: inline-grid;
-      place-items: center;
-      border: 1px solid var(--border-subtle);
-      background: var(--surface-soft);
-      color: var(--text-secondary);
-      flex-shrink: 0;
-      cursor: pointer;
-      transition: transform 0.16s ease, border-color 0.16s ease,
-        background 0.16s ease, color 0.16s ease;
-    }
-
-    .mini-dock-close:hover {
-      border-color: rgba(239, 68, 68, 0.34);
-      background: rgba(239, 68, 68, 0.10);
-      color: #f87171;
-      transform: translateY(-1px);
-    }
-
-    .mini-dock-close svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    /* ---- Status row ---- */
-    .mini-dock-status {
-      font-size: 11.5px;
-      color: var(--text-secondary);
-      line-height: 1.3;
-      padding: 9px 11px;
-      border: 1px solid var(--border-subtle);
-      border-radius: 11px;
-      background: var(--surface-soft);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .mini-dock-status .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: var(--branding-orange);
-      flex-shrink: 0;
-      box-shadow: 0 0 0 3px rgba(232, 80, 2, 0.12);
-    }
-
-    .mini-dock-status.has-new {
-      border-color: rgba(232, 80, 2, 0.32);
-      color: var(--text-primary);
-      background: rgba(232, 80, 2, 0.08);
-    }
-
-    /* ---- Quick actions grid: flexes to fill available height ---- */
-    .mini-dock-section-label {
-      font-size: 9px;
-      color: var(--text-muted);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      padding: 0 2px;
-      flex-shrink: 0;
-    }
-
-    .mini-dock-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      grid-auto-rows: 1fr;
-      gap: 8px;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .mini-dock-action {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      min-width: 0;
-      border-radius: 13px;
-      border: 1px solid var(--border-subtle);
-      background: var(--surface-soft);
-      padding: 10px 8px;
-      color: var(--text-primary);
-      text-align: center;
-      cursor: pointer;
-      transition: transform 0.16s ease, border-color 0.16s ease,
-        background 0.16s ease;
-    }
-
-    .mini-dock-action:hover {
-      transform: translateY(-1px);
-      border-color: rgba(232, 80, 2, 0.28);
-      background: rgba(232, 80, 2, 0.08);
-    }
-
-    .mini-dock-action:active {
-      transform: translateY(0);
-    }
-
-    .mini-dock-action-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 10px;
-      display: inline-grid;
-      place-items: center;
-      flex-shrink: 0;
-      background: rgba(255, 255, 255, 0.05);
-      font-size: 16px;
-    }
-
-    html[data-theme="claude-light"] .mini-dock-action-icon {
-      background: rgba(15, 17, 23, 0.05);
-    }
-
-    .mini-dock-action-copy {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      gap: 1px;
-    }
-
-    .mini-dock-action-title {
-      font-size: 12.5px;
-      font-weight: 600;
-      line-height: 1.1;
-    }
-
-    .mini-dock-action-sub {
-      font-size: 10px;
-      color: var(--text-muted);
-      line-height: 1.15;
-    }
-
-    /* ---- Big restore CTA at the bottom ---- */
-    .mini-dock-restore {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 13px;
-      background: var(--branding-gradient);
-      color: #ffffff;
-      font-size: 13px;
-      font-weight: 650;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      flex-shrink: 0;
-      box-shadow: 0 8px 20px rgba(232, 80, 2, 0.28);
-      transition: transform 0.16s ease, box-shadow 0.16s ease,
-        filter 0.16s ease;
-    }
-
-    .mini-dock-restore:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 24px rgba(232, 80, 2, 0.36);
-      filter: brightness(1.06);
-    }
-
-    .mini-dock-restore:active {
-      transform: translateY(0);
-      filter: brightness(0.96);
-    }
-
-    .mini-dock-restore svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
-
-    @keyframes pulseNew {
-      0%   { box-shadow: 0 0 0 0 rgba(232, 80, 2, 0.35); }
-      70%  { box-shadow: 0 0 0 6px rgba(232, 80, 2, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(232, 80, 2, 0); }
-    }
-
-    .mini-dock-status.has-new .status-dot {
-      animation: pulseNew 1.4s ease-out infinite;
-    }
-  </style>
+  <link rel="stylesheet" href="./mini-dock.css?v=4" />
 </head>
-<body>
-  <div class="mini-dock-window">
 
-    <div class="mini-dock-header">
-      <div class="mini-dock-brand">
-        <img data-theme-logo="mark" src="./assets/logo_dark.png" alt="" class="mini-dock-logo" />
-        <div class="mini-dock-copy">
-          <div class="mini-dock-kicker">Floating mode</div>
-          <div class="mini-dock-title">Vāgmi</div>
+<body>
+
+  <div class="mini-chat-window" id="miniChatWindow">
+
+    <!-- Header (drag handle) -->
+    <header class="mini-header" id="miniHeader">
+      <div class="header-title">
+        <button id="backBtn" class="icon-btn back-btn" type="button" title="Back to chats" aria-label="Back to chats"
+          hidden>
+          <span class="icon" data-icon="back"></span>
+        </button>
+        <div class="header-brand">
+          <div class="header-kicker mono">Chat</div>
+          <div id="headerTitle" class="header-title-text">Conversations</div>
         </div>
       </div>
-      <button class="mini-dock-close no-drag" id="close-btn" type="button"
-              title="Restore workspace" aria-label="Restore workspace">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 6 6 18"></path>
-          <path d="m6 6 12 12"></path>
-        </svg>
-      </button>
-    </div>
 
-    <div class="mini-dock-status" id="status">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span id="status-text">Drag me anywhere on your desktop.</span>
-    </div>
+      <div class="header-actions">
+        <button id="minimizeBtn" class="icon-btn" type="button" title="Hide mini window" aria-label="Hide mini window">
+          <span class="icon" data-icon="minimize"></span>
+        </button>
+        <button id="maximizeBtn" class="icon-btn" type="button" title="Return to full workspace"
+          aria-label="Return to full workspace">
+          <span class="icon" data-icon="maximize"></span>
+        </button>
+      </div>
+    </header>
 
-    <div class="mini-dock-section-label">Quick actions</div>
+    <!-- Signed-out state -->
+    <section class="mini-state-view signed-out-notice" id="signedOutNotice" hidden>
+      <div class="mini-empty-card">
+        <div class="mini-empty-icon">
+          <span class="icon" data-icon="lock"></span>
+        </div>
+        <div class="mini-empty-kicker mono">Signed out</div>
+        <div class="mini-empty-title">Sign in to start chatting</div>
+        <div class="mini-empty-copy">
+          Open the main Vāgmi window and sign in. Your conversations will appear here automatically.
+        </div>
+      </div>
+    </section>
 
-    <div class="mini-dock-grid" role="group" aria-label="Quick workspace actions">
-      <button class="mini-dock-action no-drag" type="button" data-mini-page="chat">
-        <span class="mini-dock-action-icon" aria-hidden="true">💬</span>
-        <span class="mini-dock-action-copy">
-          <span class="mini-dock-action-title">Chat</span>
-          <span class="mini-dock-action-sub">Messages &amp; DMs</span>
-        </span>
-      </button>
-      <button class="mini-dock-action no-drag" type="button" data-mini-page="intelligence">
-        <span class="mini-dock-action-icon" aria-hidden="true">🧠</span>
-        <span class="mini-dock-action-copy">
-          <span class="mini-dock-action-title">Intelligence</span>
-          <span class="mini-dock-action-sub">Docs &amp; summaries</span>
-        </span>
-      </button>
-      <button class="mini-dock-action no-drag" type="button" data-mini-page="diagram">
-        <span class="mini-dock-action-icon" aria-hidden="true">✦</span>
-        <span class="mini-dock-action-copy">
-          <span class="mini-dock-action-title">Diagram</span>
-          <span class="mini-dock-action-sub">Mermaid studio</span>
-        </span>
-      </button>
-      <button class="mini-dock-action no-drag" type="button" data-mini-page="settings">
-        <span class="mini-dock-action-icon" aria-hidden="true">⚙</span>
-        <span class="mini-dock-action-copy">
-          <span class="mini-dock-action-title">Settings</span>
-          <span class="mini-dock-action-sub">Theme &amp; profile</span>
-        </span>
-      </button>
-    </div>
+    <!-- Conversation list view -->
+    <section class="conversation-list-view" id="listView" hidden>
+      <div class="conversation-list-scroll" id="conversationListContainer">
+        <div class="mini-state-view mini-list-empty" id="listEmpty" hidden>
+          <div class="mini-empty-card">
+            <div class="mini-empty-icon">
+              <span class="icon" data-icon="chat"></span>
+            </div>
+            <div class="mini-empty-kicker mono">Inbox</div>
+            <div class="mini-empty-title">No conversations yet</div>
+            <div class="mini-empty-copy">
+              Start a direct message from the main window and it will show up here.
+            </div>
+          </div>
+        </div>
+        <div class="mini-state-view mini-list-loading" id="listLoading">
+          <div class="mini-spinner" aria-label="Loading"></div>
+          <div class="mini-loading-text">Loading chats…</div>
+        </div>
+      </div>
+    </section>
 
-    <button class="mini-dock-restore no-drag" id="restore-btn" type="button"
-            title="Restore workspace" aria-label="Restore workspace">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 4H4v4"></path>
-        <path d="M4 8l5-5"></path>
-        <path d="M16 20h4v-4"></path>
-        <path d="M20 16l-5 5"></path>
-      </svg>
-      Restore workspace
-    </button>
+    <!-- Thread view -->
+    <section class="thread-view" id="threadView" hidden>
+
+      <header class="conversation-header">
+        <div class="conversation-meta">
+          <div class="thread-avatar avatar-large" id="conversationAvatar">?</div>
+          <div class="conversation-title-wrap">
+            <div id="conversationName" class="conversation-title">Loading…</div>
+            <div class="conversation-sub">
+              <span class="online-dot" id="statusDot"></span>
+              <span id="statusText">Connecting…</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="messages-shell">
+        <div class="messages-scroll" id="messagesScroll">
+          <div class="messages-container" id="messagesContainer">
+            <div class="mini-state-view messages-empty" id="messagesEmpty" hidden>
+              <div class="mini-empty-card small">
+                <div class="mini-empty-icon small">
+                  <span class="icon" data-icon="chat"></span>
+                </div>
+                <div class="mini-empty-title">No messages yet</div>
+                <div class="mini-empty-copy">Say hi to start the conversation.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="composer">
+        <button id="attachBtn" type="button" class="icon-btn attach-btn" title="Attach a file"
+          aria-label="Attach a file" disabled>
+          <span class="icon" data-icon="attach"></span>
+        </button>
+        <input type="file" id="attachmentInput" hidden />
+
+        <textarea id="messageInput" class="message-text-input" placeholder="Type a message…" rows="1" autocomplete="off"
+          disabled></textarea>
+
+        <button id="sendBtn" type="button" class="send-btn" title="Send message" aria-label="Send message" disabled>
+          <span class="icon" data-icon="send"></span>
+        </button>
+      </footer>
+    </section>
+
+    <!-- Toast -->
+    <div class="mini-toast" id="miniToast" role="status" aria-live="polite" hidden></div>
 
   </div>
 
-  <script>
-    (() => {
-      const UNSHARED_KEY = "vagmi-mini-unread";
-      const ACTIVE_PAGE_KEY = "vagmi-active-shell-page";
+  <!-- Inline SVG icon definitions (kept here so the mini window has no
+       dependency on pages/chat/core/icons.js, which is bundled for the
+       main app and would couple the mini window to chat-page state). -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <defs>
+      <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6"></path>
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 6l12 12M18 6L6 18"></path>
+      </symbol>
+      <symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 18h12" />
+      </symbol>
+      <symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="5" width="14" height="14" rx="1" />
+      </symbol>
+      <symbol id="i-attach" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.5l-8.8 8.8a5 5 0 1 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.6 9.6a2 2 0 0 1-2.8-2.8l8.5-8.5">
+        </path>
+      </symbol>
+      <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 2L11 13"></path>
+        <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+      </symbol>
+      <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+        <circle cx="9" cy="9" r="1.5"></circle>
+        <path d="M21 15l-5-5-8 8"></path>
+      </symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+      </symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <rect x="9" y="3" width="6" height="12" rx="3"></rect>
+        <path d="M5 11a7 7 0 0 0 14 0"></path>
+        <path d="M12 18v3"></path>
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path>
+        <path d="M14 2v5h5"></path>
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <path d="M7 10l5 5 5-5"></path>
+        <path d="M12 15V3"></path>
+      </symbol>
+    </defs>
+  </svg>
 
-      const restoreBtn = document.getElementById("restore-btn");
-      const closeBtn = document.getElementById("close-btn");
-      const statusEl = document.getElementById("status");
-      const statusText = document.getElementById("status-text");
-      const actionBtns = Array.from(document.querySelectorAll("[data-mini-page]"));
-
-      function getBridge() {
-        return window.pywebview && window.pywebview.api
-          ? window.pywebview.api
-          : null;
-      }
-
-      function paintUnread(count) {
-        const n = Number(count) || 0;
-        if (n > 0) {
-          const suffix = n === 1 ? "message" : "messages";
-          statusText.textContent = `${n} unread ${suffix} waiting.`;
-          statusEl.classList.add("has-new");
-        } else {
-          statusText.textContent = "Drag me anywhere on your desktop.";
-          statusEl.classList.remove("has-new");
-        }
-      }
-
-      function readUnread() {
-        try {
-          return Number(localStorage.getItem(UNSHARED_KEY) || 0) || 0;
-        } catch {
-          return 0;
-        }
-      }
-
-      // Initial paint — sync with whatever the main window last knew.
-      paintUnread(readUnread());
-
-      // Live updates: the main window writes to localStorage whenever the
-      // unread count changes. The `storage` event fires in *this* window
-      // because we are a separate browsing context sharing the same origin.
-      window.addEventListener("storage", (event) => {
-        if (event.key === UNSHARED_KEY) {
-          paintUnread(event.newValue || 0);
-        }
-      });
-
-      function doRestore(page) {
-        const bridge = getBridge();
-        if (!bridge) return;
-        if (page && bridge.restore_with_page) {
-          bridge.restore_with_page(page);
-        } else if (bridge.exit_compact_mode) {
-          bridge.exit_compact_mode();
-        }
-      }
-
-      // Both the X button and the big Restore button restore the workspace.
-      restoreBtn.addEventListener("click", () => doRestore(null));
-      closeBtn.addEventListener("click", () => doRestore(null));
-
-      actionBtns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const page = btn.dataset.miniPage;
-          if (!page) return;
-          try {
-            localStorage.setItem(ACTIVE_PAGE_KEY, page);
-          } catch {}
-          doRestore(page);
-        });
-      });
-
-      // Keyboard: Esc or Ctrl+Shift+M restores
-      window.addEventListener("keydown", (event) => {
-        if (event.defaultPrevented) return;
-        if (event.key === "Escape") {
-          doRestore(null);
-          return;
-        }
-        if (event.ctrlKey && event.shiftKey &&
-            String(event.key || "").toLowerCase() === "m") {
-          event.preventDefault();
-          doRestore(null);
-        }
-      });
-    })();
-  </script>
+  <script type="module" src="./mini-dock.js?v=4"></script>
 </body>
+
 </html>

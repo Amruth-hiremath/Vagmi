@@ -33,13 +33,9 @@ PORT = 0
 APP_WINDOW = None
 SERVER_PORT = None
 
-# Background color for the floating mini-dock window. Deliberately NOT pure
-# black (#000000) — the main window uses pure black, which is what made the
-# old in-window mini-dock look like a black square. This themed dark surface
-# matches the app's `--surface` token so the floating panel reads as a card.
-MINI_WINDOW_BG = "#0f1117"
-MINI_DEFAULT_WIDTH = 320
-MINI_DEFAULT_HEIGHT = 460
+MINI_WINDOW_BG = "#111318"
+MINI_DEFAULT_WIDTH = 380
+MINI_DEFAULT_HEIGHT = 640
 
 
 def _save_dialog(filename: str) -> str | None:
@@ -311,6 +307,29 @@ class DesktopBridge:
                 except Exception:
                     pass
 
+            return True
+        except Exception:
+            return False
+
+    def minimize_mini_window(self) -> bool:
+        """Minimize the floating mini-dock to the OS taskbar / Dock.
+
+        This is a true OS-level minimize -- the window stays alive (so
+        polling continues) but is hidden from the desktop. The user can
+        restore it by clicking its taskbar/Dock icon.
+        """
+        try:
+            if self._mini_window is None:
+                return False
+            try:
+                self._mini_window.minimize()
+            except Exception:
+                # Some backends don't support minimize on frameless
+                # windows -- fall back to hiding the window.
+                try:
+                    self._mini_window.hide()
+                except Exception:
+                    pass
             return True
         except Exception:
             return False
