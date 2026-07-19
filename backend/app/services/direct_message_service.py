@@ -66,7 +66,7 @@ def create_direct_message(
         sender_id=sender_id,
         message_text=message_text,
         message_type="TEXT",
-        delivered_at=datetime.now(timezone.utc)
+        delivered_at=None
     )
 
     db.add(message)

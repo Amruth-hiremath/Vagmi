@@ -951,11 +951,12 @@ button {
 .message-bubble {
   max-width: min(68%, 640px);
   min-width: 120px;
-  padding: 10px 42px 10px 12px;
+  padding: 10px 12px 8px 12px;
   border-radius: 18px;
   border: 1px solid var(--border-subtle);
   background: rgba(18, 18, 18, 0.96);
   position: relative;
+  display: flow-root;
 }
 
 .message-row.self .message-bubble {
@@ -980,7 +981,7 @@ button {
   border: none;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
-  color: #ffffff;
+  color: var(--text-on-accent);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1007,7 +1008,7 @@ button {
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
-  color: white;
+  color: var(--text-secondary);
   font-size: 11px;
 }
 
@@ -1023,13 +1024,62 @@ button {
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
+  display: inline;
 }
 
 .message-time {
-  margin-top: 8px;
-  text-align: right;
+  margin-top: 0;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.message-footer {
+  float: right;
+  margin: 4px 0 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 14px;
+}
+
+.message-footer .message-time {
+  margin-top: 0;
+}
+
+.message-receipt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.message-receipt svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message-receipt.pending {
+  color: var(--text-muted);
+}
+
+.message-receipt.delivered {
+  color: var(--text-secondary);
+}
+
+.message-receipt.seen {
+  color: var(--branding-orange);
 }
 
 .message-caption {
@@ -1376,8 +1426,8 @@ button {
 .attachment-modal-dialog {
   position: relative;
   z-index: 1;
-  width: min(95vw, 1200px);
-  height: min(92vh, 900px);
+  width: min(96vw, 1400px);
+  height: min(96vh, 1000px);
   display: flex;
   flex-direction: column;
   border-radius: 22px;
@@ -1404,24 +1454,55 @@ button {
 }
 
 .attachment-modal-body {
-  min-height: 220px;
-  padding: 20px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
   flex: 1;
-  display:flex;
+  display: flex;
   justify-content: center;
   align-items: center;
-  padding: 12px;
+  overflow: auto;
+  padding: 20px;
+}
 
+.attachment-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.attachment-loading .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .attachment-preview {
   width: 100%;
-  display: grid;
-  place-items: center;
-  gap: 16px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.attachment-preview-video {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+
+  width: auto;
+  height: auto;
+
+  object-fit: contain;
+
+  border-radius: 12px;
+  background: #000;
 }
 
 .attachment-preview-image {

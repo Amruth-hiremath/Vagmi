@@ -1,3 +1,4 @@
+/* desktop/web/pages/admin/styles.css */
 :root {
   --branding-orange: #E85002;
   --primary-black: #000;
@@ -119,13 +120,13 @@ body{
 }
 
 .btn-approve{
-  color:white;
+  color:var(--text-on-accent);
   background:var(--branding-gradient);
 }
 
 .btn-reject{
-  color:white;
-  background:#6b1b1b;
+  color:var(--text-on-accent);
+  background:var(--danger, #6b1b1b);
 }
 
 .badge{
@@ -142,28 +143,28 @@ body{
 }
 
 .badge.owner {
-    background: #f59e0b;
-    color: white;
+    background: var(--warning);
+    color: var(--text-on-accent);
 }
 
 .badge.admin {
-    background: #2563eb;
-    color: white;
+    background: var(--accent-strong);
+    color: var(--text-on-accent);
 }
 
 .badge.user {
-    background: #6b7280;
-    color: white;
+    background: var(--text-muted);
+    color: var(--text-on-accent);
 }
 
 .badge.approved {
-    background: #16a34a;
-    color: white;
+    background: var(--success, #16a34a);
+    color: var(--text-on-accent);
 }
 
 .badge.pending {
-    background: #dc2626;
-    color: white;
+    background: var(--danger);
+    color: var(--text-on-accent);
 }
 
 .empty{

@@ -5,7 +5,7 @@
    - claude-light     : Light
    - midnight-slate   : Graphite
 ========================================================= */
-
+/* desktop/web/theme.css */
 html[data-theme] {
   --branding-orange: #E85002;
   --accent-strong: #E85002;
@@ -13,6 +13,28 @@ html[data-theme] {
   --accent-soft: rgba(232, 80, 2, 0.14);
   --accent-ring: rgba(232, 80, 2, 0.20);
   --branding-gradient: linear-gradient(135deg, var(--accent-strong), var(--accent-mid));
+
+  --panel: var(--surface);
+  --panel-2: var(--surface-soft);
+  --panel-3: var(--surface-hover);
+  --panel-soft: var(--surface-soft);
+  --panel-hover: var(--surface-hover);
+  --panel-active: var(--surface-active);
+  --panel-border: 1px solid var(--border-subtle);
+
+  --radius-xl: 22px;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+
+  --accent: var(--accent-strong);
+  --accent-primary: var(--accent-strong);
+  --accent-color: var(--accent-strong);
+  --accent-border-hover: rgba(232, 80, 2, 0.24);
+  --accent-border-active: rgba(232, 80, 2, 0.34);
+  --accent-fill-hover: rgba(232, 80, 2, 0.12);
+
+  --mono-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --primary-black: #0f1117;
   --white: #F9FAFB;

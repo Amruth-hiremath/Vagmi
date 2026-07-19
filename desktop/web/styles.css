@@ -89,7 +89,9 @@ body.sidebar-collapsed .sidebar {
 body.sidebar-collapsed .brand-text,
 body.sidebar-collapsed .nav-label,
 body.sidebar-collapsed .user-details,
-body.sidebar-collapsed .toggle-label {
+body.sidebar-collapsed .toggle-label,
+body.sidebar-collapsed .workspace-mini-title,
+body.sidebar-collapsed .workspace-mini-shortcut {
   opacity: 0;
   pointer-events: none;
 }
@@ -229,6 +231,7 @@ body.sidebar-collapsed .nav-notification-dot {
 
 .user-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 
+.workspace-mini-btn,
 .sidebar-toggle {
   background: transparent;
   border: none;
@@ -240,20 +243,143 @@ body.sidebar-collapsed .nav-notification-dot {
   outline: none;
 }
 
+/* Match the nav-item layout exactly: full-width row with 24px horizontal
+   padding. This keeps the minimize button aligned with everything else in
+   the sidebar and avoids the "irregular inset shape" it had before. */
+.workspace-mini-btn {
+  width: 100%;
+  margin: 0;
+  padding: 30px 24px;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+body[data-theme="claude-light"] .workspace-mini-btn,
+html[data-theme="claude-light"] .workspace-mini-btn {
+  background: transparent;
+}
+
+body[data-theme="midnight-slate"] .workspace-mini-btn,
+html[data-theme="midnight-slate"] .workspace-mini-btn {
+  background: transparent;
+}
+
+.workspace-mini-btn:hover,
 .sidebar-toggle:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.04);
 }
 
+.workspace-mini-btn:hover {
+  border-top-color: var(--border-subtle);
+  box-shadow: none;
+  transform: none;
+}
+
+.workspace-mini-btn:hover .workspace-mini-icon {
+  background: rgba(232, 80, 2, 0.14);
+  border-color: rgba(232, 80, 2, 0.28);
+  color: var(--branding-orange);
+}
+
+.workspace-mini-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  transition: var(--transition-snappy);
+}
+
+.workspace-mini-icon svg,
 .sidebar-toggle svg {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.7;
+  transition: var(--transition-snappy);
 }
 
-body.sidebar-collapsed .sidebar-toggle svg {
-  transform: rotate(180deg);
+.workspace-mini-btn:hover .workspace-mini-icon svg {
+  opacity: 1;
+}
+
+.workspace-mini-title {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  white-space: nowrap;
+  opacity: 1;
+  transition: var(--transition-fade);
+}
+
+.workspace-mini-sub {
+  display: none;
+}
+
+.workspace-mini-shortcut {
+  margin-left: auto;
+  align-self: center;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 1;
+  transition: var(--transition-fade);
+}
+
+/* ---- Collapsed sidebar: button becomes a centered icon ---- */
+body.sidebar-collapsed .workspace-mini-btn {
+  width: 100%;
+  margin: 0;
+  padding: 12px 24px;
+  border-radius: 0;
+  border-top: 1px solid var(--border-subtle);
+  justify-content: flex-start;
+  gap: 0;
+}
+
+body.sidebar-collapsed .workspace-mini-copy,
+body.sidebar-collapsed .workspace-mini-shortcut,
+body.sidebar-collapsed .workspace-mini-title,
+body.sidebar-collapsed .workspace-mini-sub {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* When collapsed, the icon box expands to fill the 20px slot — but since
+   the sidebar is 68px wide with 24px padding on each side, the content
+   area is exactly 20px, matching the nav-item icons perfectly. */
+body.sidebar-collapsed .workspace-mini-icon {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+
+.hidden {
+  display: none !important;
 }
 
 /* =========================================================
@@ -364,6 +490,7 @@ body.sidebar-collapsed .sidebar-toggle svg {
   transform: translateX(1px);
 }
 
-.hidden {
-  display: none !important;
-}
+/* The floating mini-dock now lives in its own OS window (see
+   /web/mini-dock.html). The old in-DOM mini-dock styles and
+   `app-mini-mode` body class are intentionally kept here only as harmless
+   no-ops so any leftover markup elsewhere doesn't render unexpectedly. */

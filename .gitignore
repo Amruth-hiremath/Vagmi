@@ -68,3 +68,4 @@ build/
 # Offline Models
 # =========================
 backend/offline_models/
+backend/local_models/

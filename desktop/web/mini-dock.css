@@ -1,0 +1,1205 @@
+/* =========================================================
+   Vāgmi Mini Chat window
+   - Frameless pywebview window (no OS title bar)
+   - Draggable header via -webkit-app-region: drag
+   - Themed via theme.css custom properties
+   - Design language mirrors pages/chat so the mini window
+     feels like a compact continuation of the main app.
+========================================================= */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Guarantee `hidden` always wins, even over components that set their
+   own `display` (e.g. display:flex), since author rules of equal
+   specificity otherwise override the UA's [hidden]{display:none}. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  background: var(--page-bg, #0f1117);
+  color: var(--text-primary);
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+::selection {
+  background: rgba(232, 80, 2, 0.22);
+  color: var(--white, #F9FAFB);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--branding-orange, #E85002);
+}
+
+/* ---------------------------------------------------------
+   SVG icons — mirrored from pages/chat/core/icons.js so the
+   mini window has no coupling to the main chat bundle.
+--------------------------------------------------------- */
+
+.icon,
+.icon svg {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.icon use {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------------------------------------------------------
+   Window shell
+--------------------------------------------------------- */
+
+.mini-chat-window {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  background:
+    radial-gradient(circle at top right, rgba(232, 80, 2, 0.05), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(193, 8, 1, 0.03), transparent 22%),
+    var(--page-bg, #0f1117);
+
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------
+   Header (drag handle)
+--------------------------------------------------------- */
+
+.mini-header {
+  -webkit-app-region: drag;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  padding: 12px 10px 12px 14px;
+
+  background: linear-gradient(180deg, var(--surface-strong), var(--surface));
+  border-bottom: 1px solid var(--border-subtle);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.header-kicker {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+
+.header-title-text {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  -webkit-app-region: no-drag;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------------------------------------------------------
+   Icon buttons — match pages/chat styles.css .icon-btn
+--------------------------------------------------------- */
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: translateY(0);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.back-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.icon-btn-close:hover {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.10);
+  color: #f87171;
+}
+
+/* Header control buttons: minimize (–) and maximize (□) get a slightly
+   rounder, more "window-control" feel while still matching the app. */
+.header-actions .icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.header-actions .icon-btn .icon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.icon use {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------------------------------------------------------
+   Generic mini state view (signed-out, list empty, etc.)
+--------------------------------------------------------- */
+
+.mini-state-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+}
+
+.mini-empty-card {
+  width: 100%;
+  max-width: 280px;
+  padding: 22px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top left, rgba(232, 80, 2, 0.10), transparent 36%),
+    var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.mini-empty-card.small {
+  max-width: 240px;
+  padding: 18px 14px;
+  border-radius: 16px;
+}
+
+.mini-empty-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(232, 80, 2, 0.12);
+  border: 1px solid rgba(232, 80, 2, 0.18);
+  color: var(--branding-orange, #E85002);
+}
+
+.mini-empty-icon.small {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.mini-empty-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.mini-empty-icon.small .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mini-empty-kicker {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mini-empty-title {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.mini-empty-card.small .mini-empty-title {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.mini-empty-copy {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.mini-empty-card.small .mini-empty-copy {
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* ---------------------------------------------------------
+   Signed-out state
+--------------------------------------------------------- */
+
+.signed-out-notice .status-dot {
+  background: #f87171;
+}
+
+/* ---------------------------------------------------------
+   Loading indicator
+--------------------------------------------------------- */
+
+.mini-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2.5px solid var(--surface-hover);
+  border-top-color: var(--branding-orange, #E85002);
+  animation: mini-spin 0.85s linear infinite;
+}
+
+@keyframes mini-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mini-list-loading {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mini-loading-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------
+   Conversation list view
+--------------------------------------------------------- */
+
+.conversation-list-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.conversation-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px 12px;
+}
+
+.conversation-list-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.conversation-list-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-subtle);
+}
+
+.conversation-list-item.active {
+  background: rgba(232, 80, 2, 0.10);
+  border-color: rgba(232, 80, 2, 0.22);
+}
+
+.conversation-list-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--branding-gradient);
+}
+
+.conversation-list-item .thread-avatar,
+.conversation-list-item .avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+}
+
+.thread-list-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.thread-list-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.thread-list-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-list-time {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.thread-list-preview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.thread-list-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thread-list-preview .preview-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+
+.thread-list-preview .preview-icon .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--branding-gradient);
+  box-shadow: 0 0 0 1px rgba(232, 80, 2, 0.2);
+}
+
+/* ---------------------------------------------------------
+   Thread view wrapper
+--------------------------------------------------------- */
+
+.thread-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------
+   Conversation header
+--------------------------------------------------------- */
+
+.conversation-header {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 11px 14px;
+
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.conversation-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.thread-avatar,
+.avatar-large,
+.avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, var(--surface-hover), var(--surface-soft));
+  border: 1px solid var(--border-subtle);
+  user-select: none;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-large {
+  width: 38px;
+  height: 38px;
+  font-size: 13px;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.avatar-has-image {
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+
+.conversation-title-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.conversation-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversation-sub {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.online-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--text-muted);
+}
+
+.conversation-sub.is-online .online-dot {
+  background: var(--branding-orange, #E85002);
+  box-shadow: 0 0 0 3px rgba(232, 80, 2, 0.14);
+}
+
+/* ---------------------------------------------------------
+   Messages
+--------------------------------------------------------- */
+
+.messages-shell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.messages-scroll {
+  position: relative;
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+
+  padding: 14px 12px 14px;
+
+  /* Grid keeps the single child container stretched cleanly, while the
+     messages themselves stay fully scrollable inside that container. */
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  gap: 10px;
+
+  background:
+    radial-gradient(circle at top left, rgba(232, 80, 2, 0.04), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 14%);
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  /* No min-height here — the grid parent handles bottom-stick. */
+}
+
+.day-chip {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin: 4px 0 2px;
+}
+
+/* Message bubbles — mirror pages/chat .message-row / .message-bubble */
+
+.message-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  animation: mini-msg-in 0.18s ease;
+}
+
+@keyframes mini-msg-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.message-row.self {
+  justify-content: flex-end;
+}
+
+.message-row.other {
+  justify-content: flex-start;
+}
+
+.message-row.self .message-bubble {
+  margin-left: auto;
+}
+
+.message-row.other .message-bubble {
+  margin-right: auto;
+}
+
+.message-bubble {
+  max-width: 82%;
+  min-width: 90px;
+  padding: 8px 11px 7px 11px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  position: relative;
+  display: flow-root;
+  word-break: break-word;
+}
+
+.message-row.self .message-bubble {
+  background: rgba(232, 80, 2, 0.16);
+  border-color: rgba(232, 80, 2, 0.24);
+}
+
+.message-row.other .message-bubble {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.message-text {
+  color: var(--text-primary);
+  line-height: 1.45;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: inline;
+}
+
+.message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 3px;
+  min-height: 12px;
+}
+
+.message-time {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.message-receipt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  color: var(--text-muted);
+}
+
+.message-receipt svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.message-receipt.pending { color: var(--text-muted); }
+.message-receipt.delivered { color: var(--text-secondary); }
+.message-receipt.seen { color: var(--branding-orange, #E85002); }
+
+/* Image messages */
+
+.message-image {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  min-width: 120px;
+  min-height: 120px;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  cursor: pointer;
+  object-fit: cover;
+  background:
+    linear-gradient(135deg, rgba(232, 80, 2, 0.16), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+  /* Reserve space while loading so the bubble has a definite size */
+}
+
+.message-image.is-loaded {
+  background: transparent;
+}
+
+.message-image.is-error {
+  background:
+    linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+  cursor: default;
+}
+
+.message-caption {
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Voice messages */
+
+.voice-card {
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voice-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.voice-card-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(232, 80, 2, 0.16);
+  border: 1px solid rgba(232, 80, 2, 0.24);
+  color: var(--branding-orange, #E85002);
+}
+
+.voice-card-icon .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.voice-card-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.voice-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.voice-card-subtitle {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.voice-player,
+.voice-players {
+  width: 100%;
+  height: 32px;
+  border-radius: 999px;
+  accent-color: var(--branding-orange, #E85002);
+}
+
+/* File attachment card */
+
+.file-chip {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 200px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(232, 80, 2, 0.12);
+  border: 1px solid rgba(232, 80, 2, 0.18);
+  color: var(--text-primary);
+}
+
+.file-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.file-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.file-meta {
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  margin-top: 2px;
+}
+
+.file-download-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.file-download-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.file-download-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---------------------------------------------------------
+   Composer
+--------------------------------------------------------- */
+
+.composer {
+  flex-shrink: 0;
+
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 40px;
+  align-items: end;
+  gap: 8px;
+
+  padding: 10px 12px 12px;
+
+  background: linear-gradient(180deg, var(--surface-strong), var(--surface));
+  border-top: 1px solid var(--border-subtle);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.composer .icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+.composer .icon-btn:disabled {
+  opacity: 0.5;
+}
+
+.message-text-input {
+  width: 100%;
+  min-height: 36px;
+  max-height: 110px;
+  resize: none;
+  line-height: 1.45;
+  padding: 9px 12px;
+  overflow-y: auto;
+
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 11px;
+
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-text-input::placeholder {
+  color: var(--placeholder);
+}
+
+.message-text-input:focus {
+  border-color: var(--input-border-strong);
+  background: var(--input-bg-hover);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.message-text-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Allow text selection inside the textarea */
+.message-text-input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--branding-gradient);
+  color: var(--text-on-accent, #fff);
+  cursor: pointer;
+  border: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.send-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.96);
+}
+
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.send-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.send-btn.sending {
+  pointer-events: none;
+}
+
+.send-btn.sending .icon {
+  display: none;
+}
+
+.send-btn.sending::after {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mini-spin 0.7s linear infinite;
+}
+
+/* ---------------------------------------------------------
+   Toast
+--------------------------------------------------------- */
+
+.mini-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 78px;
+  transform: translateX(-50%) translateY(8px);
+  max-width: calc(100% - 24px);
+  padding: 9px 14px;
+  border-radius: 11px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.mini-toast:not([hidden]) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.mini-toast.error {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+/* ---------------------------------------------------------
+   Light theme tweaks (mirrors theme.css claude-light rules)
+--------------------------------------------------------- */
+
+html[data-theme="claude-light"] .message-row.other .message-bubble {
+  background: #f8f4ee;
+  border: 1px solid rgba(124, 92, 59, 0.18);
+  color: var(--text-primary);
+}
+
+html[data-theme="claude-light"] .message-row.self .message-bubble {
+  background: rgba(232, 80, 2, 0.14);
+  border-color: rgba(232, 80, 2, 0.24);
+}
+
+html[data-theme="claude-light"] .composer,
+html[data-theme="claude-light"] .mini-header,
+html[data-theme="claude-light"] .conversation-header {
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(255, 250, 243, 0.96));
+}
+
+/* ---------------------------------------------------------
+   Mini image viewer — lightweight overlay for tapping an image
+--------------------------------------------------------- */
+
+.mini-image-viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: mini-fade-in 0.16s ease;
+}
+
+@keyframes mini-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.mini-image-viewer-img {
+  max-width: 92%;
+  max-height: 88%;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.mini-image-viewer-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.mini-image-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.05);
+}
+
+.mini-image-viewer-close .icon {
+  width: 16px;
+  height: 16px;
+}

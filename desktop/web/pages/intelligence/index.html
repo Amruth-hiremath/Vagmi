@@ -10,90 +10,160 @@
   <link rel="stylesheet" href="../../theme.css" />
 </head>
 <body>
-  <div class="page intelligence-page">
-    <header class="page-head">
-      <div>
-        <div class="section-kicker mono">Intelligence workspace</div>
-        <h1>Documents, retrieval, summaries, and diagrams.</h1>
+  <div class="page intelligence-page" id="page-root">
+    <header class="page-head" id="page-head">
+      <div class="page-copy">
+        <div class="section-kicker mono">AI workspace</div>
+        <h1>Session-first intelligence for offline use.</h1>
+        <p>Pick a session, bind the documents it should see, then route the request in manual or auto mode.</p>
       </div>
-      <div class="head-actions">
-        <button class="ghost-btn" data-nav="chat">Go to Chat</button>
-        <button class="ghost-btn" data-nav="settings">Settings</button>
-      </div>
+
     </header>
 
-    <div class="intel-grid">
-      <aside class="panel docs-rail">
-        <div class="panel-head">
-          <h2>Documents</h2>
-          <span class="pill mono">12</span>
-        </div>
+    <main class="intelligence-root">
+      <section class="panel hub-view" id="hub-view" aria-label="AI sessions">
+        <div class="hub-topbar">
+          <div class="hub-tabs" role="tablist" aria-label="Session filters">
+            <button class="hub-tab active" type="button" data-hub-filter="all">All</button>
+            <button class="hub-tab" type="button" data-hub-filter="manual">Manual</button>
+            <button class="hub-tab" type="button" data-hub-filter="auto">Auto-route</button>
+          </div>
 
-        <div class="search-row">
-          <input type="text" id="doc-search" placeholder="Search documents" />
-        </div>
+          <div class="hub-tools">
+            <label class="hub-search" for="session-search">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input id="session-search" type="search" placeholder="Search sessions" autocomplete="off" />
+            </label>
 
-        <div class="doc-list" id="doc-list"></div>
-      </aside>
+            <label class="hub-sort">
+              <span class="mono">Sort</span>
+              <select id="session-sort" aria-label="Sort sessions">
+                <option value="recent">Most recent</option>
+                <option value="name">Name</option>
+                <option value="activity">Most active</option>
+              </select>
+            </label>
 
-      <section class="panel query-panel">
-        <div class="panel-head">
-          <h2>Ask the workspace</h2>
-          <span class="pill mono">Offline</span>
-        </div>
-
-        <textarea id="query-input" placeholder="Ask questions about your documents, generate a summary, or draft a report..."></textarea>
-
-        <div class="action-row">
-          <button class="primary-btn" data-action="query">Query</button>
-          <button class="secondary-btn" data-action="summary">Summarize</button>
-          <button class="secondary-btn" data-action="report">Generate Report</button>
-          <button class="secondary-btn" data-action="diagram">Mermaid Diagram</button>
-        </div>
-
-        <div class="result-card" id="result-card">
-          <div class="result-empty">
-            <div class="result-title">No request yet</div>
-            <div class="result-sub">Use any action to generate a mock result.</div>
+            <button class="primary-btn" id="create-session-btn" type="button">
+              <span class="btn-icon" aria-hidden="true">+</span>
+              New session
+            </button>
           </div>
         </div>
+
+        <div class="hub-grid" id="session-grid"></div>
       </section>
 
-      <aside class="panel status-panel">
-        <div class="panel-head">
-          <h2>Status</h2>
-          <span class="pill mono">Local</span>
-        </div>
+      <section class="workspace hidden" id="workspace-view" aria-live="polite">
+        <aside class="panel sources-panel">
+          <button class="back-btn" id="back-to-sessions-btn" type="button">
+            <span aria-hidden="true">←</span> <span class="back-btn-text">Sessions</span>
+          </button>
 
-        <div class="status-stack">
-          <div class="status-item">
-            <div class="status-title">Model</div>
-            <div class="status-sub mono">Qwen2.5 7B Q4</div>
+          <div class="sources-head">
+            <div>
+              <h2>Session Sources</h2>
+              <div class="sidebar-sub mono" id="docs-summary">0 in session</div>
+            </div>
           </div>
-          <div class="status-item">
-            <div class="status-title">Embeddings</div>
-            <div class="status-sub mono">all-MiniLM-L6-v2</div>
-          </div>
-          <div class="status-item">
-            <div class="status-title">Vector store</div>
-            <div class="status-sub mono">ChromaDB</div>
-          </div>
-          <div class="status-item">
-            <div class="status-title">Keyword index</div>
-            <div class="status-sub mono">BM25</div>
-          </div>
-        </div>
 
-        <div class="logo-card">
-          <img data-theme-logo="mark" src="../../assets/logo_dark.png" alt="Vāgmi symbol" />
-          <div class="logo-card-text">
-            Secure, offline, and local by design.
+          <input class="hidden" id="upload-docs-input" type="file" accept=".pdf,.docx,.txt" multiple />
+          <label class="search-field" for="doc-search">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="doc-search" type="search" placeholder="Search documents" autocomplete="off" />
+          </label>
+
+          <div class="doc-list" id="doc-list"></div>
+
+          <div class="sources-actions">
+            <button class="ghost-mini-btn" id="upload-docs-btn" type="button">Upload</button>
+            <button class="ghost-mini-btn" id="select-all-docs-btn" type="button">Select all</button>
           </div>
+
+          <button class="sources-panel-toggle" id="sources-panel-toggle" type="button" aria-expanded="true" title="Toggle Sources Panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+            <span class="toggle-label">Collapse</span>
+          </button>
+        </aside>
+
+        <section class="panel chat-panel">
+          <div class="chat-head">
+            <div class="chat-title-block">
+              <div class="chat-title-row">
+                <div class="section-kicker mono" id="session-kicker">SESSION</div>
+              </div>
+              <h2 id="session-title">Session</h2>
+            </div>
+            <div class="chat-head-actions">
+              <button class="ghost-mini-btn artifacts-toggle" id="artifacts-toggle-btn" type="button" aria-expanded="false">
+                <span id="session-artifact-count">0</span> artifacts
+              </button>
+            </div>
+          </div>
+
+          <div class="artifacts-strip hidden" id="artifacts-strip" aria-label="Session artifacts"></div>
+
+          <div class="conversation" id="output-body"></div>
+
+          <div class="composer">
+            <div class="composer-toolbar hidden" id="composer-toolbar">
+              <div class="segmented" aria-label="Routing mode">
+                <button type="button" class="segmented-btn active" data-mode="manual" id="manual-mode-btn" title="Manual mode uses the selected specialist agent">Manual</button>
+                <button type="button" class="segmented-btn" data-mode="auto" id="auto-mode-btn" title="Auto-route chooses the specialist when the request is clear">Auto-route</button>
+              </div>
+
+              <div class="agent-picker" id="agent-picker" aria-label="Agent selection"></div>
+            </div>
+
+            <div class="composer-input-wrap">
+              <button class="ghost-mini-btn toolbar-toggle-icon" id="toolbar-toggle-btn" type="button" aria-expanded="false" title="Toggle settings">
+                <span aria-hidden="true">⚙</span>
+              </button>
+              <textarea
+                id="prompt-input"
+                placeholder="Ask a question, request a summary, draft a document, or generate a diagram..."
+                rows="1"
+                maxlength="4000"
+              ></textarea>
+              <div class="composer-char-count mono" id="composer-char-count">0 / 4000</div>
+            </div>
+
+            <div class="composer-footer">
+              <div class="composer-state mono" id="composer-state">Ready</div>
+              <div class="composer-footer-actions">
+                <button class="primary-btn" id="run-btn" type="button">
+                  Run <span class="run-shortcut mono">Ctrl+Enter</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div class="floating-menu hidden" id="session-menu" role="menu" aria-label="Session menu"></div>
+
+    <div class="dialog-overlay hidden" id="dialog-overlay" aria-hidden="true">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="dialog-head">
+          <h3 id="dialog-title">Dialog</h3>
+          <button class="icon-btn" id="dialog-close-btn" type="button" aria-label="Close dialog">×</button>
         </div>
-      </aside>
+        <p class="dialog-body" id="dialog-body"></p>
+        <label class="dialog-field hidden" id="dialog-field-wrap" for="dialog-input">
+          <span class="dialog-field-label mono">Session name</span>
+          <input id="dialog-input" type="text" autocomplete="off" maxlength="120" />
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-btn" id="dialog-cancel-btn" type="button">Cancel</button>
+          <button class="primary-btn" id="dialog-confirm-btn" type="button">Save</button>
+        </div>
+      </div>
     </div>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   </div>
 
-  <script src="./script.js"></script>
+  <script type="module" src="./script.js"></script>
 </body>
 </html>

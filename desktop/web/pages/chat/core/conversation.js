@@ -35,7 +35,7 @@ function broadcastUnreadCount(threads) {
   }
 }
 
-export async function openThread(threadRef, { remember = true, markAsRead = true } = {}) {
+export async function openThread(threadRef, { remember = true, markAsRead = true, preserveScroll = false } = {}) {
   const state = window.chatState;
 
   let thread = null;
@@ -81,7 +81,7 @@ export async function openThread(threadRef, { remember = true, markAsRead = true
   const loadMessages = window.loadMessages;
   const getRoomMembers = window.getRoomMembers;
 
-  await loadMessages(requestedKey, currentSequence);
+  await loadMessages(requestedKey, currentSequence, { preserveScroll });
   if (currentSequence !== window.loadSequence) return;
 
   if (thread.type === "room" && typeof getRoomMembers === "function") {
@@ -147,7 +147,7 @@ export function closeConversationAndShowEmptyState() {
   showConversationEmptyState(state);
 }
 
-export async function loadConversations({ preserveSelection = true } = {}) {
+export async function loadConversations({ preserveSelection = true, preserveMessageScroll = false } = {}) {
   const state = window.chatState;
   const getConversations = window.getConversations;
   const getRooms = window.getRooms;
@@ -373,7 +373,7 @@ export async function loadConversations({ preserveSelection = true } = {}) {
 
   if (activeKey && state.threads.some((thread) => thread.key === activeKey)) {
     if (activeThreadChanged) {
-      await openThread(activeKey, { remember: false });
+      await openThread(activeKey, { remember: false, preserveScroll: preserveMessageScroll });
     } else {
       state.activeThreadKey = activeKey;
       state.activeThreadId = state.threads.find((thread) => thread.key === activeKey)?.id ?? null;

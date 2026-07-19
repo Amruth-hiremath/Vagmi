@@ -19,7 +19,7 @@ from app.services.attachment_service import create_attachment, save_upload_file
 from app.core.logging_config import logger
 
 router = APIRouter(tags=["Chat"])
-ATTACHMENT_SIZE_LIMIT = 50 * 1024 * 1024
+ATTACHMENT_SIZE_LIMIT = 2* 1024 * 1024 * 1024
 
 
 @router.post("/rooms/{room_id}/attachments", response_model=AttachmentResponse)

@@ -16,7 +16,7 @@ const pendingContainer =
 const usersContainer =
   document.getElementById("all-users");
 
-const currentUser = getUser();
+let currentUser = getUser();
 
 if (
     currentUser?.role !== "owner" &&
@@ -170,6 +170,7 @@ else {
   }
 
 async function loadData() {
+
   try {
     console.log("Admin page loaded");
 
@@ -275,11 +276,21 @@ async function loadData() {
       }
 
       if (button.dataset.action === "transfer-owner") {
-        if (confirm("Transfer ownership to this admin?")) {
+          if (!confirm("Transfer ownership to this admin?")) {
+              return;
+          }
+
           await transferOwnership(id);
-        } else {
+
+          alert(
+              "Ownership transferred successfully.\n\nPlease log in again to continue with your updated permissions."
+          );
+
+          localStorage.removeItem("vagmi_token");
+          localStorage.removeItem("vagmi_user");
+
+          window.location.replace("../../pages/auth/index.html");
           return;
-        }
       }
 
       await loadData();

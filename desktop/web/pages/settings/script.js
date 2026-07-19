@@ -9,6 +9,8 @@ const avatarImage = document.getElementById("profile-avatar-image");
 const avatarFallback = document.getElementById("profile-avatar-fallback");
 const avatarUploadBtn = document.getElementById("profile-avatar-upload-btn");
 const avatarInput = document.getElementById("profile-avatar-input");
+const profileDisplayName = document.getElementById("profile-display-name");
+const profileDisplaySubtitle = document.getElementById("profile-display-subtitle");
 const currentUser = getUser();
 let currentAvatarUrl = null;
 
@@ -28,6 +30,37 @@ function navigate(page) {
 
 function getActiveTheme() {
   return window.VagmiTheme?.getTheme?.() || localStorage.getItem("vagmi-theme") || "enterprise-dark";
+}
+
+function formatRole(role) {
+  const value = String(role || "user").replace(/_/g, " ").trim();
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : "User";
+}
+
+function resolveDisplayName(user) {
+  return (
+    user?.display_name ||
+    user?.name ||
+    user?.full_name ||
+    user?.username ||
+    "Workspace user"
+  );
+}
+
+function syncProfileCopy() {
+  const displayName = resolveDisplayName(currentUser);
+  const username = currentUser?.username || "";
+  const role = formatRole(currentUser?.role);
+
+  if (profileDisplayName) {
+    profileDisplayName.textContent = displayName;
+  }
+
+  if (profileDisplaySubtitle) {
+    profileDisplaySubtitle.textContent = username
+      ? `@${username} · ${role} account`
+      : "Secure LAN account";
+  }
 }
 
 function syncThemeUI() {
@@ -120,6 +153,15 @@ avatarInput?.addEventListener("change", async () => {
 });
 
 window.addEventListener("vagmi-theme-change", syncThemeUI);
-document.addEventListener("DOMContentLoaded", syncThemeUI);
+window.addEventListener("storage", (event) => {
+  if (event.key === "vagmi-theme") {
+    syncThemeUI();
+  }
+});
+document.addEventListener("DOMContentLoaded", () => {
+  syncThemeUI();
+  syncProfileCopy();
+});
 syncThemeUI();
+syncProfileCopy();
 loadProfileImage();

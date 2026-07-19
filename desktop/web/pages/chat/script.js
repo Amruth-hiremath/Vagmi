@@ -56,7 +56,8 @@ import {
   loadMessages,
   handleSend,
   setComposerText,
-  handleAttachment
+  handleAttachment,
+  patchMessageReceipts
 } from "./core/message.js";
 import {
   clearAttachmentPreview,
@@ -108,7 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
     threads: [],
     rooms: [],
     activeRoomId: null,
-    chatMode: "direct"
+    chatMode: "direct",
+    autoScrollMessages: false
   };
 
   let mediaRecorder = null;
@@ -597,6 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.loadMessages = loadMessages;
   window.getMessages = getMessages;
   window.getRoomMessages = getRoomMessages;
+  window.patchMessageReceipts = patchMessageReceipts;
   window.getRoomMembers = getRoomMembers;
 window.fetchAttachmentBlob = fetchAttachmentBlob;
 window.openImageViewer = openImageViewer;
@@ -630,7 +633,7 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
 
   if (messagesScroll && "MutationObserver" in window) {
     messagesObserver = new MutationObserver(() => {
-      if (state.activeThreadKey !== null) {
+      if (state.activeThreadKey !== null && state.autoScrollMessages) {
         scrollMessagesToBottom();
       }
     });
@@ -980,7 +983,9 @@ window.loadMyAvatarObjectUrl = loadMyAvatarObjectUrl;
       target.closest("#room-member-picker") ||
       target.closest("#room-member-results") ||
       target.closest(".message-menu-btn") ||
-      target.closest(".message-menu-item")
+      target.closest(".message-menu-item") ||
+      target.closest("#thread-empty-action") ||
+      target.closest(".thread-empty-btn")
     ) {
       return;
     }
@@ -1825,13 +1830,48 @@ function startConversationPolling() {
 
   refreshTimer = setInterval(async () => {
 
-    
-
     try {
 
       await loadConversations({
-        preserveSelection: true
+        preserveSelection: true,
+        preserveMessageScroll: true
       });
+
+      // Directly fetch active thread's messages and patch receipt icons.
+      // This is independent of loadConversations to guarantee fresh
+      // delivered_at / seen_at data reaches the DOM.
+      const chatState = window.chatState;
+      const thread = activeThread(chatState);
+      if (thread && thread.messages.length > 0) {
+        try {
+          const fetchMsgs = thread.type === "room" ? getRoomMessages : getMessages;
+          const freshMessages = await fetchMsgs(thread.id);
+
+          const freshMap = new Map(
+            (freshMessages || []).map(m => [Number(m.id ?? m.message_id), m])
+          );
+
+          let changed = false;
+          for (const msg of thread.messages) {
+            if (msg.sender !== "self") continue;
+            const fresh = freshMap.get(Number(msg.id));
+            if (!fresh) continue;
+            const newD = fresh.delivered_at || fresh.deliveredAt || null;
+            const newS = fresh.seen_at || fresh.seenAt || null;
+            if (msg.deliveredAt !== newD || msg.seenAt !== newS) {
+              msg.deliveredAt = newD;
+              msg.seenAt = newS;
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            patchMessageReceipts(thread);
+          }
+        } catch (e) {
+          // Receipt polling must never break the main poll loop
+        }
+      }
 
     } catch (error) {
 
@@ -1845,4 +1885,3 @@ function startConversationPolling() {
   }, 2000);
 
 }
-

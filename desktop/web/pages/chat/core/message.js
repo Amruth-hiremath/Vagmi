@@ -24,6 +24,63 @@ function attachmentLabel(message) {
   return message?.originalFilename || message?.fileMeta || "Attachment";
 }
 
+
+
+function getMessageReceiptState(message) {
+  if (!message || message.sender !== "self") return null;
+
+  if (!message.deliveredAt && !message.delivered_at) {
+    return "pending";
+  }
+
+  if (message.seenAt || message.seen_at) {
+    return "seen";
+  }
+
+  return "delivered";
+}
+
+function messageReceiptIconHTML(state) {
+  if (state === "pending") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 12.5l4 4L19 7"></path>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4.8 12.3l3.7 3.7L15.6 8.9"></path>
+      <path d="M8.8 12.3l3.7 3.7L19.6 8.9"></path>
+    </svg>
+  `;
+}
+
+function messageFooterHTML(message) {
+  const timeHTML = `<span class="message-time mono">${escapeHTML(message.time || "")}</span>`;
+  const state = getMessageReceiptState(message);
+
+  if (!state) {
+    return `<div class="message-footer">${timeHTML}</div>`;
+  }
+
+  const label = state === "pending"
+    ? "Not delivered"
+    : state === "delivered"
+      ? "Delivered and not read"
+      : "Delivered and read";
+
+  return `
+    <div class="message-footer">
+      ${timeHTML}
+      <span class="message-receipt ${state}" aria-label="${label}">
+        ${messageReceiptIconHTML(state)}
+      </span>
+    </div>
+  `;
+}
+
 export function messageHTML(thread, message) {
   const sideClass = message.sender === "self" ? "self" : "other";
   const senderLine =
@@ -40,95 +97,83 @@ export function messageHTML(thread, message) {
           ${messageMenuButtonHTML(message)}
           ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
           <div class="message-text">${escapeHTML(message.text || "")}</div>
-          <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          ${messageFooterHTML(message)}
         </div>
       </div>
     `;
   }
 
-    if (message.type === "VOICE") {
-      const audioUrl = message.attachmentUrl || buildAttachmentUrl(thread, message);
-      const subtitleParts = [];
-      if (message.fileSize) subtitleParts.push(formatFileSize(message.fileSize));
-      if (message.time) subtitleParts.push(message.time);
+  if (message.type === "VOICE") {
+    const audioUrl = message.attachmentUrl || buildAttachmentUrl(thread, message);
+    const subtitleParts = [];
+    if (message.fileSize) subtitleParts.push(formatFileSize(message.fileSize));
+    if (message.time) subtitleParts.push(message.time);
 
-      return `
-        <div class="message-row ${sideClass}">
-          <div class="message-bubble voice-message-bubble">
-            ${messageMenuButtonHTML(message)}
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble voice-message-bubble">
+          ${messageMenuButtonHTML(message)}
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
 
-            ${
-              senderLine
-                ? `<div class="message-meta">${senderLine}</div>`
-                : ""
-            }
-
-            <div class="voice-card">
-              <div class="voice-card-top">
-                <div class="voice-card-icon" aria-hidden="true">
-                  <span class="icon" data-icon="mic"></span>
-                </div>
-                <div class="voice-card-copy">
-                  <div class="voice-card-title">Voice message</div>
-                  <div class="voice-card-subtitle">${escapeHTML(subtitleParts.join(" • "))}</div>
-                </div>
+          <div class="voice-card">
+            <div class="voice-card-top">
+              <div class="voice-card-icon" aria-hidden="true">
+                <span class="icon" data-icon="mic"></span>
               </div>
-
-              <audio
-                controls
-                preload="metadata"
-                class="voice-player"
-              >
-                <source
-                  src="${audioUrl}"
-                  type="audio/wav"
-                >
-              </audio>
+              <div class="voice-card-copy">
+                <div class="voice-card-title">Voice message</div>
+                <div class="voice-card-subtitle">${escapeHTML(subtitleParts.join(" • "))}</div>
+              </div>
             </div>
 
-            <div class="message-time mono">
-              ${escapeHTML(message.time)}
-            </div>
-
+            <audio controls preload="metadata" class="voice-player">
+              <source src="${audioUrl}" type="audio/wav">
+            </audio>
           </div>
-        </div>
-      `;
-    }
 
+          ${messageFooterHTML(message)}
+        </div>
+      </div>
+    `;
+  }
 
   if (message.type === "IMAGE") {
-  const imageUrl = buildAttachmentUrl(thread, message);
-  const caption = message.caption ? escapeHTML(message.caption) : "";
+    const caption = message.caption ? escapeHTML(message.caption) : "";
 
-  return `
-    <div class="message-row ${sideClass}">
-      <div class="message-bubble">
-        ${messageMenuButtonHTML(message)}
-        ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+    return `
+      <div class="message-row ${sideClass}">
+        <div class="message-bubble">
 
-        <img
-    class="chat-image-preview"
-    data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
-    data-message-id="${message.id}"
-    data-attachment-url="${escapeHTML(buildAttachmentUrl(thread, message))}"
-    data-attachment-filename="${escapeHTML(attachmentLabel(message) || "Image")}"
-    alt="${escapeHTML(attachmentLabel(message) || "Image")}"
-    style="
-        max-width:240px;
-        max-height:240px;
-        width:auto;
-        height:auto;
-        border-radius:10px;
-        cursor:pointer;
-        display:block;
-        object-fit:cover;
-    "
-/>
-        ${caption ? `<div class="message-caption">${caption}</div>` : ""}
-        <div class="message-time mono">${escapeHTML(message.time || "")}</div>
+          ${messageMenuButtonHTML(message)}
+
+          ${senderLine ? `<div class="message-meta">${senderLine}</div>` : ""}
+
+          <img
+            class="chat-image-preview"
+            data-thread-key="${thread.key || `${thread.type}:${String(thread.id)}`}"
+            data-message-id="${message.id}"
+            data-attachment-url="${escapeHTML(buildAttachmentUrl(thread, message))}"
+            data-attachment-filename="${escapeHTML(attachmentLabel(message) || "Image")}"
+            alt="${escapeHTML(attachmentLabel(message) || "Image")}"
+            style="
+              max-width:240px;
+              max-height:240px;
+              width:auto;
+              height:auto;
+              border-radius:10px;
+              cursor:pointer;
+              display:block;
+              object-fit:cover;
+            "
+          />
+
+          ${caption ? `<div class="message-caption">${caption}</div>` : ""}
+
+          ${messageFooterHTML(message)}
+
+        </div>
       </div>
-    </div>
-  `;
+    `;
   }
 
   if (message.type === "FILE") {
@@ -156,9 +201,7 @@ export function messageHTML(thread, message) {
 
                     ${caption ? `<div class="message-caption">${caption}</div>` : ""}
 
-                    <div class="message-time mono">
-                        ${escapeHTML(message.time || "")}
-                    </div>
+                    ${messageFooterHTML(message)}
 
                 </div>
             </div>
@@ -176,18 +219,14 @@ export function messageHTML(thread, message) {
           ${buildAttachmentCard(thread, message)}
 
           ${caption ? `<div class="message-caption">${caption}</div>` : ""}
-
-          <div class="message-time mono">
-            ${escapeHTML(message.time || "")}
-          </div>
-
+          ${messageFooterHTML(message)}
         </div>
       </div>
     `;
   }
+
   return "";
 }
-
 
 function messageMenuButtonHTML(message) {
   return `
@@ -405,15 +444,25 @@ async function loadVoiceBlobUrl(thread, message) {
 }
 
 
-export async function loadMessages(conversationId, loadToken = 0) {
+export async function loadMessages(conversationId, loadToken = 0, options = {}) {
   const state = window.chatState;
   const getMessages = window.getMessages;
   const getRoomMessages = window.getRoomMessages;
   const currentUser = window.currentUser;
   const formatTime = window.formatTime;
   const scrollMessagesToBottom = window.scrollMessagesToBottom;
+  const preserveScroll = Boolean(options?.preserveScroll);
+  const autoScroll = options?.autoScroll !== false;
 
   try {
+    const messagesScroll = document.getElementById("messages-scroll");
+    const previousScrollTop = messagesScroll ? messagesScroll.scrollTop : 0;
+    const previousScrollHeight = messagesScroll ? messagesScroll.scrollHeight : 0;
+    const previousClientHeight = messagesScroll ? messagesScroll.clientHeight : 0;
+    const wasNearBottom = messagesScroll
+      ? (previousScrollHeight - (previousScrollTop + previousClientHeight)) < 96
+      : true;
+
     const lookupKey = typeof conversationId === "string" && conversationId.includes(":")
       ? conversationId
       : null;
@@ -461,6 +510,8 @@ export async function loadMessages(conversationId, loadToken = 0) {
           fileSize: message.file_size || null,
           caption: message.caption || "",
           createdAt: message.created_at,
+          deliveredAt: message.delivered_at || message.deliveredAt || null,
+          seenAt: message.seen_at || message.seenAt || null,
           time: formatTime(message.created_at)
       };
       if (mapped.type === "VOICE") {
@@ -478,13 +529,26 @@ export async function loadMessages(conversationId, loadToken = 0) {
 
     updateConversationMeta(thread);
     updateInfoDrawer(thread);
+
+    state.autoScrollMessages = autoScroll;
     renderMessages(thread);
 
     requestAnimationFrame(() => {
-      scrollMessagesToBottom();
+      const messagesScrollEl = document.getElementById("messages-scroll");
+      if (preserveScroll && messagesScrollEl) {
+        const nextScrollHeight = messagesScrollEl.scrollHeight;
+        const nextTarget = wasNearBottom
+          ? nextScrollHeight
+          : Math.max(0, previousScrollTop + (nextScrollHeight - previousScrollHeight));
+        messagesScrollEl.scrollTop = nextTarget;
+      } else if (autoScroll) {
+        scrollMessagesToBottom();
+      }
+      state.autoScrollMessages = false;
     });
 
   } catch (error) {
+    state.autoScrollMessages = false;
     console.error("Failed loading messages", error);
   }
 }
@@ -518,15 +582,22 @@ export async function handleSend() {
     thread.lastMessage = text;
     thread.lastMessageType = "TEXT";
     thread.lastMessageTime = formatTime(new Date());
+    thread.lastMessageTimestamp = new Date().toISOString();
     thread.unread = 0;
 
     await loadMessages(thread.key);
 
     renderThreads(state);
 
-    requestAnimationFrame(() => {
-      scrollMessagesToBottom();
-    });
+    // Scroll immediately, then again after layout settles
+    // (loadInlineImages is async and not awaited — images can push
+    //  scroll height after the rAF-based scroll fires).
+    scrollMessagesToBottom();
+    setTimeout(() => {
+      if (window.chatState?.activeThreadKey) {
+        window.scrollMessagesToBottom?.();
+      }
+    }, 300);
 
   } catch (error) {
     console.error("Message send failed", error);
@@ -538,6 +609,45 @@ export function setComposerText(inputField, text) {
   if (inputField) {
     inputField.value = text;
     inputField.dispatchEvent(new Event("input"));
+  }
+}
+
+/**
+ * Surgically patch receipt icons in the DOM without a full re-render.
+ * Only updates message-row.self elements whose receipt state has changed,
+ * avoiding scroll jumps, image reloads, and layout shifts.
+ */
+export function patchMessageReceipts(thread) {
+  if (!thread?.messages) return;
+
+  const rows = document.querySelectorAll(".message-row.self");
+  for (const row of rows) {
+    const menuBtn = row.querySelector(".message-menu-btn");
+    if (!menuBtn) continue;
+    const messageId = Number(menuBtn.dataset.messageId);
+    const message = thread.messages.find((m) => Number(m.id) === messageId);
+    if (!message) continue;
+
+    const receiptEl = row.querySelector(".message-receipt");
+    if (!receiptEl) continue;
+
+    const newState = getMessageReceiptState(message);
+    if (!newState) continue;
+
+    const currentClass = receiptEl.classList.contains("seen") ? "seen"
+      : receiptEl.classList.contains("delivered") ? "delivered"
+      : "pending";
+
+    if (currentClass !== newState) {
+      const label = newState === "pending"
+        ? "Not delivered"
+        : newState === "delivered"
+          ? "Delivered and not read"
+          : "Delivered and read";
+      receiptEl.className = `message-receipt ${newState}`;
+      receiptEl.setAttribute("aria-label", label);
+      receiptEl.innerHTML = messageReceiptIconHTML(newState);
+    }
   }
 }
 
@@ -578,4 +688,3 @@ export async function handleAttachment(file, forceType = null, caption = null) {
     alert(error?.message || "Failed to send attachment.");
   }
 }
-
