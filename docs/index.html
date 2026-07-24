@@ -1,0 +1,2499 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vāgmi — Offline Multi-Agent Intelligence Platform</title>
+  <meta name="description"
+    content="Vāgmi is a fully offline, LAN-deployable intelligence platform for secure, air-gapped work environments." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <!-- Mermaid -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <style>
+    :root {
+      --bg-deep: #000000;
+      --bg-base: #050505;
+      --bg-glass: rgba(20, 20, 25, 0.6);
+      --bg-glass-light: rgba(255, 255, 255, 0.05);
+
+      --border-glass: rgba(255, 255, 255, 0.1);
+      --border-glass-hover: rgba(255, 255, 255, 0.2);
+
+      --text-primary: #f5f5f7;
+      --text-secondary: #d1d1d6;
+      --text-tertiary: #8e8e93;
+      --text-muted: #636366;
+
+      --accent: #f97316;
+      --accent-bright: #fb923c;
+      --accent-glow: rgba(249, 115, 22, 0.4);
+
+      --secondary: #8b5cf6;
+      --tertiary: #3b82f6;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 120px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      position: relative;
+    }
+
+    /* Apple-style ambient background gradients */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(249, 115, 22, 0.12), transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.1), transparent 45%),
+        radial-gradient(circle at 50% 90%, rgba(59, 130, 246, 0.08), transparent 50%);
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    /* Subtle grid texture */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 80%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ============ NAVBAR (Floating Glass) ============ */
+    .topnav {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 40px);
+      max-width: 1200px;
+      z-index: 1000;
+      background: rgba(15, 15, 20, 0.65);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      overflow: visible;
+    }
+
+    .topnav-inner {
+      width: 100%;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      overflow: visible;
+    }
+
+    .topnav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--text-primary);
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .topnav-logo-img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .topnav-logo-placeholder {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    .topnav-logo-placeholder svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--accent-bright);
+    }
+
+    .topnav-links {
+      display: flex;
+      gap: 2px;
+      flex: 1;
+      justify-content: center;
+      overflow-x: auto;
+    }
+
+    .topnav-links::-webkit-scrollbar {
+      display: none;
+    }
+
+    .topnav-link {
+      color: var(--text-tertiary);
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .topnav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .topnav-link.active {
+      color: var(--accent-bright);
+      background: rgba(249, 115, 22, 0.12);
+    }
+
+    .topnav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 13.5px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .topnav-cta:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* ============ HERO ============ */
+    .hero {
+      min-height: 100vh;
+      padding: 160px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-logo-placeholder {
+      width: 105px;
+      height: 105px;
+      margin-bottom: 32px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      box-shadow: 0 0 60px rgba(249, 115, 22, 0.1);
+      backdrop-filter: blur(25px);
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(48px, 8vw, 96px);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      background: linear-gradient(180deg, #ffffff 0%, #8e8e93 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-tagline {
+      font-size: clamp(18px, 2vw, 22px);
+      font-weight: 400;
+      color: var(--text-secondary);
+      max-width: 680px;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .hero-subtag {
+      font-size: 15px;
+      color: var(--text-tertiary);
+      margin-bottom: 36px;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      backdrop-filter: blur(10px);
+      font-family: var(--font-mono);
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .hero-logo-img {
+      width: 105px;
+      height: 105px;
+      object-fit: contain;
+    }
+
+    .b-orange .dot {
+      background: #f97316;
+    }
+
+    .b-blue .dot {
+      background: #1d4ed8;
+    }
+
+    .b-purple .dot {
+      background: #8b5cf6;
+    }
+
+    .b-indigo .dot {
+      background: #4f46e5;
+    }
+
+    .b-green .dot {
+      background: #16a34a;
+    }
+
+    .b-teal .dot {
+      background: #059669;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 100px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+      font-family: var(--font-body);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #1a0a00;
+      box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-bright);
+      transform: scale(1.02);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* ============ LAYOUT ============ */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 100px 0;
+      position: relative;
+    }
+
+    .section-header {
+      margin-bottom: 48px;
+      max-width: 760px;
+    }
+
+    .section-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent-bright);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .section-desc {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .section-desc code,
+    p code,
+    li code {
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+      background: rgba(249, 115, 22, 0.1);
+      color: var(--accent-bright);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ============ SIMPLE LIST ============ */
+    .simple-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .simple-item {
+      padding: 28px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      transition: all 0.2s ease;
+    }
+
+    .simple-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .simple-item h4 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .simple-item p {
+      font-size: 14px;
+      color: var(--text-tertiary);
+      line-height: 1.6;
+    }
+
+    /* ============ MERMAID ============ */
+    .mermaid-wrapper {
+      background: rgba(10, 10, 12, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 32px;
+      overflow: auto;
+      margin: 24px 0;
+      backdrop-filter: blur(10px);
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      min-width: fit-content;
+    }
+
+    .mermaid svg {
+      max-width: none;
+      height: auto;
+    }
+
+    /* ============ FEATURES ============ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      padding: 28px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      transition: all 0.2s ease;
+    }
+
+    .feature-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .feature-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .feature-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-bright);
+      background: rgba(249, 115, 22, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .feature-card h3 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-tertiary);
+      line-height: 1.6;
+    }
+
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .feature-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+
+    /* ============ AGENTS ============ */
+    .agents-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .agent-tab {
+      padding: 12px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    .agent-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .agent-tab.active {
+      color: var(--accent-bright);
+      border-bottom-color: var(--accent);
+    }
+
+    .agent-panel {
+      display: none;
+      padding: 28px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+    }
+
+    .agent-panel.active {
+      display: block;
+    }
+
+    .agent-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .agent-panel-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .agent-panel-purpose {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .agent-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .agent-meta-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      color: var(--text-secondary);
+    }
+
+    .agent-meta-pill strong {
+      color: var(--accent-bright);
+      font-weight: 600;
+    }
+
+    .agent-panel p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ============ ORCHESTRATION ============ */
+    .orchestration-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .step-card {
+      padding: 28px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      word-break: break-word;
+      overflow-wrap: break-word;
+      min-width: 0;
+    }
+
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-bright);
+      background: rgba(249, 115, 22, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .step-card h4 {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .step-card p {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      line-height: 1.6;
+    }
+
+    /* ============ API TABLE ============ */
+    .api-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .api-search {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+
+    .api-search input {
+      width: 100%;
+      padding: 12px 16px 12px 40px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .api-search input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .api-search svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+
+    .api-filter {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .api-filter-btn {
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .api-filter-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .api-filter-btn.active {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--accent-bright);
+    }
+
+    .api-table-wrap {
+      background: rgba(10, 10, 12, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+    }
+
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .api-table thead {
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .api-table th {
+      text-align: left;
+      padding: 18px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-tertiary);
+    }
+
+    .api-table td {
+      padding: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    .api-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .api-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .method-badges {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+      min-width: 60px;
+    }
+
+    .method-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .m-get {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .m-post {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .m-put {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .m-patch {
+      background: rgba(139, 92, 246, 0.2);
+      color: #c4b5fd;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .m-delete {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .endpoint-path {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .endpoint-desc {
+      color: var(--text-tertiary);
+      font-size: 12.5px;
+    }
+
+    /* ============ TECH STACK (Improved) ============ */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .tech-category {
+      padding: 32px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      transition: all 0.2s ease;
+    }
+
+    .tech-category:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .tech-cat-head {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tech-cat-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .tech-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tech-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .tech-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent-bright);
+      border-radius: 50%;
+      margin-top: 7px;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
+    }
+
+    .tech-list strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* ============ STRUCTURE ============ */
+    .file-tree {
+      background: rgba(10, 10, 12, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 32px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.8;
+      backdrop-filter: blur(10px);
+    }
+
+    .file-tree pre {
+      margin: 0;
+      color: var(--text-secondary);
+    }
+
+    .tree-comment {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .tree-dir {
+      color: var(--accent-bright);
+      font-weight: 600;
+    }
+
+    /* ============ CODE ============ */
+    .code-block {
+      background: rgba(10, 10, 12, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 24px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      margin: 16px 0;
+      backdrop-filter: blur(10px);
+    }
+
+    .code-block pre {
+      margin: 0;
+      font-family: var(--font-mono);
+    }
+
+    .code-comment {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .code-cmd {
+      color: var(--accent-bright);
+      font-weight: 600;
+    }
+
+    .code-path {
+      color: #93c5fd;
+    }
+
+    .code-flag {
+      color: #c4b5fd;
+    }
+
+    /* ============ CALLOUT ============ */
+    .callout {
+      background: rgba(249, 115, 22, 0.05);
+      border: 1px solid rgba(249, 115, 22, 0.15);
+      border-left: 3px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 24px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      backdrop-filter: blur(10px);
+    }
+
+    .callout strong {
+      color: var(--text-primary);
+    }
+
+    /* ============ FOOTER ============ */
+    footer {
+      padding: 48px 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(20px);
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-meta {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      text-align: center;
+    }
+
+    .footer-meta a {
+      color: var(--accent-bright);
+      text-decoration: none;
+    }
+
+    .footer-meta a:hover {
+      text-decoration: underline;
+    }
+
+    /* ============ REVEAL ============ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ============ MERMAID OVERRIDES ============ */
+    .mermaid .er.entityBox {
+      fill: rgba(20, 20, 25, 0.8) !important;
+      stroke: #f97316 !important;
+    }
+
+    .mermaid .er.attributeBoxOdd {
+      fill: rgba(30, 30, 35, 0.8) !important;
+      stroke: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .mermaid .er.attributeBoxEven {
+      fill: rgba(20, 20, 25, 0.8) !important;
+      stroke: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .mermaid .er.entityLabel {
+      fill: #f5f5f7 !important;
+      font-weight: 500 !important;
+      color: #f5f5f7 !important;
+    }
+
+    .mermaid .er.attributeKey {
+      fill: #fb923c !important;
+      color: #fb923c !important;
+      font-weight: 400 !important;
+    }
+
+    .mermaid .er.attributeLabel {
+      fill: #d1d1d6 !important;
+      color: #d1d1d6 !important;
+      font-weight: 400 !important;
+    }
+
+    .mermaid .er.relationshipLine {
+      stroke: #636366 !important;
+    }
+
+    .mermaid .er.relationshipLabel {
+      fill: #8e8e93 !important;
+      background: transparent !important;
+      color: #8e8e93 !important;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 768px) {
+      .topnav-links {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 140px;
+      }
+
+      section {
+        padding: 60px 0;
+      }
+
+      .api-table th:nth-child(3),
+      .api-table td:nth-child(3) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============ NAVBAR ============ -->
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <a href="#top" class="topnav-logo">
+        <img src="./logo.png" alt="Vāgmi Logo" class="topnav-logo-img">
+        <span>Vāgmi</span>
+      </a>
+      <div class="topnav-links" id="navLinks">
+        <a href="#overview" class="topnav-link">Overview</a>
+        <a href="#architecture" class="topnav-link">Architecture</a>
+        <a href="#features" class="topnav-link">Features</a>
+        <a href="#auth" class="topnav-link">Auth</a>
+        <a href="#retrieval" class="topnav-link">Retrieval</a>
+        <a href="#ai" class="topnav-link">AI Layer</a>
+        <a href="#api" class="topnav-link">API</a>
+        <a href="#data" class="topnav-link">Data Model</a>
+        <a href="#desktop" class="topnav-link">Desktop</a>
+        <a href="#stack" class="topnav-link">Stack</a>
+        <a href="#start" class="topnav-link">Getting Started</a>
+      </div>
+      <a href="https://github.com/Amruth-hiremath/Vagmi" target="_blank" rel="noopener" class="topnav-cta">
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header class="hero" id="top">
+    <div class="hero-logo-placeholder">
+      <img src="./logo.png" class="hero-logo-img" alt="Vāgmi Logo">
+    </div>
+
+    <h1>Vāgmi</h1>
+
+    <p class="hero-tagline">
+      <strong>Offline Multi-Agent Intelligence Platform</strong><br>
+      Built for secure & air-gapped work environments.
+    </p>
+    <p class="hero-subtag">Document intelligence, local AI, team collaboration, and diagram generation — in one
+      self-hosted desktop app.</p>
+
+    <div class="hero-badges">
+      <span class="hero-badge b-orange"><span class="dot"></span>Offline First</span>
+      <span class="hero-badge b-blue"><span class="dot"></span>Air-Gapped</span>
+      <span class="hero-badge b-purple"><span class="dot"></span>Hybrid RAG</span>
+      <span class="hero-badge b-indigo"><span class="dot"></span>Multi-Agent</span>
+      <span class="hero-badge b-green"><span class="dot"></span>Local LLM</span>
+      <span class="hero-badge b-teal"><span class="dot"></span>Secure Collaboration</span>
+    </div>
+
+    <div class="hero-actions">
+      <a href="#start" class="btn-primary">Get Started</a>
+      <a href="#architecture" class="btn-secondary">Explore Architecture</a>
+    </div>
+  </header>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section id="overview" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">01 · Overview</div>
+      <h2 class="section-title">Built for the spaces the cloud can't reach.</h2>
+      <p class="section-desc">
+        Organizations operating in secure environments face a common challenge: knowledge is scattered across formats,
+        teams, and tools — and existing AI solutions demand exactly the cloud connectivity those environments forbid.
+        Vāgmi was originally designed for deployment within air-gapped facilities such as DRDO sites, where privacy,
+        local processing, and user isolation are non-negotiable.
+      </p>
+    </div>
+
+    <div class="simple-list reveal">
+      <div class="simple-item">
+        <h4>Scattered Documents</h4>
+        <p>Files spread across PDFs, DOCX, and TXT — no unified search or grounding layer for AI.</p>
+      </div>
+      <div class="simple-item">
+        <h4>Siloed Knowledge</h4>
+        <p>Critical context trapped in individual teams, with no shared intelligence substrate.</p>
+      </div>
+      <div class="simple-item">
+        <h4>Cloud-Dependent AI</h4>
+        <p>Existing assistants route prompts through external APIs — incompatible with restricted networks.</p>
+      </div>
+      <div class="simple-item">
+        <h4>Connectivity Lock-In</h4>
+        <p>Collaboration tools assume always-on internet; air-gapped teams are left without options.</p>
+      </div>
+      <div class="simple-item">
+        <h4>Manual Diagramming</h4>
+        <p>Generating flowcharts and structured content is repetitive, time-consuming, and disconnected from sources.
+        </p>
+      </div>
+      <div class="simple-item">
+        <h4>Privacy Constraints</h4>
+        <p>Every byte of data must remain on local infrastructure — no exfiltration, no exceptions.</p>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-top: 32px;">
+      <strong>Vāgmi addresses all of these</strong> through a centralized offline intelligence platform that runs
+      entirely on local infrastructure. Upload documents, chat with a multi-agent AI grounded in your own files,
+      generate Mermaid diagrams, and collaborate with teammates through rooms and direct messages — all packaged as a
+      native desktop app with zero external network dependency.
+    </div>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section id="architecture">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-eyebrow">02 · High-Level Architecture</div>
+        <h2 class="section-title">Three layers. One localhost. Zero internet.</h2>
+        <p class="section-desc">
+          A PyWebView desktop client talks to a local FastAPI backend over <code>127.0.0.1</code>, backed by a service
+          layer of singletons covering the hybrid RAG pipeline, multi-agent system, and LLM service. Storage is split
+          across SQLite, ChromaDB, per-user filesystem directories, and locally-stored models. Nothing in the loop
+          touches the internet.
+        </p>
+      </div>
+
+      <div class="mermaid-wrapper reveal">
+        <pre class="mermaid">
+flowchart TB
+  subgraph DESKTOP["Desktop Client (PyWebView)"]
+    D1["Web Frontend<br/>SPA pages: chat, home, intelligence,<br/>admin, settings, diagram, auth"]
+    D2["VagmiRequestHandler<br/>ThreadingHTTPServer :127.0.0.1"]
+    D3["DesktopBridge<br/>js_api bridge"]
+    D4["Mini-Dock Window<br/>Frameless, always-on-top"]
+    D1 --> D2
+    D1 --> D3
+    D3 --> D4
+  end
+
+  subgraph FASTAPI["FastAPI Backend (uvicorn :8000)"]
+    F1["12 API Routers<br/>/auth /users /rooms /dm /documents<br/>/retrieval /attachments /ai /admin<br/>/notifications /system /"]
+    F2["Service Layer (Singletons)"]
+    F3["Hybrid RAG Pipeline<br/>Vector + BM25"]
+    F4["Multi-Agent System<br/>Master / Query / Summary / Document / Diagram"]
+    F5["LLM Service<br/>llama-cpp-python subprocess"]
+    F1 --> F2 --> F3 --> F5
+    F2 --> F4 --> F5
+  end
+
+  subgraph STORE["Storage Layer"]
+    S1["SQLite vagmi.db (16 tables)"]
+    S2["Filesystem<br/>storage/users/user_id/"]
+    S3["BM25 JSON indices"]
+    S4["ChromaDB document_chunks"]
+    S5["Local Models<br/>all-MiniLM-L6-v2, Qwen2.5 GGUF"]
+  end
+
+  DESKTOP -.-> FASTAPI
+  FASTAPI --> STORE
+      </pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ IMPLEMENTED FEATURES ============ -->
+  <section id="features" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">03 · Implemented</div>
+      <h2 class="section-title">What works, end to end.</h2>
+      <p class="section-desc">Every subsystem below is functional today — from registration through multi-agent chat,
+        diagram generation, and team collaboration. No stubs, no placeholders.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">01</span>
+          <h3>Authentication</h3>
+        </div>
+        <p>Registration, login (JWT, 24h expiry), <code>/auth/me</code>, per-user workspace provisioning on signup,
+          first-user-becomes-owner bootstrap, admin approval workflow for subsequent users.</p>
+        <div class="feature-tags"><span class="feature-tag">JWT</span><span class="feature-tag">bcrypt</span><span
+            class="feature-tag">role-gated</span></div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">02</span>
+          <h3>Documents</h3>
+        </div>
+        <p>Upload <code>.pdf</code>, <code>.docx</code>, <code>.txt</code> up to 1 GB. Automatic background indexing
+          into the RAG pipeline with status tracking: <em>processing → indexed / failed_indexing</em>.</p>
+        <div class="feature-tags"><span class="feature-tag">PyMuPDF</span><span class="feature-tag">python-docx</span>
+        </div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">03</span>
+          <h3>Retrieval</h3>
+        </div>
+        <p>Hybrid semantic + keyword search via <code>/retrieval/search</code>, scoped per-user. The same pipeline is
+          used directly for AI grounding — no separate path.</p>
+        <div class="feature-tags"><span class="feature-tag">Vector + BM25</span><span class="feature-tag">weighted
+            fusion</span></div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">04</span>
+          <h3>AI Intelligence</h3>
+        </div>
+        <p>Session-based chat grounded in selected documents, backed by a local multi-agent system with intent routing.
+          17 endpoints under <code>/ai</code>, running fully offline on a local LLM.</p>
+        <div class="feature-tags"><span class="feature-tag">5 agents</span><span class="feature-tag">auto routing</span>
+        </div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">05</span>
+          <h3>Diagram Generation</h3>
+        </div>
+        <p>Mermaid-based diagram studio — type or generate a flow and render it live in the desktop client. Export to
+          SVG or PNG with one click.</p>
+        <div class="feature-tags"><span class="feature-tag">Mermaid.js</span><span class="feature-tag">SVG export</span>
+        </div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">06</span>
+          <h3>Collaboration</h3>
+        </div>
+        <p>Rooms (create / list / get / delete), membership management, room messages (text / image / voice), direct
+          messages, file attachments, user search, unread notifications.</p>
+        <div class="feature-tags"><span class="feature-tag">Rooms</span><span class="feature-tag">DMs</span><span
+            class="feature-tag">Voice</span></div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">07</span>
+          <h3>Admin</h3>
+        </div>
+        <p>Pending-user approval, full user management, admin role transfer, and role-gated access across owner / admin
+          / user tiers.</p>
+        <div class="feature-tags"><span class="feature-tag">3-tier RBAC</span></div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">08</span>
+          <h3>Desktop Client</h3>
+        </div>
+        <p>PyWebView-based native app with auth, home, chat, intelligence, diagram, settings, and admin pages. Includes
+          a floating mini-dock, native save dialogs, and voice recording.</p>
+        <div class="feature-tags"><span class="feature-tag">PyWebView</span><span class="feature-tag">mini-dock</span>
+        </div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-head"><span class="feature-num">09</span>
+          <h3>System & Docs</h3>
+        </div>
+        <p>Health-check endpoint and offline-hosted Swagger UI at <code>/docs</code> — JS/CSS served from local static
+          assets, not a CDN.</p>
+        <div class="feature-tags"><span class="feature-tag">air-gapped Swagger</span></div>
+      </div>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ AUTH ============ -->
+  <section id="auth" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">04 · Authentication & Access Control</div>
+      <h2 class="section-title">Owner bootstrap. Admin gate. JWT everywhere.</h2>
+      <p class="section-desc">
+        The first user to register on a deployment is automatically made the workspace <strong>owner</strong> — approved
+        immediately, workspace provisioned on the spot. Every subsequent registration is created with
+        <code>is_approved=false</code> and must be approved by an admin before they can log in.
+      </p>
+    </div>
+
+    <div class="mermaid-wrapper reveal">
+      <pre class="mermaid">
+flowchart TB
+  O["User opens app"]
+  T{"Has token in localStorage?"}
+  O --> T
+  T -->|No| R0["POST /auth/register"]
+  R0 --> F1{"First user in DB?"}
+  F1 -->|Yes| OW["role=owner, is_approved=true<br/>Create workspace"]
+  F1 -->|No| UR["role=user, is_approved=false<br/>Awaiting admin approval"]
+  UR --> L0["Cannot login until approved"]
+  L0 --> A1["Admin: POST /admin/users/id/approve"]
+  A1 --> W1["Create user workspace"]
+  OW --> L1["POST /auth/login"]
+  UR --> L1
+  T -->|Yes| M1["GET /auth/me"]
+  L1 --> V1["verify_password bcrypt"]
+  V1 --> D1{"Success?"}
+  D1 -->|Fail| E401["HTTP 401 Invalid credentials"]
+  D1 -->|Not approved| E403["HTTP 403 Awaiting approval"]
+  D1 -->|Approved| JWT["Create JWT HS256 24h expiry"]
+  M1 --> TV{"Token valid?"}
+  TV -->|Invalid| L1
+  TV -->|Valid| AUTH["Authenticated"]
+  JWT --> AUTH
+  AUTH --> RW["Request with Authorization: Bearer JWT"]
+  RW --> CU["get_current_user dependency"]
+  CU --> D2["Decode JWT verify signature + expiry"]
+  D2 --> J{"Valid?"}
+  J -->|Invalid| E401B["HTTP 401 Invalid token"]
+  J -->|Valid| DB["Load User from DB"]
+  DB --> AP{"is_approved?"}
+  AP -->|No| E403B["HTTP 403 Awaiting approval"]
+  AP -->|Yes| EP{"Endpoint requires?"}
+  EP -->|get_current_user| GR["role check"]
+  EP -->|get_current_admin| GA["role in owner, admin?"]
+  EP -->|require_owner| GA2["role == owner?"]
+  GA --> OK1["Access granted"]
+  GA --> NO1["HTTP 403 Admin access required"]
+  GA2 --> OK1
+  GA2 --> NO2["HTTP 403 Owner access required"]
+  GR --> OK1
+    </pre>
+    </div>
+
+    <div class="callout reveal">
+      <strong>JWT (HS256, 24h expiry)</strong> is verified on every request via a <code>get_current_user</code>
+      dependency. Role-gated endpoints layer <code>get_current_admin</code> and <code>require_owner</code> checks on top
+      for admin- and owner-only actions.
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ RETRIEVAL ============ -->
+  <section id="retrieval" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">05 · Retrieval Stack</div>
+      <h2 class="section-title">Hybrid retrieval. Vector + BM25. Weighted fusion.</h2>
+      <p class="section-desc">
+        The retrieval layer runs automatically whenever a document is uploaded. Extraction → chunking → embeddings →
+        dual indexing (ChromaDB + BM25). At query time, both retrievers fire, scores are normalized, fused with weights
+        <code>0.4 × BM25 + 0.6 × Vector</code>, and the deduplicated top-k chunks are returned.
+      </p>
+    </div>
+
+    <div class="orchestration-steps reveal">
+      <div class="step-card">
+        <div class="step-num">STAGE 01</div>
+        <h4>Document Upload</h4>
+        <p><code>POST /documents/upload</code> — accepts <code>.pdf</code>, <code>.docx</code>, <code>.txt</code> up to
+          1 GB. Validated, then saved to <code>storage/users/user_id/documents/uuid.ext</code> with a Document row
+          marked <code>status = 'processing'</code>.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STAGE 02</div>
+        <h4>Text Extraction</h4>
+        <p><code>DocumentProcessor.extract_text</code> — PyMuPDF (<code>fitz</code>) for PDF pages,
+          <code>python-docx</code> for DOCX paragraphs, UTF-8 read for TXT.
+        </p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STAGE 03</div>
+        <h4>Chunking</h4>
+        <p><code>ChunkingService.chunk_text</code> — sliding-window algorithm, <code>chunk_size=500 chars</code>,
+          <code>overlap=100 chars</code>.
+        </p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STAGE 04</div>
+        <h4>Embeddings</h4>
+        <p><code>EmbeddingService.embed_chunks</code> — <code>all-MiniLM-L6-v2</code>, 384-dim, normalized. Runs with
+          <code>local_files_only=True</code> for fully offline inference.
+        </p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STAGE 05</div>
+        <h4>Dual Indexing</h4>
+        <p><strong>ChromaDB:</strong> persistent <code>document_chunks</code> collection.<br><strong>BM25:</strong>
+          BM25Plus index persisted to per-user <code>bm25_index.json</code>.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STAGE 06</div>
+        <h4>Query & Fusion</h4>
+        <p>ChromaDB returns top <code>k × 4</code>; BM25 returns top <code>k</code>. Normalized, fused (<strong>0.4 BM25
+            + 0.6 Vector</strong>), deduplicated by <code>chunk_text</code>, sorted by final score.</p>
+      </div>
+    </div>
+
+    <div class="mermaid-wrapper reveal">
+      <pre class="mermaid">
+flowchart TB
+  U1["POST /documents/upload"] --> V1["Validate ext + size ≤ 1GB"]
+  V1 --> S1["Save to storage/users/user_id/"]
+  S1 --> D1["Create Document row status='processing'"]
+  D1 --> X1["DocumentProcessor.extract_text"]
+  X1 --> C1["ChunkingService.chunk_text 500 chars"]
+  C1 --> E1["EmbeddingService.embed_chunks 384-dim"]
+  E1 --> VS["VectorStoreService.add_chunks ChromaDB"]
+  E1 --> B1["BM25Service.add_chunks BM25Plus"]
+  VS --> I1["Document.status = 'indexed'"]
+  B1 --> I1
+  I1 --> Q1["POST /retrieval/search"]
+  Q1 --> EQ["EmbeddingService.embed_query"]
+  EQ --> VQ["VectorStoreService.search top_k×4"]
+  EQ --> BQ["BM25Service.search top_k"]
+  VQ --> N1["Normalize: score / max_score"]
+  BQ --> N1
+  N1 --> W1["Weighted fusion 0.4·BM25 + 0.6·Vector"]
+  W1 --> R1["Ranked chunks → AI Layer"]
+    </pre>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ AI LAYER ============ -->
+  <section id="ai" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">06 · Multi-Agent AI Layer</div>
+      <h2 class="section-title">Five specialist agents. One orchestrator.</h2>
+      <p class="section-desc">
+        The intelligence module runs a fully offline, session-based multi-agent system on top of the retrieval stack.
+        Each agent is defined as an <code>AgentSpec</code> with its own name, max tokens, temperature, artifact type,
+        and purpose. Routing supports manual selection or auto-detection via a keyword bank.
+      </p>
+    </div>
+
+    <div class="reveal">
+      <div class="agents-tabs" role="tablist">
+        <button class="agent-tab active" data-agent="master" role="tab">Master</button>
+        <button class="agent-tab" data-agent="query" role="tab">Query</button>
+        <button class="agent-tab" data-agent="summary" role="tab">Summary</button>
+        <button class="agent-tab" data-agent="document" role="tab">Document</button>
+        <button class="agent-tab" data-agent="diagram" role="tab">Diagram</button>
+      </div>
+
+      <div class="agent-panel active" data-agent="master">
+        <div class="agent-panel-header">
+          <div>
+            <div class="agent-panel-title">Master Agent</div>
+            <div class="agent-panel-purpose">Asks a clarifying question when intent is ambiguous</div>
+          </div>
+          <div class="agent-meta">
+            <span class="agent-meta-pill">max_tokens: <strong>192</strong></span>
+            <span class="agent-meta-pill">temp: <strong>0.2</strong></span>
+            <span class="agent-meta-pill">artifact: <strong>None</strong></span>
+          </div>
+        </div>
+        <p>The Master agent never produces a substantive answer. It is invoked when routing confidence falls below 0.55,
+          or when no keyword matches are found. Instead, it returns a clarification reply with suggestion labels —
+          letting the UI offer the user a one-tap choice between likely specialist agents.</p>
+      </div>
+
+      <div class="agent-panel" data-agent="query">
+        <div class="agent-panel-header">
+          <div>
+            <div class="agent-panel-title">Query Agent</div>
+            <div class="agent-panel-purpose">Direct answers grounded in selected documents</div>
+          </div>
+          <div class="agent-meta">
+            <span class="agent-meta-pill">max_tokens: <strong>1024</strong></span>
+            <span class="agent-meta-pill">temp: <strong>0.25</strong></span>
+            <span class="agent-meta-pill">artifact: <strong>None</strong></span>
+          </div>
+        </div>
+        <p>The workhorse agent for everyday questions. Grounded in the session's selected documents and the last 10
+          messages of conversation context. Matched by keywords like <em>what, who, how, explain</em>. Confidence base
+          for auto-routing: <strong>0.84</strong>.</p>
+      </div>
+
+      <div class="agent-panel" data-agent="summary">
+        <div class="agent-panel-header">
+          <div>
+            <div class="agent-panel-title">Summary Agent</div>
+            <div class="agent-panel-purpose">Structured summaries with key ideas and takeaways</div>
+          </div>
+          <div class="agent-meta">
+            <span class="agent-meta-pill">max_tokens: <strong>1536</strong></span>
+            <span class="agent-meta-pill">temp: <strong>0.3</strong></span>
+            <span class="agent-meta-pill">artifact: <strong>summary</strong></span>
+          </div>
+        </div>
+        <p>Produces structured recaps — triggered by keywords like <em>summary, recap, tl;dr</em>. Higher token budget
+          allows for multi-section output. Generates a persistent <code>summary</code> artifact saved to the user's
+          workspace. Confidence base: <strong>0.92</strong>.</p>
+      </div>
+
+      <div class="agent-panel" data-agent="document">
+        <div class="agent-panel-header">
+          <div>
+            <div class="agent-panel-title">Document Agent</div>
+            <div class="agent-panel-purpose">Long-form, polished markdown drafts</div>
+          </div>
+          <div class="agent-meta">
+            <span class="agent-meta-pill">max_tokens: <strong>2048</strong></span>
+            <span class="agent-meta-pill">temp: <strong>0.35</strong></span>
+            <span class="agent-meta-pill">artifact: <strong>document</strong></span>
+          </div>
+        </div>
+        <p>The highest-budget agent — for reports, drafts, proposals. Matched on keywords like <em>report, draft,
+            proposal</em>. Slightly higher temperature (0.35) gives it latitude for prose quality while staying grounded
+          in retrieved chunks. Generates a <code>document</code> artifact. Confidence base: <strong>0.88</strong>.</p>
+      </div>
+
+      <div class="agent-panel" data-agent="diagram">
+        <div class="agent-panel-header">
+          <div>
+            <div class="agent-panel-title">Diagram Agent</div>
+            <div class="agent-panel-purpose">Mermaid flowcharts and sequence diagrams</div>
+          </div>
+          <div class="agent-meta">
+            <span class="agent-meta-pill">max_tokens: <strong>1024</strong></span>
+            <span class="agent-meta-pill">temp: <strong>0.2</strong></span>
+            <span class="agent-meta-pill">artifact: <strong>mermaid</strong></span>
+          </div>
+        </div>
+        <p>Outputs Mermaid-syntax diagrams rendered live in the desktop client's diagram studio. Low temperature (0.2)
+          keeps syntax valid. Matched by keywords like <em>diagram, mermaid, flowchart</em>. Generates a
+          <code>mermaid</code> artifact exportable to SVG/PNG. Confidence base: <strong>0.90</strong>.
+        </p>
+      </div>
+    </div>
+
+    <div class="reveal" style="margin-top: 48px;">
+      <h3
+        style="font-family:var(--font-display);font-size:20px;font-weight:600;margin-bottom:16px;color:var(--text-primary);">
+        Orchestration Flow</h3>
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+        <code>AiOrchestrator.run_session_turn</code> drives a full turn in six steps:
+      </p>
+
+      <div class="orchestration-steps">
+        <div class="step-card">
+          <div class="step-num">STEP 01</div>
+          <h4>Route</h4>
+          <p>Determine the agent per routing rules — manual selection or auto keyword-bank match. Confidence and
+            <code>needs_clarification</code> are set here.
+          </p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 02</div>
+          <h4>Build Context</h4>
+          <p><code>ContextService</code> loads the session's selected documents and the last 10 messages for
+            conversational continuity.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 03</div>
+          <h4>Assemble Prompt</h4>
+          <p><code>HybridRetrievalService</code> pulls up to 12 grounding chunks (1200 chars each).
+            <code>PromptService</code> assembles identity, metadata, guidance, contract, and passages.
+          </p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 04</div>
+          <h4>Clarification Check</h4>
+          <p>If <code>needs_clarification</code> is true, a clarification reply with suggestion labels is returned
+            immediately — skipping generation entirely.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 05</div>
+          <h4>Generate Reply</h4>
+          <p><code>LLMService</code> ensures the worker is running, sends the prompt, waits up to 600s. On failure,
+            falls back to a grounded non-LLM reply built from retrieved chunks.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 06</div>
+          <h4>Persist Turn</h4>
+          <p>User message, assistant reply, and any generated artifact are saved. Session <code>last_prompt</code> and
+            status updated before the full payload returns to the UI.</p>
+        </div>
+      </div>
+
+      <div class="mermaid-wrapper reveal">
+        <pre class="mermaid">
+flowchart TB
+  U["User submits prompt"] --> P["POST /ai/sessions/id/messages"]
+  P --> A2["AIOrchestrator.run_session_turn"]
+  A2 --> S1["1. ROUTE"]
+  S1 --> S2["2. BUILD CONTEXT<br/>selected_docs + last 10 msgs"]
+  S2 --> S3["3. ASSEMBLE PROMPT<br/>12 chunks · 1200 chars each"]
+  S3 --> S4{"4. CLARIFICATION?"}
+  S4 -->|Yes| CL1["build_clarification_reply"]
+  S4 -->|No| S5["5. GENERATE REPLY<br/>LLMService.generate_local_reply"]
+  S5 --> WR{"Worker ready?"}
+  WR -->|No| W1["spawn subprocess · load GGUF"]
+  WR -->|Yes| INF["send prompt · wait ≤ 600s"]
+  W1 --> INF
+  INF --> LF{"LLM fails?"}
+  LF -->|Yes| GR["grounded_reply from chunks"]
+  LF -->|No| S6["6. PERSIST TURN<br/>save messages + artifact"]
+  CL1 --> S6
+  GR --> S6
+  S6 --> RSP["AiChatResponse<br/>session · routed_agent · confidence<br/>reply · sources · citations · artifact"]
+  RSP --> UI["Render in Intelligence UI"]
+      </pre>
+      </div>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ API REFERENCE ============ -->
+  <section id="api" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">07 · API Reference</div>
+      <h2 class="section-title">12 routers. 17 AI endpoints. One bearer token.</h2>
+      <p class="section-desc">
+        The backend is organized into 12 API routers over an API / service / core / model layering. All routes — except
+        <code>/</code>, <code>/health</code>, <code>/auth/register</code>, and <code>/auth/login</code> — require a
+        bearer token obtained from <code>/auth/login</code>.
+      </p>
+    </div>
+
+    <div class="api-controls reveal">
+      <div class="api-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="text" id="apiSearch" placeholder="Search endpoints..." />
+      </div>
+      <div class="api-filter">
+        <button class="api-filter-btn active" data-filter="all">ALL</button>
+        <button class="api-filter-btn" data-filter="auth">AUTH</button>
+        <button class="api-filter-btn" data-filter="documents">DOCS</button>
+        <button class="api-filter-btn" data-filter="ai">AI</button>
+        <button class="api-filter-btn" data-filter="rooms">ROOMS</button>
+        <button class="api-filter-btn" data-filter="dm">DM</button>
+        <button class="api-filter-btn" data-filter="admin">ADMIN</button>
+      </div>
+    </div>
+
+    <div class="api-table-wrap reveal">
+      <table class="api-table" id="apiTable">
+        <thead>
+          <tr>
+            <th style="width:90px;">Method</th>
+            <th style="width:35%;">Endpoint</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="apiTableBody">
+          <tr data-cat="auth">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/auth/register</span></td>
+            <td class="endpoint-desc">Create a new user and provision their workspace (first user becomes owner)</td>
+          </tr>
+          <tr data-cat="auth">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/auth/login</span></td>
+            <td class="endpoint-desc">Authenticate and receive a JWT access token</td>
+          </tr>
+          <tr data-cat="auth">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/auth/me</span></td>
+            <td class="endpoint-desc">Get the current authenticated user</td>
+          </tr>
+          <tr data-cat="documents">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/documents/upload</span></td>
+            <td class="endpoint-desc">Upload a document; triggers extraction → chunking → embedding → indexing</td>
+          </tr>
+          <tr data-cat="documents">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/documents</span></td>
+            <td class="endpoint-desc">List the current user's documents and their indexing status</td>
+          </tr>
+          <tr data-cat="documents">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/retrieval/search</span></td>
+            <td class="endpoint-desc">Hybrid search (vector + BM25) over the current user's indexed documents</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/status</span></td>
+            <td class="endpoint-desc">Local model / AI subsystem status</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span><span
+                  class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions</span></td>
+            <td class="endpoint-desc">List / create AI chat sessions</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span><span
+                  class="method-badge m-patch">PATCH</span><span class="method-badge m-delete">DEL</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}</span></td>
+            <td class="endpoint-desc">Get, rename, or delete a session</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-put">PUT</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/documents</span></td>
+            <td class="endpoint-desc">Attach documents to a session for grounding</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/messages</span></td>
+            <td class="endpoint-desc">Session message history</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/context</span></td>
+            <td class="endpoint-desc">Retrieved context for the current session</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span><span
+                  class="method-badge m-delete">DEL</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/artifacts</span></td>
+            <td class="endpoint-desc">List / delete generated artifacts (diagrams, summaries, documents)</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/messages</span></td>
+            <td class="endpoint-desc">Send a message; routed to the appropriate specialist agent</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/sessions/{id}/regenerate</span></td>
+            <td class="endpoint-desc">Regenerate the last AI response</td>
+          </tr>
+          <tr data-cat="ai">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/ai/chat</span></td>
+            <td class="endpoint-desc">One-off chat call outside a persisted session</td>
+          </tr>
+          <tr data-cat="rooms">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span><span
+                  class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/rooms</span></td>
+            <td class="endpoint-desc">Create / list rooms</td>
+          </tr>
+          <tr data-cat="rooms">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span><span
+                  class="method-badge m-delete">DEL</span></div>
+            </td>
+            <td><span class="endpoint-path">/rooms/{id}</span></td>
+            <td class="endpoint-desc">Get / delete a room</td>
+          </tr>
+          <tr data-cat="rooms">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span><span
+                  class="method-badge m-get">GET</span><span class="method-badge m-delete">DEL</span></div>
+            </td>
+            <td><span class="endpoint-path">/rooms/{id}/members</span></td>
+            <td class="endpoint-desc">Manage room membership</td>
+          </tr>
+          <tr data-cat="rooms">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/rooms/{id}/messages</span></td>
+            <td class="endpoint-desc">Send text / image / voice messages in a room</td>
+          </tr>
+          <tr data-cat="rooms">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/rooms/{id}/messages</span></td>
+            <td class="endpoint-desc">Room message history</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span><span
+                  class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/dm</span></td>
+            <td class="endpoint-desc">Start / list direct conversations</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span></div>
+            </td>
+            <td><span class="endpoint-path">/dm/{id}/messages</span></td>
+            <td class="endpoint-desc">Send text / image / voice direct messages</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/dm/{id}/messages</span></td>
+            <td class="endpoint-desc">Direct message history</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-post">POST</span><span
+                  class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/attachments</span></td>
+            <td class="endpoint-desc">Upload / download file attachments</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/users/search</span></td>
+            <td class="endpoint-desc">Search for other users by username</td>
+          </tr>
+          <tr data-cat="dm">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/notifications/chat-unread</span></td>
+            <td class="endpoint-desc">Unread chat notification counts</td>
+          </tr>
+          <tr data-cat="admin">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span><span
+                  class="method-badge m-post">POST</span><span class="method-badge m-delete">DEL</span></div>
+            </td>
+            <td><span class="endpoint-path">/admin/*</span></td>
+            <td class="endpoint-desc">Pending-user approval, user management, admin role transfer</td>
+          </tr>
+          <tr data-cat="auth">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/health</span></td>
+            <td class="endpoint-desc">Health check</td>
+          </tr>
+          <tr data-cat="auth">
+            <td>
+              <div class="method-badges"><span class="method-badge m-get">GET</span></div>
+            </td>
+            <td><span class="endpoint-path">/docs</span></td>
+            <td class="endpoint-desc">Offline-hosted Swagger UI (local static assets, not CDN)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ DATA MODEL ============ -->
+  <section id="data" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">08 · Data Model</div>
+      <h2 class="section-title">16 tables. One SQLite file. Per-user isolation.</h2>
+      <p class="section-desc">
+        The schema spans users, rooms and room membership, room/direct messages with soft-delete tracking per
+        conversation, attachments, and the full AI session subsystem.
+      </p>
+    </div>
+
+    <div class="mermaid-wrapper reveal">
+      <pre class="mermaid">
+erDiagram
+  USERS ||--o{ ROOMS : creates
+  USERS ||--o{ ROOM_MEMBERS : joins
+  ROOMS ||--o{ ROOM_MEMBERS : contains
+  ROOMS ||--o{ MESSAGES : contains
+  USERS ||--o{ MESSAGES : sends
+  USERS ||--o{ DIRECT_CONVERSATIONS : "user1"
+  USERS ||--o{ DIRECT_CONVERSATIONS : "user2"
+  DIRECT_CONVERSATIONS ||--o{ DIRECT_MESSAGES : contains
+  USERS ||--o{ DIRECT_MESSAGES : sends
+  MESSAGES ||--o{ ATTACHMENTS : has
+  USERS ||--o{ ATTACHMENTS : owns
+  USERS ||--o{ DOCUMENTS : owns
+  USERS ||--o{ ARTIFACTS : owns
+  USERS ||--o{ AI_SESSIONS : owns
+  AI_SESSIONS ||--o{ AI_SESSION_MESSAGES : has
+  AI_SESSIONS ||--o{ AI_SESSION_DOCUMENTS : selects
+  DOCUMENTS ||--o{ AI_SESSION_DOCUMENTS : referenced_by
+  AI_SESSIONS ||--o{ AI_SESSION_ARTIFACTS : produces
+  USERS ||--o{ AI_SESSION_ARTIFACTS : owns
+  USERS ||--o{ DELETED_ROOM_MESSAGES : soft_deletes
+  USERS ||--o{ DELETED_DIRECT_MESSAGES : soft_deletes
+  MESSAGES ||--o{ DELETED_ROOM_MESSAGES : referenced_by
+  DIRECT_MESSAGES ||--o{ DELETED_DIRECT_MESSAGES : referenced_by
+
+  USERS {
+    int id PK
+    string username UK
+    string password_hash
+    string role
+    bool is_admin
+    bool is_approved
+    datetime created_at
+  }
+  ROOMS {
+    int id PK
+    string name
+    int created_by FK
+  }
+  MESSAGES {
+    int id PK
+    int room_id FK
+    int sender_id FK
+    string message_type
+    text message_text
+  }
+  DIRECT_CONVERSATIONS {
+    int id PK
+    int user1_id FK
+    int user2_id FK
+  }
+  DIRECT_MESSAGES {
+    int id PK
+    int conversation_id FK
+    int sender_id FK
+    text message_text
+  }
+  DOCUMENTS {
+    int id PK
+    int owner_id FK
+    string filename
+    string status
+  }
+  AI_SESSIONS {
+    int id PK
+    int owner_id FK
+    string title
+    string routing_mode
+    string selected_agent
+  }
+  AI_SESSION_MESSAGES {
+    int id PK
+    int session_id FK
+    string role
+    text content
+    string agent_name
+  }
+  AI_SESSION_DOCUMENTS {
+    int id PK
+    int session_id FK
+    int document_id FK
+    bool selected
+  }
+  AI_SESSION_ARTIFACTS {
+    int id PK
+    int session_id FK
+    string artifact_type
+    text content
+  }
+    </pre>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ DESKTOP ============ -->
+  <section id="desktop" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">09 · Desktop Client</div>
+      <h2 class="section-title">PyWebView shell. Mini-dock. Native bridges.</h2>
+      <p class="section-desc">
+        The entry point starts a <code>ThreadingHTTPServer</code> on a random local port running a custom
+        <code>VagmiRequestHandler</code> — either serving static files from <code>desktop/web/</code> or proxying
+        <code>/api/*</code> to the FastAPI backend at <code>127.0.0.1:8000</code>.
+      </p>
+    </div>
+
+    <div class="mermaid-wrapper reveal">
+      <pre class="mermaid">
+flowchart TB
+  subgraph REQ["VagmiRequestHandler"]
+    R1["HTTP Methods"]
+    D1{"path starts with /api/?"}
+    P1["Proxy to 127.0.0.1:8000<br/>64KB chunk streaming"]
+    P2["Serve from desktop/web/"]
+    R1 --> D1
+    D1 -->|Yes| P1
+    D1 -->|No| P2
+  end
+
+  EP["desktop/main.py"] --> H1["ThreadingHTTPServer"]
+  H1 --> F1["FastAPI :8000"]
+
+  subgraph FW["Frontend SPA"]
+    S1["splash.html"]
+    S2["index.html"]
+    S3["Pages: home, chat, intelligence..."]
+    S1 --> S2 --> S3
+  end
+
+  subgraph PW["PyWebView Windows"]
+    W1["Main Window 1600x900"]
+    W2["Mini-Dock 320x460 frameless"]
+  end
+
+  subgraph BR["DesktopBridge"]
+    B1["save_chat_download"]
+    B2["show_notification"]
+    B3["voice_recording"]
+  end
+
+  W1 --> BR
+  W2 --> BR
+  FW -.-> H1
+    </pre>
+    </div>
+
+    <div class="features-grid reveal" style="margin-top: 24px;">
+      <div class="feature-card">
+        <div class="feature-head">
+          <h3 style="font-size:15px;">Request Proxying</h3>
+        </div>
+        <p>Custom <code>VagmiRequestHandler</code> inspects every HTTP method. <code>/api/*</code> requests are
+          forwarded to FastAPI with hop-by-hop headers stripped and 64KB chunked streaming.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-head">
+          <h3 style="font-size:15px;">SPA Architecture</h3>
+        </div>
+        <p><code>splash.html</code> performs the token check, then loads <code>index.html</code> — a sidebar + iframe
+          SPA routing between home, intelligence, chat, admin, settings, and diagram pages.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-head">
+          <h3 style="font-size:15px;">Mini-Dock Mode</h3>
+        </div>
+        <p>A separate 320×460 frameless, always-on-top window. <code>enter_compact_mode</code> hides the main window;
+          closing the mini-dock restores it with page state preserved.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-head">
+          <h3 style="font-size:15px;">Native Bridges</h3>
+        </div>
+        <p><code>DesktopBridge</code> exposes save-as dialogs, desktop notifications (<code>notify-py</code>), and voice
+          recording control to the frontend via <code>window.pywebview.api</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ TECH STACK ============ -->
+  <section id="stack" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">10 · Technology Stack</div>
+      <h2 class="section-title">Batteries included. Cloud excluded.</h2>
+      <p class="section-desc">Every dependency runs locally. No telemetry, no CDN, no external model APIs.</p>
+    </div>
+
+    <div class="tech-grid">
+      <div class="tech-category reveal">
+        <div class="tech-cat-head">
+          <div class="tech-cat-title">Backend</div>
+        </div>
+        <ul class="tech-list">
+          <li><strong>FastAPI</strong> + Uvicorn — async API server</li>
+          <li><strong>SQLAlchemy</strong> + SQLite (<code>aiosqlite</code>) — 16 tables in <code>vagmi.db</code></li>
+          <li><strong>Pydantic</strong> / pydantic-settings — schemas & config</li>
+          <li><strong>python-jose</strong> + <strong>passlib</strong>/<code>bcrypt</code> — JWT auth</li>
+          <li><strong>python-multipart</strong> — file uploads</li>
+        </ul>
+      </div>
+
+      <div class="tech-category reveal">
+        <div class="tech-cat-head">
+          <div class="tech-cat-title">Retrieval & AI</div>
+        </div>
+        <ul class="tech-list">
+          <li><strong>ChromaDB</strong> — persistent vector store</li>
+          <li><strong>sentence-transformers</strong> — <code>all-MiniLM-L6-v2</code> (384-dim, offline)</li>
+          <li><strong>rank-bm25</strong> — keyword retrieval (BM25Plus)</li>
+          <li><strong>PyMuPDF</strong> (<code>fitz</code>) — PDF extraction</li>
+          <li><strong>python-docx</strong> — DOCX extraction</li>
+          <li><strong>llama-cpp-python</strong> — local GGUF inference (Qwen2.5 quantized)</li>
+          <li><strong>torch</strong>, <strong>transformers</strong> — embedding backend support</li>
+        </ul>
+      </div>
+
+      <div class="tech-category reveal">
+        <div class="tech-cat-head">
+          <div class="tech-cat-title">Desktop Client</div>
+        </div>
+        <ul class="tech-list">
+          <li><strong>PyWebView</strong> — native window + local HTTP server bridge</li>
+          <li><strong>Vanilla JS</strong>, HTML, CSS — no frontend framework</li>
+          <li><strong>Mermaid.js</strong> — in-app diagram rendering</li>
+          <li><strong>notify-py</strong> — native desktop notifications</li>
+          <li><strong>sounddevice</strong> / <strong>soundfile</strong> — voice message recording</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ STRUCTURE ============ -->
+  <section id="structure" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">11 · Project Structure</div>
+      <h2 class="section-title">A tour of the repository.</h2>
+      <p class="section-desc">Three top-level directories: <code>backend/</code> (FastAPI app), <code>desktop/</code>
+        (PyWebView shell + frontend SPA), and <code>docs/</code>.</p>
+    </div>
+
+    <div class="file-tree reveal">
+      <pre><span class="tree-dir">backend/</span>
+├── requirements.txt
+├── requirements-lock.txt        <span class="tree-comment"># full pinned dep set — incl. RAG + LLM stack</span>
+└── app/
+    ├── main.py                  <span class="tree-comment"># app factory, router registration, offline Swagger</span>
+    ├── api/                     <span class="tree-comment"># auth, documents, retrieval, ai, rooms, admin, etc.</span>
+    ├── core/                    <span class="tree-comment"># config, database, security, dependencies</span>
+    ├── models/                  <span class="tree-comment"># SQLAlchemy models (16 tables total)</span>
+    ├── schemas/                 <span class="tree-comment"># Pydantic request/response models</span>
+    ├── services/                <span class="tree-comment"># RAG, AI, collaboration services</span>
+    ├── agents/                  <span class="tree-comment"># AgentSpec definitions</span>
+    └── tests/                   <span class="tree-comment"># test_bm25.py, hybrid_test.py</span>
+
+<span class="tree-dir">desktop/</span>
+├── main.py                      <span class="tree-comment"># PyWebView bootstrap, VagmiRequestHandler</span>
+├── requirements.txt
+├── audio/                       <span class="tree-comment"># voice recorder (sounddevice, 16kHz mono)</span>
+└── web/
+    ├── index.html, splash.html, mini-dock.html
+    ├── script.js, styles.css
+    ├── services/                <span class="tree-comment"># api, auth, dm, rooms helpers</span>
+    └── pages/
+        ├── auth/ home/ chat/
+        ├── intelligence/        <span class="tree-comment"># AI chat sessions, document grounding</span>
+        ├── diagram/             <span class="tree-comment"># Mermaid studio</span>
+        └── settings/ admin/
+
+<span class="tree-dir">docs/</span>
+└── diagrams/                    <span class="tree-comment"># architecture diagrams</span>
+</pre>
+    </div>
+  </section>
+
+  <br><br><br><br>
+  <!-- ============ GETTING STARTED ============ -->
+  <section id="start" class="container">
+    <div class="section-header reveal">
+      <div class="section-eyebrow">12 · Getting Started</div>
+      <h2 class="section-title">Up and running in two commands.</h2>
+      <p class="section-desc">
+        The server creates its SQLite tables automatically on startup. The first user to register becomes the workspace
+        owner. Visit <code>http://localhost:8000/docs</code> for the Swagger UI.
+      </p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="reveal" id="gsGrid">
+      <div>
+        <h3
+          style="font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:12px;color:var(--text-primary);">
+          1. Run the backend</h3>
+        <div class="code-block">
+          <pre><span class="code-cmd">cd</span> <span class="code-path">backend</span>
+
+<span class="code-comment"># install the full, pinned dependency set</span>
+<span class="code-cmd">pip install</span> <span class="code-flag">-r</span> <span class="code-path">requirements-lock.txt</span>
+
+<span class="code-comment"># place a compatible GGUF model in the configured</span>
+<span class="code-comment"># local models directory, or point VAGMI_AI_MODEL_PATH at it</span>
+
+<span class="code-comment"># run the server</span>
+<span class="code-cmd">uvicorn</span> <span class="code-path">app.main:app</span> <span class="code-flag">--reload</span></pre>
+        </div>
+      </div>
+
+      <div>
+        <h3
+          style="font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:12px;color:var(--text-primary);">
+          2. Run the desktop client</h3>
+        <div class="code-block">
+          <pre><span class="code-cmd">cd</span> <span class="code-path">desktop</span>
+
+<span class="code-cmd">pip install</span> <span class="code-flag">-r</span> <span class="code-path">requirements-lock.txt</span>
+
+<span class="code-cmd">python</span> <span class="code-path">main.py</span>
+
+<span class="code-comment"># Register your first user — they become the</span>
+<span class="code-comment"># workspace owner. Subsequent users need approval.</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-top: 24px;">
+      <strong>That's it.</strong> The backend auto-creates SQLite tables on startup. No external services, no API keys,
+      no cloud credentials. The whole stack runs on a single machine.
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-meta">
+        Built for secure & air-gapped work environments ·
+        <a href="https://github.com/Amruth-hiremath/Vagmi" target="_blank" rel="noopener">GitHub →</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ============ MERMAID INIT ============
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        darkMode: true,
+        background: 'transparent',
+        primaryColor: '#1e1e2d',
+        primaryTextColor: '#f5f5f7',
+        primaryBorderColor: '#f97316',
+        lineColor: '#636366',
+        secondaryColor: '#2a2a3c',
+        tertiaryColor: '#16161f',
+        mainBkg: '#1e1e2d',
+        secondBkg: '#2a2a3c',
+        textColor: '#f5f5f7',
+        nodeBorder: '#f97316',
+        clusterBkg: 'rgba(20,20,30,0.4)',
+        clusterBorder: 'rgba(249,115,22,0.3)',
+        edgeLabelBackground: '#050505',
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '14px',
+        // ER Diagram specific
+        erBkgColor: '#1e1e2d',
+        erTextColor: '#f5f5f7',
+        erBorderColor: '#f97316',
+        erLinecolor: '#636366',
+        erTitleTextColor: '#f5f5f7',
+        erEntityTextColor: '#f5f5f7',
+        erAttributeTextColor: '#d1d1d6'
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 50,
+        rankSpacing: 50
+      },
+      er: {
+        useMaxWidth: true
+      }
+    });
+
+    // ============ REVEAL ON SCROLL ============
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+    // ============ ACTIVE NAV ============
+    const navLinks = document.querySelectorAll('.topnav-link');
+    const sections = document.querySelectorAll('section[id], header[id]');
+
+    const navObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          navLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+
+    sections.forEach(s => navObserver.observe(s));
+
+    // ============ AGENT TABS ============
+    const agentTabs = document.querySelectorAll('.agent-tab');
+    const agentPanels = document.querySelectorAll('.agent-panel');
+
+    agentTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.agent;
+        agentTabs.forEach(t => t.classList.remove('active'));
+        agentPanels.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelector(`.agent-panel[data-agent="${target}"]`).classList.add('active');
+      });
+    });
+
+    // ============ API TABLE FILTER + SEARCH ============
+    const apiSearch = document.getElementById('apiSearch');
+    const apiFilterBtns = document.querySelectorAll('.api-filter-btn');
+    const apiRows = document.querySelectorAll('#apiTableBody tr');
+    let currentFilter = 'all';
+
+    function applyFilters() {
+      const query = apiSearch.value.toLowerCase().trim();
+      apiRows.forEach(row => {
+        const cat = row.dataset.cat;
+        const text = row.textContent.toLowerCase();
+        const catMatch = currentFilter === 'all' || cat === currentFilter;
+        const queryMatch = !query || text.includes(query);
+        row.style.display = (catMatch && queryMatch) ? '' : 'none';
+      });
+    }
+
+    apiSearch.addEventListener('input', applyFilters);
+    apiFilterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        apiFilterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        applyFilters();
+      });
+    });
+
+    // ============ RESPONSIVE GRID ============
+    const gsGrid = document.getElementById('gsGrid');
+    function adjustGrid() {
+      if (gsGrid) {
+        gsGrid.style.gridTemplateColumns = window.innerWidth < 768 ? '1fr' : '1fr 1fr';
+      }
+    }
+    adjustGrid();
+    window.addEventListener('resize', adjustGrid);
+  </script>
+
+</body>
+
+</html>
